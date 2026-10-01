@@ -1,0 +1,6 @@
+{
+  "name": "The Main Character Media Admin",
+  "description": "Core admin, sales CRM, rate card catalogue, quotations, and event management system for The Main Character Media.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

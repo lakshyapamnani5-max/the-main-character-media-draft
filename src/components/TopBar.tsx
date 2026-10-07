@@ -11,10 +11,11 @@ import {
   Clock,
   ArrowRight,
   UserCheck,
-  Smartphone
+  Smartphone,
+  Bell
 } from 'lucide-react';
 import { NavModule } from './Header';
-import { Enquiry, Quotation, Client, EventShoot, DashboardMetrics } from '../types';
+import { Enquiry, Quotation, Client, EventShoot, DashboardMetrics, CrewNotification } from '../types';
 import { PWAInstallButton } from './Common/PWAInstallButton';
 
 interface TopBarProps {
@@ -30,6 +31,8 @@ interface TopBarProps {
   quotations: Quotation[];
   clients: Client[];
   events: EventShoot[];
+  notifications?: CrewNotification[];
+  onOpenNotifications?: () => void;
   onSelectQuoteForPreview: (quote: Quotation) => void;
   onSwitchToCrewApp?: () => void;
 }
@@ -56,6 +59,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   quotations,
   clients,
   events,
+  notifications = [],
+  onOpenNotifications = () => {},
   onSelectQuoteForPreview,
   onSwitchToCrewApp
 }) => {
@@ -77,8 +82,18 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const getBreadcrumb = () => {
     switch (activeModule) {
+      case 'home':
       case 'dashboard':
-        return { section: 'Executive Overview', page: 'Command Center & Metrics' };
+        return { section: 'Production ERP', page: 'Home Control Center' };
+      case 'jobs':
+      case 'events':
+        return { section: 'Operations & Production', page: 'Weddings & Production Jobs' };
+      case 'calendar':
+        return { section: 'Operations & Scheduling', page: 'Production Calendar' };
+      case 'money':
+        return { section: 'Commercial & Financial Ledger', page: 'Money, Payouts & Expenses' };
+      case 'more':
+        return { section: 'System Administration', page: 'Modules, CRM & Settings' };
       case 'enquiries':
         return { section: 'Commercial & Sales', page: 'Enquiries & CRM Pipeline' };
       case 'event-charges':
@@ -87,8 +102,6 @@ export const TopBar: React.FC<TopBarProps> = ({
         return { section: 'Commercial & Sales', page: 'Client Quotations & Estimates' };
       case 'clients':
         return { section: 'Operations & Production', page: 'Client Directory & Ledger' };
-      case 'events':
-        return { section: 'Operations & Production', page: 'Event Shoots & Command Center' };
       case 'crew':
         return { section: 'Operations & Production', page: 'Crew Management & Roster' };
       case 'locations':
@@ -230,6 +243,20 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
               <span className="font-mono font-medium">Wedding Season '26</span>
             </div>
+
+            {/* Notification Bell */}
+            <button
+              onClick={onOpenNotifications}
+              className="relative p-2 text-neutral-600 hover:text-neutral-900 rounded-lg hover:bg-neutral-100 transition-colors"
+              aria-label="Open notifications"
+            >
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-700" />
+              {notifications && notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-[#C58B39] text-white text-[9px] font-mono font-bold flex items-center justify-center ring-2 ring-white">
+                  {notifications.filter(n => !n.read).length}
+                </span>
+              )}
+            </button>
 
             {/* Quick Action Dropdown */}
             <div className="relative">

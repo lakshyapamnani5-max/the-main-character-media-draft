@@ -17,9 +17,15 @@ import {
   EventCrewAssignment,
   EventFile,
   EventStatus,
+  EventDeliverable,
   CrewNotification,
   CrewReminderRecord,
-  ReminderSettings
+  ReminderSettings,
+  Expense,
+  PlannerVendor,
+  Invoice,
+  InvoiceItem,
+  InvoiceStatus
 } from '../types';
 
 export function normalizeIndianPhoneNumber(input: string): string {
@@ -68,6 +74,9 @@ const STORAGE_KEYS = {
   REMINDER_SETTINGS: 'tmc_reminder_settings_v1',
   ACTIVE_CREW_ID: 'tmc_active_crew_id_v1',
   APP_VIEW_MODE: 'tmc_app_view_mode_v1',
+  EXPENSES: 'tmc_expenses_v2',
+  PLANNERS: 'tmc_planners_v1',
+  INVOICES: 'tmc_invoices_v1',
 };
 
 const DEFAULT_EVENT_CHARGES: EventCharge[] = [
@@ -433,6 +442,7 @@ const DEFAULT_EVENTS: EventShoot[] = [
       email: 'rahul.priya.wedding@gmail.com'
     },
     quoteId: 'qtn-002',
+    category: 'Wedding',
     eventName: 'Rahul & Priya Royal Wedding',
     eventType: 'Wedding',
     startDate: '2026-10-12',
@@ -441,71 +451,100 @@ const DEFAULT_EVENTS: EventShoot[] = [
     locationCity: 'Mumbai',
     status: 'Confirmed',
     notes: 'Bride requested specific emphasis on custom Sabyasachi bridal veil detailing and Groom entry on vintage convertible.',
+    clientRequirements: '1. Ultra-fast turnaround reels (within 12h for Sangeet & Wedding).\n2. Cinematic Sabyasachi lehenga macro jewelry shots.\n3. Complete 4K raw footage handover on Samsung T7 Shield SSD.\n4. Discrete audio lapels for vows during Phere.\n5. Drone coverage for open-air baraat & mandap.',
     consentUsageNotes: 'Full social media broadcast permissions granted for Instagram Reels & YouTube Shorts with client tag.',
     leadCreator: 'Devansh Saxena',
     crewMembers: ['Devansh Saxena', 'Tara Sen', 'Ishaan Verma', 'Rohit Bansal', 'Aman Joshi'],
     crewPayout: 28000,
-    packageTotal: 75000,
-    advancePaid: 40000,
-    balanceDue: 35000,
+    packageTotal: 95000,
+    advancePaid: 50000,
+    balanceDue: 45000,
+    paymentDueDate: '2026-10-14',
+    addOns: [
+      { name: 'Same-Day Edit (SDE) Fast Track', price: 12000 },
+      { name: 'Drone 4K Pilot Extended Pass', price: 8000 }
+    ],
     deliverables: [
-      { id: 'del-1', title: 'Full 4K Uncompressed ProRes Raw SSD Drive', completed: false, dueDate: '2026-10-14' },
-      { id: 'del-2', title: 'Bride Prep POV & Jewelry Reel', completed: false, dueDate: '2026-10-15' },
-      { id: 'del-3', title: 'Same Day Sangeet Viral Drop (Midnight Cut)', completed: false, dueDate: '2026-10-13' },
-      { id: 'del-4', title: 'Grand Varmala & Sacred Phere 9:16 Master Film', completed: false, dueDate: '2026-10-18' }
+      { id: 'del-1', title: 'Full 4K Uncompressed ProRes Raw SSD Drive', completed: false, dueDate: '2026-10-14', notes: 'Master backup on dual 2TB Samsung T7 SSDs.' },
+      { id: 'del-2', title: 'Bride Prep POV & Jewelry Reel', completed: false, dueDate: '2026-10-15', notes: '9:16 vertical 4K with color grade.' },
+      { id: 'del-3', title: 'Same Day Sangeet Viral Drop (Midnight Cut)', completed: false, dueDate: '2026-10-13', notes: 'Delivered before midnight for Instagram.' },
+      { id: 'del-4', title: 'Grand Varmala & Sacred Phere 9:16 Master Film', completed: false, dueDate: '2026-10-18', notes: 'Cinematic audio mixed with vows.' }
     ],
     subEvents: [
       {
-        id: 'sub-1',
+        id: 'sub-mehendi',
         eventId: 'evt-rahul-priya',
-        name: 'Haldi & Phoolon Ki Holi',
+        name: 'Mehendi Soirée',
         date: '2026-10-12',
+        startTime: '04:00 PM',
+        endTime: '08:30 PM',
+        venue: 'The St. Regis Terrace Lawn',
+        description: 'Intimate bridal mehendi application, live Rajasthani folk musicians, close-up henna macro detailing, and bridesmaid candid moments.',
+        status: 'Scheduled',
+        assignedCrewIds: ['cr-tara'],
+        eventCharge: 15000,
+        contentRequirements: ['Bride Mehendi Macro POV', 'Henna Detailing', 'Bridesmaid Candids'],
+        notes: 'Bride lehenga by Anita Dongre. Warm sunset natural light.'
+      },
+      {
+        id: 'sub-haldi',
+        eventId: 'evt-rahul-priya',
+        name: 'Haldi Ceremony',
+        date: '2026-10-13',
         startTime: '10:00 AM',
         endTime: '02:00 PM',
         venue: 'Turf Club Lawn 1',
-        description: 'Vibrant yellow marigold shower, dhol beats, water splashes, and candid family laughter.',
+        description: 'Vibrant marigold petal shower, dhol beats, splash moments, and candid family laughter.',
         status: 'Scheduled',
         assignedCrewIds: ['cr-tara', 'cr-ishaan'],
-        notes: 'Waterproof protective pouches on iPhones.'
+        eventCharge: 15000,
+        contentRequirements: ['Haldi Phoolon Ki Holi', 'Yellow Vespa Entry', 'Water Splash Candids'],
+        notes: 'Waterproof protective pouches on iPhone rigs; high shutter speed for petal drops.'
       },
       {
-        id: 'sub-2',
+        id: 'sub-sangeet',
         eventId: 'evt-rahul-priya',
-        name: 'Mehendi & Sangeet Gala',
+        name: 'Sangeet Gala',
         date: '2026-10-13',
-        startTime: '05:00 PM',
-        endTime: '11:30 PM',
+        startTime: '06:00 PM',
+        endTime: '11:45 PM',
         venue: 'The St. Regis Grand Ballroom',
-        description: 'Bridal henna portraits followed by 12 choreographed stage dance performances and DJ floor party.',
+        description: '12 choreographed stage dance performances, groom family flash mob, and high-energy DJ floor party.',
         status: 'Scheduled',
         assignedCrewIds: ['cr-devansh', 'cr-tara', 'cr-ishaan', 'cr-aman'],
+        eventCharge: 25000,
+        contentRequirements: ['Stage Choreography Dance POV', 'Guest Reactions & Cheers', 'DJ Floor Party BTS'],
         notes: 'Aman on-site for same-night edit delivery before 12 AM.'
       },
       {
-        id: 'sub-3',
+        id: 'sub-wedding',
         eventId: 'evt-rahul-priya',
-        name: 'Bride & Groom Preparation',
+        name: 'Royal Wedding & Phere',
         date: '2026-10-14',
-        startTime: '02:00 PM',
-        endTime: '05:00 PM',
-        venue: 'Presidential Suites, St. Regis',
-        description: 'Simultaneous bride & groom preparation rooms, wardrobe details, letters exchange, and first look.',
-        status: 'Scheduled',
-        assignedCrewIds: ['cr-tara', 'cr-ishaan'],
-        notes: 'Tara in Bride Suite #2201; Ishaan in Groom Suite #2204.'
-      },
-      {
-        id: 'sub-4',
-        eventId: 'evt-rahul-priya',
-        name: 'Royal Wedding & Reception',
-        date: '2026-10-14',
-        startTime: '05:30 PM',
-        endTime: '11:30 PM',
-        venue: 'Turf Club Grand Arena',
-        description: 'Vintage car Baraat, grand floral mandap ceremony, couple portraits, and champagne reception.',
+        startTime: '04:30 PM',
+        endTime: '09:30 PM',
+        venue: 'Turf Club Mandap Stage',
+        description: 'Vintage open convertible Baraat, grand floral mandap ceremony, sacred vows, and pheras.',
         status: 'Scheduled',
         assignedCrewIds: ['cr-devansh', 'cr-tara', 'cr-ishaan', 'cr-rohit'],
+        eventCharge: 30000,
+        contentRequirements: ['Bride POV Walk Down Aisle', 'Groom Baraat Vintage Car Entry', 'Sacred Vows & Phere Rituals', 'Drone Mandap Establishing'],
         notes: 'Drone clearance approved for Turf Club open skies until 08:30 PM.'
+      },
+      {
+        id: 'sub-reception',
+        eventId: 'evt-rahul-priya',
+        name: 'Reception & Dinner Gala',
+        date: '2026-10-14',
+        startTime: '08:30 PM',
+        endTime: '01:00 AM',
+        venue: 'Turf Club Royal Arena',
+        description: 'Black-tie dinner, 4-tier cake cutting, champagne toast, couple formal portraits, and live band.',
+        status: 'Scheduled',
+        assignedCrewIds: ['cr-devansh', 'cr-rohit'],
+        eventCharge: 15000,
+        contentRequirements: ['Cake Cutting & Toast POV', 'Couple Formal Portraits', 'Catering & Ambience Showcase'],
+        notes: 'Stage backdrop lighting sync with production team.'
       }
     ],
     timeline: [
@@ -580,62 +619,146 @@ const DEFAULT_EVENTS: EventShoot[] = [
       {
         id: 'pov-1',
         eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
         type: 'Bride POV',
         description: 'First mirror reveal in bridal lehenga, delicate ear jewel fastening, eye contact with camera.',
         assignedCrewId: 'cr-tara',
         priority: 'Urgent',
+        plannedTime: '03:45 PM',
+        platform: 'Instagram Reels',
+        plannedPostDate: '2026-10-15',
         shotNotes: '4K 60fps ProRes. Natural diffused window light. Soft focus roll.',
-        status: 'Pending'
+        status: 'Pending',
+        completed: false
       },
       {
         id: 'pov-2',
         eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
         type: 'Groom POV',
         description: 'Tying the safa turban with father, cufflink adjustments, laughing with groomsmen.',
         assignedCrewId: 'cr-ishaan',
         priority: 'High',
+        plannedTime: '04:00 PM',
+        platform: 'Instagram Reels',
+        plannedPostDate: '2026-10-15',
         shotNotes: 'Wide angle crisp candid.',
-        status: 'Pending'
+        status: 'Pending',
+        completed: false
       },
       {
         id: 'pov-3',
         eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
         type: 'Couple POV',
         description: 'Sunset portrait editorial by Turf Club fountain garden, holding hands, whispered giggles.',
         assignedCrewId: 'cr-devansh',
         priority: 'Urgent',
+        plannedTime: '05:45 PM',
+        platform: 'Instagram Reels',
+        plannedPostDate: '2026-10-16',
         shotNotes: 'Slow orbital pan at golden hour (05:45 PM).',
-        status: 'Pending'
+        status: 'Pending',
+        completed: false
       },
       {
         id: 'pov-4',
         eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
         type: 'Drone',
         description: 'Grand bird’s eye establishing shots of the entire Turf Club illuminated at twilight.',
         assignedCrewId: 'cr-rohit',
         priority: 'High',
+        plannedTime: '06:15 PM',
+        platform: 'Cinematic 4K',
+        plannedPostDate: '2026-10-18',
         shotNotes: 'Ascend to 60m altitude; smooth push forward across mandap canopy.',
-        status: 'Pending'
+        status: 'Pending',
+        completed: false
       },
       {
         id: 'pov-5',
         eventId: 'evt-rahul-priya',
-        type: 'Reels',
-        description: 'Fast-paced transition from Haldi yellow casuals to glamorous Sangeet royal attire.',
+        subEventId: 'sub-sangeet',
+        subEventName: 'Sangeet Gala',
+        type: 'Dance',
+        description: 'Couple duet stage dance and fast-paced bridal squad choreographed sequence.',
         assignedCrewId: 'cr-aman',
         priority: 'High',
-        shotNotes: 'Snap snap transition synced with trending Bollywood audio beat.',
-        status: 'Pending'
+        plannedTime: '08:30 PM',
+        platform: 'Instagram Reels',
+        plannedPostDate: '2026-10-14',
+        shotNotes: 'Gimbal tracking on stage rim. Audio synced directly from DJ mixer.',
+        status: 'Pending',
+        completed: false
       },
       {
         id: 'pov-6',
         eventId: 'evt-rahul-priya',
-        type: 'BTS',
+        subEventId: 'sub-mehendi',
+        subEventName: 'Mehendi Soirée',
+        type: 'Behind the scenes',
         description: 'Bridesmaids running in heels, emergency safety pin fixes, fun candid backstage banter.',
         assignedCrewId: 'cr-tara',
         priority: 'Normal',
+        plannedTime: '05:00 PM',
+        platform: 'TikTok',
+        plannedPostDate: '2026-10-13',
         shotNotes: 'Unscripted, handheld, candid audio snippets.',
-        status: 'Pending'
+        status: 'Pending',
+        completed: false
+      },
+      {
+        id: 'pov-7',
+        eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
+        type: 'Entry',
+        description: 'Groom Baraat on open vintage convertible and Bride walking under phoolon ki chaadar.',
+        assignedCrewId: 'cr-devansh',
+        priority: 'Urgent',
+        plannedTime: '06:00 PM',
+        platform: 'Instagram Reels',
+        plannedPostDate: '2026-10-16',
+        shotNotes: 'Dual angle: Devansh on ground gimbal, Tara on Bride entry telephoto.',
+        status: 'Pending',
+        completed: false
+      },
+      {
+        id: 'pov-8',
+        eventId: 'evt-rahul-priya',
+        subEventId: 'sub-wedding',
+        subEventName: 'Royal Wedding & Phere',
+        type: 'Rituals',
+        description: 'Sacred agni phere, sindoor daan, mangalsutra ceremony, and flower petals shower.',
+        assignedCrewId: 'cr-tara',
+        priority: 'Urgent',
+        plannedTime: '07:30 PM',
+        platform: 'YouTube Shorts',
+        plannedPostDate: '2026-10-17',
+        shotNotes: 'Close-up emotional mother tears and smiling couple exchange.',
+        status: 'Pending',
+        completed: false
+      },
+      {
+        id: 'pov-9',
+        eventId: 'evt-rahul-priya',
+        subEventId: 'sub-reception',
+        subEventName: 'Reception & Dinner Gala',
+        type: 'Decor',
+        description: 'Crystal chandeliers, floral mandap arches, customized illuminated neon signs.',
+        assignedCrewId: 'cr-ishaan',
+        priority: 'Normal',
+        plannedTime: '07:00 PM',
+        platform: 'Client Drive',
+        plannedPostDate: '2026-10-15',
+        shotNotes: 'Smooth slider passes before guests arrive.',
+        status: 'Pending',
+        completed: false
       }
     ],
     crewAssignments: [
@@ -986,6 +1109,155 @@ const DEFAULT_NOTIFICATIONS: CrewNotification[] = [
   }
 ];
 
+const DEFAULT_EXPENSES: Expense[] = [
+  {
+    id: 'exp-1',
+    title: 'Sony FX3 + 24-70mm GM II Rig Rental',
+    category: 'Equipment Rental',
+    amount: 6500,
+    date: '2026-02-10',
+    eventId: 'evt-rahul-priya',
+    eventName: 'Rahul & Priya Wedding',
+    paidBy: 'Devansh Saxena',
+    paymentMode: 'UPI',
+    notes: '2-day rental from RentACam Mumbai with spare V-mounts.',
+    createdAt: '2026-02-10T11:00:00.000Z'
+  },
+  {
+    id: 'exp-2',
+    title: '2TB SanDisk Extreme Pro SSD (x2)',
+    category: 'Hard Drives & Storage',
+    amount: 14200,
+    date: '2026-02-11',
+    eventId: 'evt-rahul-priya',
+    eventName: 'Rahul & Priya Wedding',
+    paidBy: 'Devansh Saxena',
+    paymentMode: 'Bank Transfer',
+    notes: 'Dedicated high-speed backup drive for raw footage archival.',
+    createdAt: '2026-02-11T14:30:00.000Z'
+  },
+  {
+    id: 'exp-3',
+    title: 'Crew Cabs & Transport (Taj Lands End)',
+    category: 'Travel & Cab',
+    amount: 3200,
+    date: '2026-02-12',
+    eventId: 'evt-rahul-priya',
+    eventName: 'Rahul & Priya Wedding',
+    paidBy: 'Tara Sen',
+    paymentMode: 'UPI',
+    notes: 'Airport pickup & late-night gear transport back to studio.',
+    createdAt: '2026-02-12T23:45:00.000Z'
+  },
+  {
+    id: 'exp-4',
+    title: 'On-set Crew Meals & Refreshments',
+    category: 'Food & Catering',
+    amount: 3800,
+    date: '2026-02-13',
+    eventId: 'evt-karan-ananya',
+    eventName: 'Karan & Ananya Pre-Wedding',
+    paidBy: 'Ishaan Verma',
+    paymentMode: 'UPI',
+    notes: 'Lunch & hydration for 4-member production team.',
+    createdAt: '2026-02-13T16:00:00.000Z'
+  },
+  {
+    id: 'exp-5',
+    title: 'Godox Wireless Lav Mic Spares & Wind Muffs',
+    category: 'Equipment Rental',
+    amount: 2400,
+    date: '2026-02-14',
+    paidBy: 'Rohit Bansal',
+    paymentMode: 'UPI',
+    notes: 'Audio spares for outdoor seaside wind conditions.',
+    createdAt: '2026-02-14T10:15:00.000Z'
+  }
+];
+
+const DEFAULT_PLANNERS: PlannerVendor[] = [
+  {
+    id: 'pln-1',
+    name: 'Rhea Singhania',
+    companyName: 'The Regal Affair Luxury Weddings',
+    role: 'Wedding Planner',
+    phone: '+919820011223',
+    email: 'rhea@theregalaffair.com',
+    city: 'Mumbai',
+    instagram: '@theregalaffair',
+    rating: 5,
+    associatedEventIds: ['evt-rahul-priya'],
+    notes: 'Premier luxury wedding designer for South Mumbai & Goa destination weddings.'
+  },
+  {
+    id: 'pln-2',
+    name: 'Kabir Oberoi',
+    companyName: 'Aura Event Architecture',
+    role: 'Decor Designer',
+    phone: '+919811445566',
+    email: 'kabir@auraevents.in',
+    city: 'Mumbai',
+    instagram: '@aura.weddings',
+    rating: 5,
+    associatedEventIds: ['evt-rahul-priya'],
+    notes: 'Specializes in grand floral mandaps and cinematic ambient lighting.'
+  },
+  {
+    id: 'pln-3',
+    name: 'DJ Shadow & Sound Works',
+    companyName: 'SoundWave Productions',
+    role: 'DJ / Sound',
+    phone: '+919833778899',
+    city: 'Mumbai',
+    instagram: '@djshadowmumbai',
+    rating: 4.8,
+    notes: 'High-energy Sangeet and after-party specialist.'
+  }
+];
+
+const DEFAULT_INVOICES: Invoice[] = [
+  {
+    id: 'inv-001',
+    invoiceNumber: 'TMC-INV-2026-0001',
+    eventId: 'evt-rahul-priya',
+    quoteId: 'qtn-002',
+    clientId: 'cli-002',
+    clientName: 'Rahul Mehta & Priya Saxena',
+    clientPhone: '+919811033910',
+    clientEmail: 'rahul.mehta@gmail.com',
+    clientAddress: 'Worli Sea Face, Mumbai',
+    eventName: 'Rahul & Priya Royal Wedding',
+    eventType: 'Wedding',
+    eventDate: '2026-10-12',
+    issueDate: '2026-01-24',
+    dueDate: '2026-10-12',
+    items: [
+      { id: 'ii-1', name: 'Wedding Day & Phere Ceremony', description: 'Complete 8h coverage, 2 creators', quantity: 1, rate: 25000, amount: 25000 },
+      { id: 'ii-2', name: 'Haldi & Phoolon Ki Holi', description: 'Floral slow-motion video coverage', quantity: 1, rate: 8000, amount: 8000 },
+      { id: 'ii-3', name: 'Mehendi Ceremony', description: 'Intimate Henna storytelling', quantity: 1, rate: 8000, amount: 8000 },
+      { id: 'ii-4', name: 'Sangeet Gala & Performances', description: 'Stage dance choreography POV', quantity: 1, rate: 12000, amount: 12000 },
+      { id: 'ii-5', name: 'Reception Evening & Dinner', description: 'Grand evening entrance & speeches', quantity: 1, rate: 10000, amount: 10000 },
+      { id: 'ii-6', name: 'Aerial Drone 4K Coverage', description: 'DGCA certified aerial coverage', quantity: 1, rate: 5000, amount: 5000 },
+      { id: 'ii-7', name: 'Social Reels Package (5 edits)', description: 'Color graded vertical reels', quantity: 1, rate: 3000, amount: 3000 },
+      { id: 'ii-8', name: 'Extra Photographer (Candid)', description: 'Dedicated candid specialist', quantity: 1, rate: 4000, amount: 4000 }
+    ],
+    subtotal: 75000,
+    discountType: 'flat',
+    discountValue: 0,
+    discountAmount: 0,
+    taxPercentage: 18,
+    taxAmount: 13500,
+    grandTotal: 88500,
+    amountPaid: 40000,
+    balanceDue: 48500,
+    paymentStatus: 'Partially Paid',
+    notes: 'Thank you for choosing The Main Character Media for your wedding coverage.',
+    terms: '1. Payment due prior to final edited reels delivery.\n2. Raw footage transfer completed via portable SSD.\n3. Bank details: HDFC Bank A/C 50200088912344, IFSC HDFC0000045.',
+    createdAt: '2026-01-24T18:00:00.000Z',
+    updatedAt: '2026-01-24T18:00:00.000Z'
+  }
+];
+
 export class StorageService {
   private static notifyListeners() {
     if (typeof window !== 'undefined') {
@@ -1019,6 +1291,15 @@ export class StorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.REMINDER_SETTINGS)) {
       localStorage.setItem(STORAGE_KEYS.REMINDER_SETTINGS, JSON.stringify(DEFAULT_REMINDER_SETTINGS));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.EXPENSES)) {
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(DEFAULT_EXPENSES));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.PLANNERS)) {
+      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(DEFAULT_PLANNERS));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.INVOICES)) {
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(DEFAULT_INVOICES));
     }
     if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_CREW_ID)) {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_CREW_ID, 'cr-aman');
@@ -1338,6 +1619,42 @@ export class StorageService {
     return newSub;
   }
 
+  static updateSubEvent(eventId: string, subEventId: string, updates: Partial<SubEvent>): SubEvent | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.subEvents) return null;
+
+    const idx = event.subEvents.findIndex(s => s.id === subEventId);
+    if (idx === -1) return null;
+
+    const updated = {
+      ...event.subEvents[idx],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    event.subEvents[idx] = updated;
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+    return updated;
+  }
+
+  static deleteSubEvent(eventId: string, subEventId: string): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.subEvents) return false;
+
+    const initialLen = event.subEvents.length;
+    event.subEvents = event.subEvents.filter(s => s.id !== subEventId);
+    if (event.subEvents.length !== initialLen) {
+      event.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
   // Timeline Item Management
   static addTimelineItem(eventId: string, item: Omit<TimelineItem, 'id' | 'eventId'>): TimelineItem | null {
     const events = this.getEvents();
@@ -1358,6 +1675,37 @@ export class StorageService {
     return newItem;
   }
 
+  static updateTimelineItem(eventId: string, timelineId: string, updates: Partial<TimelineItem>): TimelineItem | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.timeline) return null;
+
+    const idx = event.timeline.findIndex(t => t.id === timelineId);
+    if (idx === -1) return null;
+
+    event.timeline[idx] = { ...event.timeline[idx], ...updates };
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+    return event.timeline[idx];
+  }
+
+  static deleteTimelineItem(eventId: string, timelineId: string): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.timeline) return false;
+
+    const initialLen = event.timeline.length;
+    event.timeline = event.timeline.filter(t => t.id !== timelineId);
+    if (event.timeline.length !== initialLen) {
+      event.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
   // POV Management
   static addPOVItem(eventId: string, pov: Omit<POVItem, 'id' | 'eventId'>): POVItem | null {
     const events = this.getEvents();
@@ -1376,6 +1724,37 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
     this.notifyListeners();
     return newPOV;
+  }
+
+  static updatePOVItem(eventId: string, povId: string, updates: Partial<POVItem>): POVItem | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.povs) return null;
+
+    const idx = event.povs.findIndex(p => p.id === povId);
+    if (idx === -1) return null;
+
+    event.povs[idx] = { ...event.povs[idx], ...updates };
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+    return event.povs[idx];
+  }
+
+  static deletePOVItem(eventId: string, povId: string): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.povs) return false;
+
+    const initialLen = event.povs.length;
+    event.povs = event.povs.filter(p => p.id !== povId);
+    if (event.povs.length !== initialLen) {
+      event.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   // Crew Assignment Management
@@ -1466,6 +1845,72 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
       this.notifyListeners();
     }
+  }
+
+  static addDeliverable(eventId: string, deliverable: Omit<EventDeliverable, 'id'>): EventDeliverable | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return null;
+
+    const newDel: EventDeliverable = {
+      id: `del-${Date.now()}`,
+      ...deliverable
+    };
+
+    if (!event.deliverables) event.deliverables = [];
+    event.deliverables.push(newDel);
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+    return newDel;
+  }
+
+  static deleteDeliverable(eventId: string, deliverableId: string): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.deliverables) return false;
+
+    const len = event.deliverables.length;
+    event.deliverables = event.deliverables.filter(d => d.id !== deliverableId);
+    if (event.deliverables.length !== len) {
+      event.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  static addEventAddOn(eventId: string, addOn: { name: string; price: number }): void {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    if (!event.addOns) event.addOns = [];
+    event.addOns.push(addOn);
+    event.packageTotal += addOn.price;
+    event.balanceDue = Math.max(0, event.packageTotal - event.advancePaid);
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+  }
+
+  static removeEventAddOn(eventId: string, index: number): void {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || !event.addOns || !event.addOns[index]) return;
+
+    const removed = event.addOns[index];
+    event.addOns.splice(index, 1);
+    event.packageTotal = Math.max(0, event.packageTotal - removed.price);
+    event.balanceDue = Math.max(0, event.packageTotal - event.advancePaid);
+    event.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    this.notifyListeners();
+  }
+
+  static getExpensesByEvent(eventId: string): Expense[] {
+    return this.getExpenses().filter(e => e.eventId === eventId);
   }
 
   // --- EVENT CHARGES ---
@@ -1584,12 +2029,16 @@ export class StorageService {
       id: `enq-${Date.now()}`,
       clientName: enquiry.clientName,
       phone: enquiry.phone ? normalizeIndianPhoneNumber(enquiry.phone) : '',
+      whatsapp: enquiry.whatsapp ? normalizeIndianPhoneNumber(enquiry.whatsapp) : (enquiry.phone ? normalizeIndianPhoneNumber(enquiry.phone) : ''),
       email: enquiry.email || '',
       eventName: enquiry.eventName,
-      eventType: enquiry.eventType || 'Wedding',
+      eventType: enquiry.eventType || enquiry.shootType || 'Wedding',
+      shootType: enquiry.shootType || enquiry.eventType || 'Wedding',
       date: enquiry.date || new Date().toISOString().split('T')[0],
       venue: enquiry.venue || '',
-      budget: Number(enquiry.budget) || 0,
+      budget: Number(enquiry.budget) || Number(enquiry.expectedBudget) || 0,
+      expectedBudget: Number(enquiry.expectedBudget) || Number(enquiry.budget) || 0,
+      requirements: enquiry.requirements || '',
       servicesRequired: enquiry.servicesRequired || [],
       leadSource: enquiry.leadSource || 'Instagram',
       notes: enquiry.notes || '',
@@ -1597,6 +2046,7 @@ export class StorageService {
       salesperson: enquiry.salesperson || 'Aarav Malhotra',
       pipelineStage: enquiry.pipelineStage || 'New',
       followUps: enquiry.followUps || [],
+      archived: enquiry.archived || false,
       createdAt: now,
       updatedAt: now
     };
@@ -1680,6 +2130,28 @@ export class StorageService {
 
     this.notifyListeners();
     return { client: newClient, event: createdEvent };
+  }
+
+  static toggleArchiveEnquiry(enquiryId: string): boolean {
+    const list = this.getEnquiries();
+    const idx = list.findIndex(e => e.id === enquiryId);
+    if (idx === -1) return false;
+    list[idx].archived = !list[idx].archived;
+    list[idx].updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
+    this.notifyListeners();
+    return true;
+  }
+
+  static deleteEnquiry(enquiryId: string): boolean {
+    const list = this.getEnquiries();
+    const filtered = list.filter(e => e.id !== enquiryId);
+    if (filtered.length !== list.length) {
+      localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(filtered));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   // --- QUOTATIONS ---
@@ -1924,25 +2396,417 @@ export class StorageService {
     return newPayment;
   }
 
+  // --- EXPENSES MANAGEMENT ---
+  static getExpenses(): Expense[] {
+    this.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+      return data ? JSON.parse(data) : DEFAULT_EXPENSES;
+    } catch {
+      return DEFAULT_EXPENSES;
+    }
+  }
+
+  static saveExpense(expenseData: Partial<Expense> & { title: string; amount: number; category: Expense['category'] }): Expense {
+    const expenses = this.getExpenses();
+    const now = new Date().toISOString();
+
+    if (expenseData.id) {
+      const idx = expenses.findIndex(e => e.id === expenseData.id);
+      if (idx !== -1) {
+        expenses[idx] = {
+          ...expenses[idx],
+          ...expenseData,
+          amount: Number(expenseData.amount) || 0
+        } as Expense;
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+        this.notifyListeners();
+        return expenses[idx];
+      }
+    }
+
+    const newExpense: Expense = {
+      id: `exp-${Date.now()}`,
+      title: expenseData.title.trim(),
+      category: expenseData.category,
+      amount: Number(expenseData.amount) || 0,
+      date: expenseData.date || now.split('T')[0],
+      eventId: expenseData.eventId,
+      eventName: expenseData.eventName,
+      paidBy: expenseData.paidBy || 'Devansh Saxena',
+      paymentMode: expenseData.paymentMode || 'UPI',
+      notes: expenseData.notes || '',
+      createdAt: now
+    };
+
+    expenses.unshift(newExpense);
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+    this.notifyListeners();
+    return newExpense;
+  }
+
+  static deleteExpense(id: string): boolean {
+    const expenses = this.getExpenses();
+    const filtered = expenses.filter(e => e.id !== id);
+    if (filtered.length !== expenses.length) {
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  // --- PLANNERS & VENDORS ---
+  static getPlanners(): PlannerVendor[] {
+    this.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PLANNERS);
+      return data ? JSON.parse(data) : DEFAULT_PLANNERS;
+    } catch {
+      return DEFAULT_PLANNERS;
+    }
+  }
+
+  static savePlanner(plannerData: Partial<PlannerVendor> & { name: string; companyName: string; role: PlannerVendor['role']; phone: string }): PlannerVendor {
+    const planners = this.getPlanners();
+
+    if (plannerData.id) {
+      const idx = planners.findIndex(p => p.id === plannerData.id);
+      if (idx !== -1) {
+        planners[idx] = {
+          ...planners[idx],
+          ...plannerData,
+          phone: normalizeIndianPhoneNumber(plannerData.phone)
+        } as PlannerVendor;
+        localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(planners));
+        this.notifyListeners();
+        return planners[idx];
+      }
+    }
+
+    const newPlanner: PlannerVendor = {
+      id: `pln-${Date.now()}`,
+      name: plannerData.name.trim(),
+      companyName: plannerData.companyName.trim(),
+      role: plannerData.role,
+      phone: normalizeIndianPhoneNumber(plannerData.phone),
+      email: plannerData.email?.trim(),
+      city: plannerData.city || 'Mumbai',
+      instagram: plannerData.instagram,
+      rating: plannerData.rating || 5,
+      associatedEventIds: plannerData.associatedEventIds || [],
+      notes: plannerData.notes || ''
+    };
+
+    planners.unshift(newPlanner);
+    localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(planners));
+    this.notifyListeners();
+    return newPlanner;
+  }
+
+  static deletePlanner(id: string): boolean {
+    const planners = this.getPlanners();
+    const filtered = planners.filter(p => p.id !== id);
+    if (filtered.length !== planners.length) {
+      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(filtered));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  // --- INVOICE MANAGEMENT ---
+  static getInvoices(): Invoice[] {
+    this.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.INVOICES);
+      return data ? JSON.parse(data) : DEFAULT_INVOICES;
+    } catch {
+      return DEFAULT_INVOICES;
+    }
+  }
+
+  static getNextInvoiceNumber(): string {
+    const invoices = this.getInvoices();
+    const currentYear = new Date().getFullYear();
+    const prefix = `TMC-INV-${currentYear}-`;
+    const sequenceNumbers = invoices
+      .filter(i => i.invoiceNumber && i.invoiceNumber.startsWith(prefix))
+      .map(i => {
+        const numPart = i.invoiceNumber.replace(prefix, '');
+        return parseInt(numPart, 10) || 0;
+      });
+
+    const maxSeq = sequenceNumbers.length > 0 ? Math.max(...sequenceNumbers) : 0;
+    const nextSeq = maxSeq + 1;
+    return `${prefix}${nextSeq.toString().padStart(4, '0')}`;
+  }
+
+  static saveInvoice(invoiceData: Partial<Invoice>): Invoice {
+    const invoices = this.getInvoices();
+    const now = new Date().toISOString();
+
+    if (invoiceData.id) {
+      const idx = invoices.findIndex(i => i.id === invoiceData.id);
+      if (idx !== -1) {
+        invoices[idx] = {
+          ...invoices[idx],
+          ...invoiceData,
+          updatedAt: now
+        } as Invoice;
+        localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+        this.notifyListeners();
+        return invoices[idx];
+      }
+    }
+
+    const invoiceNumber = invoiceData.invoiceNumber || this.getNextInvoiceNumber();
+    const items: InvoiceItem[] = (invoiceData.items || []).map(item => ({
+      id: item.id || `ii-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: item.name,
+      description: item.description || '',
+      quantity: Number(item.quantity) || 1,
+      rate: Number(item.rate) || 0,
+      amount: (Number(item.quantity) || 1) * (Number(item.rate) || 0)
+    }));
+
+    const subtotal = items.reduce((acc, curr) => acc + curr.amount, 0);
+    const discountType = invoiceData.discountType || 'flat';
+    const discountValue = Number(invoiceData.discountValue) || 0;
+    const discountAmount = discountType === 'percentage'
+      ? Math.round((subtotal * discountValue) / 100)
+      : discountValue;
+
+    const afterDiscount = Math.max(0, subtotal - discountAmount);
+    const taxPercentage = invoiceData.taxPercentage !== undefined ? invoiceData.taxPercentage : 18;
+    const taxAmount = Math.round((afterDiscount * taxPercentage) / 100);
+    const grandTotal = afterDiscount + taxAmount;
+    const amountPaid = Number(invoiceData.amountPaid) || 0;
+    const balanceDue = Math.max(0, grandTotal - amountPaid);
+
+    let paymentStatus = invoiceData.paymentStatus || 'Sent';
+    if (balanceDue === 0 && grandTotal > 0) {
+      paymentStatus = 'Paid';
+    } else if (amountPaid > 0 && balanceDue > 0) {
+      paymentStatus = 'Partially Paid';
+    }
+
+    const newInvoice: Invoice = {
+      id: `inv-${Date.now()}`,
+      invoiceNumber,
+      eventId: invoiceData.eventId,
+      quoteId: invoiceData.quoteId,
+      clientId: invoiceData.clientId,
+      clientName: invoiceData.clientName || 'Valued Client',
+      clientPhone: invoiceData.clientPhone ? normalizeIndianPhoneNumber(invoiceData.clientPhone) : '',
+      clientEmail: invoiceData.clientEmail || '',
+      clientAddress: invoiceData.clientAddress || '',
+      eventName: invoiceData.eventName || 'Production Shoot',
+      eventType: invoiceData.eventType || 'Wedding',
+      eventDate: invoiceData.eventDate || now.split('T')[0],
+      issueDate: invoiceData.issueDate || now.split('T')[0],
+      dueDate: invoiceData.dueDate || now.split('T')[0],
+      items,
+      subtotal,
+      discountType,
+      discountValue,
+      discountAmount,
+      taxPercentage,
+      taxAmount,
+      grandTotal,
+      amountPaid,
+      balanceDue,
+      paymentStatus,
+      notes: invoiceData.notes || 'Thank you for choosing The Main Character Media.',
+      terms: invoiceData.terms || '1. Balance due upon delivery.\n2. Raw footage transfer completed via portable SSD.\n3. Bank details: HDFC Bank A/C 50200088912344, IFSC HDFC0000045.',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    invoices.unshift(newInvoice);
+    localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+    this.notifyListeners();
+    return newInvoice;
+  }
+
+  static createInvoiceFromEvent(eventId: string): Invoice | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return null;
+
+    // Check if an invoice already exists for this event
+    const existing = this.getInvoices().find(i => i.eventId === eventId);
+    if (existing) return existing;
+
+    const items: InvoiceItem[] = [];
+    if (event.subEvents && event.subEvents.length > 0) {
+      event.subEvents.forEach(sub => {
+        items.push({
+          id: `ii-${Date.now()}-${sub.id}`,
+          name: `${sub.name} Coverage`,
+          description: `${sub.date} · ${sub.startTime || 'Scheduled'} at ${sub.venue || event.venue}`,
+          quantity: 1,
+          rate: sub.eventCharge || Math.round(event.packageTotal / event.subEvents.length),
+          amount: sub.eventCharge || Math.round(event.packageTotal / event.subEvents.length)
+        });
+      });
+    }
+
+    if (event.addOns && event.addOns.length > 0) {
+      event.addOns.forEach((addon, idx) => {
+        items.push({
+          id: `ii-${Date.now()}-addon-${idx}`,
+          name: addon.name,
+          description: 'Production Add-on & Extra Equipment',
+          quantity: 1,
+          rate: addon.price,
+          amount: addon.price
+        });
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({
+        id: `ii-${Date.now()}-main`,
+        name: `${event.eventName} (${event.eventType})`,
+        description: `Full production coverage from ${event.startDate} to ${event.endDate || event.startDate}`,
+        quantity: 1,
+        rate: event.packageTotal,
+        amount: event.packageTotal
+      });
+    }
+
+    const subtotal = items.reduce((acc, curr) => acc + curr.amount, 0);
+    const taxPercentage = 18;
+    const taxAmount = Math.round((subtotal * taxPercentage) / 100);
+    const grandTotal = subtotal + taxAmount;
+    const amountPaid = event.advancePaid || 0;
+    const balanceDue = Math.max(0, grandTotal - amountPaid);
+
+    return this.saveInvoice({
+      eventId: event.id,
+      quoteId: event.quoteId,
+      clientId: event.clientId,
+      clientName: event.clientName,
+      clientPhone: event.clientContact?.phone || '',
+      clientEmail: event.clientContact?.email || '',
+      eventName: event.eventName,
+      eventType: event.eventType,
+      eventDate: event.startDate,
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: event.paymentDueDate || event.endDate || event.startDate,
+      items,
+      subtotal,
+      discountType: 'flat',
+      discountValue: 0,
+      discountAmount: 0,
+      taxPercentage,
+      taxAmount,
+      grandTotal,
+      amountPaid,
+      balanceDue,
+      paymentStatus: balanceDue === 0 ? 'Paid' : amountPaid > 0 ? 'Partially Paid' : 'Sent',
+      notes: event.clientRequirements ? `Client Brief: ${event.clientRequirements}` : 'Luxury Wedding Production Service',
+      terms: '1. Final footage handover subject to full clearance.\n2. Bank Details: HDFC Current A/C #50200088912344, IFSC: HDFC0000045.'
+    });
+  }
+
+  static deleteInvoice(invoiceId: string): boolean {
+    const invoices = this.getInvoices();
+    const filtered = invoices.filter(i => i.id !== invoiceId);
+    if (filtered.length !== invoices.length) {
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(filtered));
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  static updateInvoiceStatus(invoiceId: string, status: InvoiceStatus): Invoice | null {
+    const invoices = this.getInvoices();
+    const idx = invoices.findIndex(i => i.id === invoiceId);
+    if (idx !== -1) {
+      invoices[idx].paymentStatus = status;
+      invoices[idx].updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+      this.notifyListeners();
+      return invoices[idx];
+    }
+    return null;
+  }
+
+  static recordPaymentForInvoice(invoiceId: string, amount: number): Invoice | null {
+    const invoices = this.getInvoices();
+    const idx = invoices.findIndex(i => i.id === invoiceId);
+    if (idx !== -1) {
+      const inv = invoices[idx];
+      const newPaid = (inv.amountPaid || 0) + amount;
+      const newBalance = Math.max(0, inv.grandTotal - newPaid);
+      inv.amountPaid = newPaid;
+      inv.balanceDue = newBalance;
+      inv.paymentStatus = newBalance === 0 ? 'Paid' : 'Partially Paid';
+      inv.updatedAt = new Date().toISOString();
+      
+      // Also register into payments ledger
+      this.recordPayment({
+        clientId: inv.clientId || 'cli-general',
+        eventId: inv.eventId,
+        amount,
+        date: new Date().toISOString().split('T')[0],
+        paymentMode: 'UPI',
+        notes: `Settlement for Invoice ${inv.invoiceNumber}`
+      });
+
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
+      this.notifyListeners();
+      return inv;
+    }
+    return null;
+  }
+
   // --- DASHBOARD METRICS ---
   static getDashboardMetrics(): DashboardMetrics {
     const events = this.getEvents();
     const enquiries = this.getEnquiries();
     const payments = this.getPayments();
     const crew = this.getCrewRoster();
+    const expenses = this.getExpenses();
+    const invoices = this.getInvoices();
 
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
     const upcomingShoots = events.filter(e => 
       e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress'
     );
+
+    const todayShoots = events.filter(e => {
+      const start = e.startDate || (e as any).shootDate || '';
+      const end = e.endDate || start;
+      return (todayStr >= start && todayStr <= end) && e.status !== 'Cancelled' && e.status !== 'Archived';
+    });
+
+    const activeJobs = events.filter(e =>
+      e.status === 'In Progress' || e.status === 'Scheduled' || e.status === 'Confirmed'
+    );
     
-    const thisMonthShoots = events.filter(e => {
+    const thisMonthEvents = events.filter(e => {
       const shootDate = new Date(e.startDate || (e as any).shootDate);
       return shootDate.getMonth() === currentMonth && shootDate.getFullYear() === currentYear;
     });
+
+    const monthlyRevenue = thisMonthEvents.reduce((acc, curr) => acc + (curr.packageTotal || 0), 0);
+    const monthlyCrewPayouts = thisMonthEvents.reduce((acc, curr) => acc + (curr.crewPayout || 0), 0);
+
+    const thisMonthExpensesList = expenses.filter(exp => {
+      const expDate = new Date(exp.date);
+      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+    });
+    const monthlyExpenses = thisMonthExpensesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+
+    const estimatedProfit = monthlyRevenue - monthlyCrewPayouts - monthlyExpenses;
 
     const pendingBalanceTotal = events.reduce((acc, curr) => acc + (curr.balanceDue || 0), 0);
     const totalRevenue = events.reduce((acc, curr) => acc + (curr.packageTotal || 0), 0);
@@ -1951,19 +2815,32 @@ export class StorageService {
     const grossProfit = totalRevenue - crewPayoutTotal;
 
     const pendingEnquiries = enquiries.filter(
-      e => e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost'
+      e => !e.archived && e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost'
     );
+
+    const newEnquiries = enquiries.filter(e => !e.archived && e.pipelineStage === 'New');
+
+    const outstandingInvoices = invoices.filter(i => i.paymentStatus !== 'Paid');
+    const outstandingInvoicesAmount = outstandingInvoices.reduce((acc, curr) => acc + (curr.balanceDue || 0), 0);
 
     return {
       upcomingShootsCount: upcomingShoots.length,
-      thisMonthShootsCount: thisMonthShoots.length,
+      thisMonthShootsCount: thisMonthEvents.length,
       pendingBalanceTotal,
       crewOnRosterCount: crew.length,
       totalRevenue,
       collectedRevenue,
       crewPayoutTotal,
       grossProfit,
-      pendingEnquiriesCount: pendingEnquiries.length
+      pendingEnquiriesCount: pendingEnquiries.length,
+      todayShootsCount: todayShoots.length,
+      activeJobsCount: activeJobs.length,
+      monthlyRevenue,
+      monthlyExpenses,
+      estimatedProfit,
+      newEnquiriesCount: newEnquiries.length,
+      outstandingInvoicesCount: outstandingInvoices.length,
+      outstandingInvoicesAmount
     };
   }
 

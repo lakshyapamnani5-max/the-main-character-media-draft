@@ -7,15 +7,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { NavModule } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { MobileBottomNav } from './components/Navigation/MobileBottomNav';
+import { NotificationDrawer } from './components/Navigation/NotificationDrawer';
 
-import { DashboardView } from './components/Dashboard/DashboardView';
-import { EventChargesView } from './components/EventCharges/EventChargesView';
-import { QuotationsView } from './components/Quotations/QuotationsView';
-import { EnquiriesView } from './components/Enquiries/EnquiriesView';
-import { ClientsView } from './components/Clients/ClientsView';
-import { EventsView } from './components/Events/EventsView';
-import { CrewManagementView } from './components/Crew/CrewManagementView';
-import { LocationsView } from './components/Locations/LocationsView';
+// Production ERP Views
+import { HomeView } from './components/Home/HomeView';
+import { CalendarView } from './components/Calendar/CalendarView';
+import { JobsView, JobFilterTab } from './components/Jobs/JobsView';
+import { MoneyView, MoneyTab } from './components/Money/MoneyView';
+import { MoreView, MoreSubTab } from './components/More/MoreView';
 
 // Dedicated Mobile-First Crew App
 import { CrewAppLayout } from './components/CrewApp/CrewAppLayout';
@@ -35,10 +35,11 @@ import {
   QuoteStatus,
   CrewMember,
   CrewRole,
-  LocationVenue 
+  LocationVenue,
+  Expense,
+  CrewNotification
 } from './types';
 import { StorageService } from './services/storage';
-import { PDFGeneratorService } from './services/pdfGenerator';
 
 // Modals
 import { EventChargeModal } from './components/EventCharges/EventChargeModal';
@@ -47,13 +48,21 @@ import { QuoteBuilderModal } from './components/Quotations/QuoteBuilderModal';
 import { QuotePreviewModal } from './components/Quotations/QuotePreviewModal';
 import { EnquiryModal } from './components/Enquiries/EnquiryModal';
 import { EventModal } from './components/Events/EventModal';
+import { AddPaymentModal } from './components/Clients/AddPaymentModal';
 
 export default function App() {
   const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => StorageService.getAppViewMode());
   const [activeCrewId, setActiveCrewId] = useState<string>(() => StorageService.getActiveCrewMemberId());
 
-  const [activeModule, setActiveModule] = useState<NavModule>('dashboard');
+  // Navigation state (Default to 'home')
+  const [activeModule, setActiveModule] = useState<NavModule>('home');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+
+  // Sub-tab deep links
+  const [jobsSubTab, setJobsSubTab] = useState<JobFilterTab>('all');
+  const [moneySubTab, setMoneySubTab] = useState<MoneyTab>('overview');
+  const [moreSubTab, setMoreSubTab] = useState<MoreSubTab>('hub');
 
   // Application Data States
   const [metrics, setMetrics] = useState<DashboardMetrics>(() => StorageService.getDashboardMetrics());
@@ -63,8 +72,10 @@ export default function App() {
   const [clients, setClients] = useState<Client[]>(() => StorageService.getClients());
   const [events, setEvents] = useState<EventShoot[]>(() => StorageService.getEvents());
   const [payments, setPayments] = useState<PaymentRecord[]>(() => StorageService.getPayments());
+  const [expenses, setExpenses] = useState<Expense[]>(() => StorageService.getExpenses());
   const [crew, setCrew] = useState<CrewMember[]>(() => StorageService.getCrewRoster());
   const [locations, setLocations] = useState<LocationVenue[]>(() => StorageService.getLocations());
+  const [notifications, setNotifications] = useState<CrewNotification[]>(() => StorageService.getCrewNotifications());
 
   // Global Action Modals
   const [isNewEnquiryOpen, setIsNewEnquiryOpen] = useState(false);
@@ -72,6 +83,13 @@ export default function App() {
   const [isQuoteBuilderOpen, setIsQuoteBuilderOpen] = useState(false);
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
   const [isRateCardPreviewOpen, setIsRateCardPreviewOpen] = useState(false);
+
+  // Initial date for event modal
+  const [initialEventDate, setInitialEventDate] = useState<string | undefined>(undefined);
+
+  // Payment Recording Modal
+  const [isGlobalRecordPaymentOpen, setIsGlobalRecordPaymentOpen] = useState(false);
+  const [selectedEventForPayment, setSelectedEventForPayment] = useState<EventShoot | null>(null);
 
   // Reminder Modals
   const [isWhatsAppReminderOpen, setIsWhatsAppReminderOpen] = useState(false);
@@ -96,8 +114,10 @@ export default function App() {
     setClients(StorageService.getClients());
     setEvents(StorageService.getEvents());
     setPayments(StorageService.getPayments());
+    setExpenses(StorageService.getExpenses());
     setCrew(StorageService.getCrewRoster());
     setLocations(StorageService.getLocations());
+    setNotifications(StorageService.getCrewNotifications());
   }, []);
 
   useEffect(() => {
@@ -113,6 +133,54 @@ export default function App() {
       window.removeEventListener('tmc_storage_updated', handleStorageUpdate);
     };
   }, [refreshAllData]);
+
+  // Navigation dispatcher
+  const handleNavigate = (module: NavModule, subTab?: string) => {
+    // Legacy mapping
+    if (module === 'dashboard') {
+      setActiveModule('home');
+      return;
+    }
+    if (module === 'events') {
+      setActiveModule('jobs');
+      return;
+    }
+    if (module === 'enquiries') {
+      setActiveModule('more');
+      setMoreSubTab('leads');
+      return;
+    }
+    if (module === 'crew') {
+      setActiveModule('more');
+      setMoreSubTab('crew');
+      return;
+    }
+    if (module === 'quotations') {
+      setActiveModule('more');
+      setMoreSubTab('quotes');
+      return;
+    }
+    if (module === 'event-charges') {
+      setActiveModule('more');
+      setMoreSubTab('rate-card');
+      return;
+    }
+    if (module === 'locations') {
+      setActiveModule('more');
+      setMoreSubTab('locations');
+      return;
+    }
+
+    setActiveModule(module);
+
+    if (module === 'jobs' && subTab) {
+      setJobsSubTab(subTab as JobFilterTab);
+    } else if (module === 'money' && subTab) {
+      setMoneySubTab(subTab as MoneyTab);
+    } else if (module === 'more' && subTab) {
+      setMoreSubTab(subTab as MoreSubTab);
+    }
+  };
 
   // Handlers for Event Charges
   const handleSaveEventCharge = (chargeData: Partial<EventCharge> & { name: string; price: number }) => {
@@ -176,14 +244,6 @@ export default function App() {
     refreshAllData();
   };
 
-  const handleCreateQuoteForClient = (client: Client) => {
-    setPreloadedClientForQuote(client);
-    setQuoteToEdit(null);
-    setPreloadedChargeForQuote(null);
-    setPreloadedEnquiryForQuote(null);
-    setIsQuoteBuilderOpen(true);
-  };
-
   // Handlers for Events
   const handleSaveEvent = (eventData: Partial<EventShoot> & { eventName: string; clientName: string }) => {
     StorageService.saveEvent(eventData);
@@ -198,6 +258,17 @@ export default function App() {
   // Handlers for Payments
   const handleRecordPayment = (payment: Omit<PaymentRecord, 'id' | 'createdAt'>) => {
     StorageService.recordPayment(payment);
+    refreshAllData();
+  };
+
+  // Handlers for Expenses
+  const handleSaveExpense = (expenseData: Partial<Expense> & { title: string; amount: number; category: Expense['category'] }) => {
+    StorageService.saveExpense(expenseData);
+    refreshAllData();
+  };
+
+  const handleDeleteExpense = (id: string) => {
+    StorageService.deleteExpense(id);
     refreshAllData();
   };
 
@@ -253,13 +324,19 @@ export default function App() {
     );
   }
 
+  const upcomingCount = events.filter(
+    e => e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress'
+  ).length;
+
+  const pendingBalanceCount = events.filter(e => (e.balanceDue || 0) > 0).length;
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1E1E1E]">
       
-      {/* Fixed Left ERP Sidebar */}
+      {/* Fixed Left ERP Sidebar (Desktop) */}
       <Sidebar
         activeModule={activeModule}
-        onSelectModule={setActiveModule}
+        onSelectModule={handleNavigate}
         metrics={metrics}
         enquiries={enquiries}
         quotations={quotations}
@@ -276,7 +353,10 @@ export default function App() {
           setPreloadedClientForQuote(null);
           setIsQuoteBuilderOpen(true);
         }}
-        onOpenNewEvent={() => setIsNewEventOpen(true)}
+        onOpenNewEvent={() => {
+          setInitialEventDate(undefined);
+          setIsNewEventOpen(true);
+        }}
         onDownloadRateCard={() => setIsRateCardPreviewOpen(true)}
         onSwitchToCrewApp={() => handleSwitchToCrewMode()}
         onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
@@ -288,7 +368,7 @@ export default function App() {
         {/* Top ERP Action Header */}
         <TopBar
           activeModule={activeModule}
-          onSelectModule={setActiveModule}
+          onSelectModule={handleNavigate}
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenNewEnquiry={() => setIsNewEnquiryOpen(true)}
           onOpenNewEventCharge={() => setIsNewChargeOpen(true)}
@@ -299,25 +379,34 @@ export default function App() {
             setPreloadedClientForQuote(null);
             setIsQuoteBuilderOpen(true);
           }}
-          onOpenNewEvent={() => setIsNewEventOpen(true)}
+          onOpenNewEvent={() => {
+            setInitialEventDate(undefined);
+            setIsNewEventOpen(true);
+          }}
           metrics={metrics}
           enquiries={enquiries}
           quotations={quotations}
           clients={clients}
           events={events}
+          notifications={notifications}
+          onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
           onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
           onSwitchToCrewApp={() => handleSwitchToCrewMode()}
         />
 
         {/* Content Container */}
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7">
-          {activeModule === 'dashboard' && (
-            <DashboardView
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-20 md:pb-8">
+          
+          {/* 1. HOME VIEW */}
+          {(activeModule === 'home' || activeModule === 'dashboard') && (
+            <HomeView
               metrics={metrics}
-              upcomingEvents={events.filter(e => e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress')}
-              pendingEnquiries={enquiries.filter(e => e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost')}
-              recentQuotes={quotations}
-              onNavigate={setActiveModule}
+              events={events}
+              enquiries={enquiries}
+              quotations={quotations}
+              payments={payments}
+              expenses={expenses}
+              onNavigate={handleNavigate}
               onOpenNewEnquiry={() => setIsNewEnquiryOpen(true)}
               onOpenNewEventCharge={() => setIsNewChargeOpen(true)}
               onOpenNewQuote={() => {
@@ -327,36 +416,93 @@ export default function App() {
                 setPreloadedClientForQuote(null);
                 setIsQuoteBuilderOpen(true);
               }}
-              onOpenNewEvent={() => setIsNewEventOpen(true)}
+              onOpenNewEvent={() => {
+                setInitialEventDate(undefined);
+                setIsNewEventOpen(true);
+              }}
+              onOpenAddExpense={() => {
+                setActiveModule('money');
+                setMoneySubTab('expenses');
+              }}
               onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
               onQuickQuoteForEnquiry={handleCreateQuoteFromEnquiry}
               onOpenSendReminder={handleOpenReminderForEvent}
               onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
               onOpenEventDetail={(event) => {
-                setActiveModule('events');
+                setActiveModule('jobs');
+              }}
+              onOpenRecordPayment={(event) => {
+                setSelectedEventForPayment(event || null);
+                setIsGlobalRecordPaymentOpen(true);
               }}
             />
           )}
 
-          {activeModule === 'event-charges' && (
-            <EventChargesView
-              charges={eventCharges}
-              onSaveCharge={handleSaveEventCharge}
-              onDeleteCharge={handleDeleteEventCharge}
-              onAddChargeToQuote={handleAddChargeToQuote}
-              onCreateCustomQuote={() => {
-                setQuoteToEdit(null);
-                setPreloadedChargeForQuote(null);
-                setPreloadedEnquiryForQuote(null);
-                setPreloadedClientForQuote(null);
-                setIsQuoteBuilderOpen(true);
+          {/* 2. CALENDAR VIEW */}
+          {activeModule === 'calendar' && (
+            <CalendarView
+              events={events}
+              crewRoster={crew}
+              onSelectEvent={(event) => {
+                setActiveModule('jobs');
+              }}
+              onOpenNewEvent={(date) => {
+                setInitialEventDate(date);
+                setIsNewEventOpen(true);
               }}
             />
           )}
 
-          {activeModule === 'quotations' && (
-            <QuotationsView
+          {/* 3. WEDDINGS / JOBS VIEW */}
+          {(activeModule === 'jobs' || activeModule === 'events') && (
+            <JobsView
+              events={events}
+              clients={clients}
+              quotes={quotations}
+              payments={payments}
+              enquiries={enquiries}
+              initialTab={jobsSubTab}
+              onSaveEvent={handleSaveEvent}
+              onToggleDeliverable={handleToggleDeliverable}
+              onRecordPayment={handleRecordPayment}
+              onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
+              onOpenSendReminder={handleOpenReminderForEvent}
+              onQuickQuoteForEnquiry={handleCreateQuoteFromEnquiry}
+            />
+          )}
+
+          {/* 4. MONEY VIEW */}
+          {activeModule === 'money' && (
+            <MoneyView
+              metrics={metrics}
+              events={events}
+              payments={payments}
+              crewRoster={crew}
+              expenses={expenses}
+              initialTab={moneySubTab}
+              onRecordPayment={handleRecordPayment}
+              onSaveExpense={handleSaveExpense}
+              onDeleteExpense={handleDeleteExpense}
+              onRefreshData={refreshAllData}
+            />
+          )}
+
+          {/* 5. MORE VIEW */}
+          {(activeModule === 'more' || activeModule === 'enquiries' || activeModule === 'event-charges' || activeModule === 'quotations' || activeModule === 'clients' || activeModule === 'crew' || activeModule === 'locations') && (
+            <MoreView
+              initialSubTab={moreSubTab}
+              enquiries={enquiries}
+              crewRoster={crew}
               quotations={quotations}
+              eventCharges={eventCharges}
+              locations={locations}
+              events={events}
+              metrics={metrics}
+              onSaveEnquiry={handleSaveEnquiry}
+              onAddFollowUp={handleAddFollowUp}
+              onConvertEnquiry={handleConvertEnquiry}
+              onCreateQuoteFromEnquiry={handleCreateQuoteFromEnquiry}
+              onSaveCrew={handleSaveCrew}
               onOpenCreateQuote={() => {
                 setQuoteToEdit(null);
                 setPreloadedChargeForQuote(null);
@@ -372,71 +518,28 @@ export default function App() {
                 setIsQuoteBuilderOpen(true);
               }}
               onUpdateQuoteStatus={handleUpdateQuoteStatus}
-              onOpenPreview={(quote) => setPreviewingQuote(quote)}
-            />
-          )}
-
-          {activeModule === 'enquiries' && (
-            <EnquiriesView
-              enquiries={enquiries}
-              onSaveEnquiry={handleSaveEnquiry}
-              onAddFollowUp={handleAddFollowUp}
-              onConvertEnquiry={handleConvertEnquiry}
-              onCreateQuoteFromEnquiry={handleCreateQuoteFromEnquiry}
-            />
-          )}
-
-          {activeModule === 'clients' && (
-            <ClientsView
-              clients={clients}
-              events={events}
-              quotations={quotations}
-              payments={payments}
-              onSaveClient={handleSaveClient}
-              onRecordPayment={handleRecordPayment}
-              onCreateQuoteForClient={handleCreateQuoteForClient}
-              onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
-            />
-          )}
-
-          {activeModule === 'events' && (
-            <EventsView
-              events={events}
-              clients={clients}
-              quotes={quotations}
-              payments={payments}
-              onSaveEvent={handleSaveEvent}
-              onToggleDeliverable={handleToggleDeliverable}
-              onRecordPayment={handleRecordPayment}
-              onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
-            />
-          )}
-
-          {activeModule === 'crew' && (
-            <CrewManagementView
-              crew={crew}
-              events={events}
-              onSaveCrew={handleSaveCrew}
-            />
-          )}
-
-          {activeModule === 'locations' && (
-            <LocationsView
-              locations={locations}
+              onOpenQuotePreview={(quote) => setPreviewingQuote(quote)}
+              onSaveCharge={handleSaveEventCharge}
+              onDeleteCharge={handleDeleteEventCharge}
+              onAddChargeToQuote={handleAddChargeToQuote}
               onSaveLocation={handleSaveLocation}
+              onDownloadRateCard={() => setIsRateCardPreviewOpen(true)}
+              onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
+              onSwitchToCrewApp={() => handleSwitchToCrewMode()}
             />
           )}
+
         </main>
 
         {/* Clean Minimal ERP Footer */}
-        <footer className="mt-auto border-t border-[#E8E3D9] bg-white text-xs text-neutral-500 py-4 no-print">
+        <footer className="mt-auto border-t border-[#E8E3D9] bg-white text-xs text-neutral-500 py-4 no-print hidden md:block">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px]">
             <div className="flex items-center gap-2">
               <span className="font-serif font-bold text-neutral-800 tracking-wider">
                 THE MAIN CHARACTER MEDIA
               </span>
               <span className="text-neutral-300">·</span>
-              <span className="font-mono text-neutral-400">Production & Commercial ERP</span>
+              <span className="font-mono text-neutral-400">Production Management ERP</span>
             </div>
 
             <div className="flex items-center gap-4 text-neutral-400 font-mono">
@@ -447,11 +550,31 @@ export default function App() {
                 Launch Crew PWA
               </button>
               <span>·</span>
-              <span>Database: Local Storage Persistent</span>
+              <span>Storage: LocalStorage Only (Backend-Ready Schema)</span>
             </div>
           </div>
         </footer>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (Fixed for Mobile Screens) */}
+      <MobileBottomNav
+        activeModule={activeModule}
+        onSelectModule={handleNavigate}
+        upcomingCount={upcomingCount}
+        pendingBalanceCount={pendingBalanceCount}
+      />
+
+      {/* Interactive Top-Right Notification Drawer */}
+      <NotificationDrawer
+        isOpen={isNotificationDrawerOpen}
+        onClose={() => setIsNotificationDrawerOpen(false)}
+        notifications={notifications}
+        upcomingEvents={events}
+        onSelectEvent={(event) => {
+          setActiveModule('jobs');
+        }}
+        onRefreshData={refreshAllData}
+      />
 
       {/* Global Quick Action Modals */}
       <EnquiryModal
@@ -484,8 +607,12 @@ export default function App() {
 
       <EventModal
         isOpen={isNewEventOpen}
-        onClose={() => setIsNewEventOpen(false)}
+        onClose={() => {
+          setIsNewEventOpen(false);
+          setInitialEventDate(undefined);
+        }}
         onSave={handleSaveEvent}
+        initialData={initialEventDate ? { startDate: initialEventDate, endDate: initialEventDate } as any : undefined}
       />
 
       {/* Master Rate Card Document Preview Modal */}
@@ -504,6 +631,36 @@ export default function App() {
           onUpdateStatus={(id, st) => {
             handleUpdateQuoteStatus(id, st);
             setPreviewingQuote({ ...previewingQuote, status: st });
+          }}
+        />
+      )}
+
+      {/* Global Record Payment Modal */}
+      {isGlobalRecordPaymentOpen && (
+        <AddPaymentModal
+          isOpen={true}
+          onClose={() => {
+            setIsGlobalRecordPaymentOpen(false);
+            setSelectedEventForPayment(null);
+          }}
+          client={{
+            id: selectedEventForPayment?.clientId || 'cli-general',
+            name: selectedEventForPayment?.clientName || 'General Client Payment',
+            phone: selectedEventForPayment?.clientContact?.phone || '',
+            email: selectedEventForPayment?.clientContact?.email || '',
+            notes: '',
+            createdAt: '',
+            updatedAt: ''
+          }}
+          events={events}
+          onRecordPayment={(pmt) => {
+            handleRecordPayment({
+              ...pmt,
+              clientId: selectedEventForPayment?.clientId || 'cli-general',
+              eventId: selectedEventForPayment?.id
+            });
+            setIsGlobalRecordPaymentOpen(false);
+            setSelectedEventForPayment(null);
           }}
         />
       )}

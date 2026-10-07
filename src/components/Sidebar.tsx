@@ -72,77 +72,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navSections = [
     {
-      group: 'Core Overview',
+      group: 'Primary Operations',
       items: [
         {
-          id: 'dashboard' as NavModule,
-          label: 'Dashboard',
-          subtext: 'Executive metrics & financials',
+          id: 'home' as NavModule,
+          label: 'Home',
+          subtext: 'Today shoots & ledger',
           icon: LayoutDashboard,
-          badge: null,
+          badge: metrics.todayShootsCount > 0 ? `${metrics.todayShootsCount} today` : null,
+          badgeColor: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/40',
         },
-      ],
-    },
-    {
-      group: 'Commercial & Sales',
-      items: [
         {
-          id: 'enquiries' as NavModule,
-          label: 'Enquiries & CRM',
-          subtext: 'Pipeline & follow-ups',
-          icon: Users,
-          badge: pendingEnquiriesCount > 0 ? `${pendingEnquiriesCount} active` : null,
+          id: 'jobs' as NavModule,
+          label: 'Weddings / Jobs',
+          subtext: 'Shoot productions & command',
+          icon: Calendar,
+          badge: upcomingShootsCount > 0 ? `${upcomingShootsCount} upcoming` : null,
           badgeColor: 'bg-[#C58B39]/20 text-[#D89B48] border-[#C58B39]/30',
         },
         {
-          id: 'event-charges' as NavModule,
-          label: 'Event Charges',
-          subtext: 'Master rate card catalogue',
-          icon: Layers,
+          id: 'calendar' as NavModule,
+          label: 'Calendar',
+          subtext: 'Weddings, functions & crew',
+          icon: Calendar,
           badge: null,
         },
         {
-          id: 'quotations' as NavModule,
-          label: 'Quotations',
-          subtext: 'Commercial proposals & PDFs',
-          icon: FileText,
-          badge: activeQuotesCount > 0 ? `${activeQuotesCount}` : null,
+          id: 'money' as NavModule,
+          label: 'Money & Profit',
+          subtext: 'Payments, payouts & expenses',
+          icon: TrendingUp,
+          badge: metrics.pendingBalanceTotal > 0 ? `₹${(metrics.pendingBalanceTotal / 1000).toFixed(0)}k due` : null,
+          badgeColor: 'bg-amber-900/30 text-amber-300 border-amber-700/40',
+        },
+        {
+          id: 'more' as NavModule,
+          label: 'More Modules',
+          subtext: 'Leads, crew, quotes & reports',
+          icon: Layers,
+          badge: pendingEnquiriesCount > 0 ? `${pendingEnquiriesCount} leads` : null,
           badgeColor: 'bg-blue-900/30 text-blue-300 border-blue-700/40',
         },
       ],
     },
     {
-      group: 'Operations & Production',
+      group: 'Quick Jumps',
       items: [
         {
-          id: 'clients' as NavModule,
-          label: 'Clients Dossier',
-          subtext: 'Accounts, history & payments',
-          icon: UserCheck,
-          badge: clients.length > 0 ? `${clients.length}` : null,
-          badgeColor: 'bg-neutral-800 text-neutral-300 border-neutral-700',
-        },
-        {
-          id: 'events' as NavModule,
-          label: 'Event Shoots',
-          subtext: 'Command center & timelines',
-          icon: Calendar,
-          badge: upcomingShootsCount > 0 ? `${upcomingShootsCount} upcoming` : null,
-          badgeColor: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/40',
+          id: 'enquiries' as NavModule,
+          label: 'Leads / CRM',
+          subtext: 'Enquiries pipeline',
+          icon: Users,
+          badge: null,
         },
         {
           id: 'crew' as NavModule,
-          label: 'Crew Management',
-          subtext: 'Roster, rates & availability',
-          icon: Users,
-          badge: metrics.crewOnRosterCount > 0 ? `${metrics.crewOnRosterCount}` : null,
-          badgeColor: 'bg-amber-900/30 text-amber-300 border-amber-700/40',
+          label: 'Crew Database',
+          subtext: `${metrics.crewOnRosterCount} creators on roster`,
+          icon: UserCheck,
+          badge: null,
         },
         {
-          id: 'locations' as NavModule,
-          label: 'Venues & Locations',
-          subtext: 'Banquet maps & access notes',
-          icon: Building2,
+          id: 'quotations' as NavModule,
+          label: 'Quotes & Rate Card',
+          subtext: 'Master pricing catalogue',
+          icon: FileText,
           badge: null,
         },
       ],
@@ -221,7 +215,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {section.items.map((item) => {
-                const isActive = activeModule === item.id;
+                const isActive = 
+                  activeModule === item.id || 
+                  (item.id === 'home' && activeModule === 'dashboard') || 
+                  (item.id === 'jobs' && activeModule === 'events');
                 const Icon = item.icon;
 
                 return (

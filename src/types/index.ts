@@ -1,11 +1,14 @@
 export type PipelineStage = 
   | 'New'
   | 'Contacted'
+  | 'Discussion'
   | 'Requirement Collected'
   | 'Quote Sent'
   | 'Negotiation'
   | 'Confirmed'
   | 'Lost';
+
+export type InvoiceStatus = 'Draft' | 'Sent' | 'Partially Paid' | 'Paid' | 'Overdue';
 
 export type QuoteStatus = 
   | 'Draft'
@@ -43,20 +46,27 @@ export type POVType =
   | 'Bride POV'
   | 'Groom POV'
   | 'Couple POV'
-  | 'Rituals'
+  | 'Family POV'
   | 'Family'
-  | 'Guests'
+  | 'Rituals'
   | 'Catering'
   | 'Decor'
   | 'Venue'
+  | 'Guest reactions'
+  | 'Guests'
+  | 'Entry'
   | 'Dance'
+  | 'Behind the scenes'
   | 'BTS'
   | 'Interviews'
   | 'Drone'
+  | 'Cinematic shots'
   | 'Cinematic'
+  | 'Photographer coverage'
   | 'Photography'
   | 'Videography'
   | 'Reels'
+  | 'Custom POV'
   | 'Custom';
 
 export type POVStatus = 
@@ -89,12 +99,16 @@ export interface Enquiry {
   id: string;
   clientName: string;
   phone: string;
+  whatsapp?: string;
   email: string;
   eventName: string;
-  eventType: string;
-  date: string;
+  eventType: string; // Shoot type (Wedding, Haldi, etc.)
+  shootType?: string;
+  date: string; // Event date
   venue: string;
   budget: number;
+  expectedBudget?: number;
+  requirements?: string;
   servicesRequired: string[];
   leadSource: string;
   notes: string;
@@ -105,6 +119,7 @@ export interface Enquiry {
   updatedAt: string;
   followUps: FollowUp[];
   convertedToClientId?: string;
+  archived?: boolean;
 }
 
 export interface EventCharge {
@@ -130,6 +145,8 @@ export interface QuoteItem {
   description: string;
   rate: number;
   quantity: number;
+  discount?: number; // per item discount amount or percentage
+  tax?: number; // per item tax percentage if applicable
   crewRequirement?: string;
   duration?: string;
   includedServices?: string[];
@@ -167,6 +184,47 @@ export interface Quotation {
   validUntil: string;
   sentAt?: string;
   acceptedAt?: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  eventId?: string;
+  quoteId?: string;
+  clientId?: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string;
+  clientAddress?: string;
+  eventName: string;
+  eventType: string;
+  eventDate?: string;
+  issueDate: string;
+  dueDate: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  discountType: 'flat' | 'percentage';
+  discountValue: number;
+  discountAmount: number;
+  taxPercentage: number;
+  taxAmount: number;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  paymentStatus: InvoiceStatus;
+  notes?: string;
+  terms?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaymentRecord {
@@ -241,6 +299,8 @@ export interface SubEvent {
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
   assignedCrewIds: string[];
   notes?: string;
+  eventCharge?: number; // Allocated function fee
+  contentRequirements?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -263,13 +323,20 @@ export interface POVItem {
   id: string;
   eventId: string;
   subEventId?: string;
+  subEventName?: string;
   type: POVType;
   customTypeName?: string;
   description: string;
   assignedCrewId?: string;
+  assignedCrewName?: string;
   priority: 'Normal' | 'High' | 'Urgent';
   shotNotes?: string;
+  notes?: string;
   status: POVStatus;
+  plannedTime?: string;
+  platform?: 'Instagram Reels' | 'TikTok' | 'YouTube Shorts' | 'Client Drive' | 'Raw Delivery' | 'Cinematic 4K';
+  plannedPostDate?: string;
+  completed?: boolean;
   capturedAt?: string;
   deliveredAt?: string;
   previewUrl?: string;
@@ -281,8 +348,10 @@ export interface EventCrewAssignment {
   crewId: string;
   crewName: string;
   role: CrewRole | string;
+  phone?: string;
   callTime: string;
   wrapTime: string;
+  reportingLocation?: string;
   payout: number;
   assignedSubEventIds: string[];
   assignedPOVIds: string[];
@@ -317,8 +386,12 @@ export interface EventActivityLog {
 export interface EventDeliverable {
   id: string;
   title: string;
+  type?: 'Highlight Reel' | 'Full Ceremony Video' | 'Teaser' | 'Raw AirDrop' | 'Social Reel' | 'Drone Cut' | 'Photos Album';
   completed: boolean;
   dueDate?: string;
+  assignedEditorId?: string;
+  notes?: string;
+  fileUrl?: string;
 }
 
 export interface CrewNotification {
@@ -360,6 +433,7 @@ export interface ReminderSettings {
 
 export interface EventShoot {
   id: string;
+  category?: 'Wedding' | 'Event Planner' | 'Other Shoot';
   clientId: string;
   clientName: string;
   clientContact?: {
@@ -380,6 +454,7 @@ export interface EventShoot {
   city?: string;
   status: EventStatus;
   notes: string;
+  clientRequirements?: string;
   consentUsageNotes?: string;
   leadCreator: string;
   crewMembers: string[];
@@ -394,9 +469,46 @@ export interface EventShoot {
   packageTotal: number;
   advancePaid: number;
   balanceDue: number;
+  paymentDueDate?: string;
+  addOns?: { name: string; price: number }[];
   deliverables: EventDeliverable[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  category: 
+    | 'Equipment Rental' 
+    | 'Travel & Cab' 
+    | 'Food & Catering' 
+    | 'Hard Drives & Storage' 
+    | 'Studio & Office' 
+    | 'Costumes & Props' 
+    | 'Miscellaneous';
+  amount: number;
+  date: string; // YYYY-MM-DD
+  eventId?: string;
+  eventName?: string;
+  paidBy?: string;
+  paymentMode: 'UPI' | 'Bank Transfer' | 'Cash' | 'Credit Card';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface PlannerVendor {
+  id: string;
+  name: string;
+  companyName: string;
+  role: 'Wedding Planner' | 'Decor Designer' | 'DJ / Sound' | 'MUA' | 'Choreographer' | 'Caterer' | 'Venue Manager';
+  phone: string;
+  email?: string;
+  city: string;
+  instagram?: string;
+  rating?: number;
+  associatedEventIds?: string[];
+  notes?: string;
 }
 
 export interface DashboardMetrics {
@@ -409,4 +521,13 @@ export interface DashboardMetrics {
   crewPayoutTotal: number;
   grossProfit: number;
   pendingEnquiriesCount: number;
+  // Extended ERP metrics:
+  todayShootsCount: number;
+  activeJobsCount: number;
+  monthlyRevenue: number;
+  monthlyExpenses: number;
+  estimatedProfit: number;
+  newEnquiriesCount: number;
+  outstandingInvoicesCount?: number;
+  outstandingInvoicesAmount?: number;
 }

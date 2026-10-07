@@ -1,21 +1,25 @@
-import React from 'react';
-import { X, Download, Printer, Send, CheckCircle2, ShieldCheck } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Download, Printer, Send, CheckCircle2, ShieldCheck, Share2, MessageCircle, UserCheck } from 'lucide-react';
 import { Quotation, QuoteStatus } from '../../types';
 import { PDFGeneratorService } from '../../services/pdfGenerator';
+import { StorageService } from '../../services/storage';
 
 interface QuotePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   quote: Quotation | null;
   onUpdateStatus?: (quoteId: string, status: QuoteStatus) => void;
+  onConvertToClient?: (quote: Quotation) => void;
 }
 
 export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
   isOpen,
   onClose,
   quote,
-  onUpdateStatus
+  onUpdateStatus,
+  onConvertToClient
 }) => {
+  const [copied, setCopied] = useState(false);
   if (!isOpen || !quote) return null;
 
   const handleDownload = () => {
@@ -38,6 +42,59 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
     }
   };
 
+  const handleWhatsAppShare = () => {
+    const phone = quote.clientPhone.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      `Hello ${quote.clientName}! Here is your official production proposal and quotation from The Main Character Media:\n\n` +
+      `📋 Quote #: ${quote.quoteNumber}\n` +
+      `💍 Event: ${quote.eventName} (${quote.eventType})\n` +
+      `💰 Grand Total: ₹${quote.grandTotal.toLocaleString('en-IN')}\n` +
+      `🔒 Advance to Lock: ₹${quote.advanceAmount.toLocaleString('en-IN')}\n` +
+      `📅 Valid Until: ${quote.validUntil}\n\n` +
+      `View your full itinerary & proposal document. Please let us know if you'd like to customize any coverage!`
+    );
+    const url = phone ? `https://wa.me/${phone}?text=${message}` : `https://wa.me/?text=${message}`;
+    window.open(url, '_blank');
+    if (onUpdateStatus && quote.status === 'Draft') {
+      onUpdateStatus(quote.id, 'Sent');
+    }
+  };
+
+  const handleShare = () => {
+    const shareText = `Quotation ${quote.quoteNumber} for ${quote.clientName} - The Main Character Media (Total: ₹${quote.grandTotal.toLocaleString('en-IN')})`;
+    if (navigator.share) {
+      navigator.share({
+        title: `Quotation ${quote.quoteNumber}`,
+        text: shareText,
+        url: window.location.href
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleConvertClient = () => {
+    if (onConvertToClient) {
+      onConvertToClient(quote);
+    } else {
+      // Direct convert
+      StorageService.saveClient({
+        name: quote.clientName,
+        phone: quote.clientPhone,
+        email: quote.clientEmail,
+        address: quote.clientAddress,
+        instagram: quote.clientInstagram,
+        notes: `Converted from quotation ${quote.quoteNumber} for ${quote.eventName}`
+      });
+      if (onUpdateStatus) {
+        onUpdateStatus(quote.id, 'Converted');
+      }
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 no-print-bg">
       <div className="bg-white rounded-lg border border-[#E8E3D9] max-w-4xl w-full max-h-[95vh] flex flex-col shadow-2xl overflow-hidden">
@@ -52,7 +109,25 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
             <span className="font-mono text-xs text-[#C58B39] font-medium">{quote.quoteNumber}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleWhatsAppShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded transition-colors shadow-xs"
+              title="Share quotation via WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </button>
+
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white bg-[#282828] hover:bg-[#333] rounded transition-colors"
+              title="Share quotation link"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>{copied ? 'Copied!' : 'Share'}</span>
+            </button>
+
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white bg-[#282828] hover:bg-[#333] rounded transition-colors"
@@ -63,11 +138,22 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
 
             <button
               onClick={handleDownload}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#C58B39] hover:bg-[#B37B2E] rounded transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#C58B39] hover:bg-[#B37B2E] rounded transition-colors shadow-xs"
             >
               <Download className="w-3.5 h-3.5 text-white" />
               <span>Download PDF</span>
             </button>
+
+            {quote.status !== 'Converted' && (
+              <button
+                onClick={handleConvertClient}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-neutral-800 hover:bg-black rounded transition-colors border border-neutral-700 shadow-xs"
+                title="Convert this quote directly into an active client record"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-[#C58B39]" />
+                <span>Convert to Client</span>
+              </button>
+            )}
 
             {quote.status === 'Draft' && onUpdateStatus && (
               <button

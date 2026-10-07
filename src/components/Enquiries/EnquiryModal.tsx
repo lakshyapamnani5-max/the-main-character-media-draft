@@ -17,12 +17,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
 }) => {
   const [clientName, setClientName] = useState('');
   const [phone, setPhone] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [eventName, setEventName] = useState('');
   const [eventType, setEventType] = useState('Wedding');
   const [date, setDate] = useState('');
   const [venue, setVenue] = useState('');
   const [budget, setBudget] = useState<number | ''>(50000);
+  const [requirements, setRequirements] = useState('');
   const [servicesInput, setServicesInput] = useState('');
   const [servicesRequired, setServicesRequired] = useState<string[]>([]);
   const [leadSource, setLeadSource] = useState('Instagram');
@@ -35,12 +37,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
     if (initialData) {
       setClientName(initialData.clientName);
       setPhone(initialData.phone);
+      setWhatsapp(initialData.whatsapp || initialData.phone);
       setEmail(initialData.email);
       setEventName(initialData.eventName);
-      setEventType(initialData.eventType);
+      setEventType(initialData.shootType || initialData.eventType || 'Wedding');
       setDate(initialData.date);
       setVenue(initialData.venue);
-      setBudget(initialData.budget);
+      setBudget(initialData.expectedBudget || initialData.budget);
+      setRequirements(initialData.requirements || '');
       setServicesRequired(initialData.servicesRequired || []);
       setLeadSource(initialData.leadSource);
       setNotes(initialData.notes);
@@ -50,12 +54,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
     } else {
       setClientName('');
       setPhone('');
+      setWhatsapp('');
       setEmail('');
       setEventName('');
       setEventType('Wedding');
       setDate('');
       setVenue('');
       setBudget(50000);
+      setRequirements('');
       setServicesRequired(['Wedding Day', 'Reels Coverage']);
       setLeadSource('Instagram');
       setNotes('');
@@ -86,12 +92,16 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       id: initialData?.id,
       clientName: clientName.trim(),
       phone: phone.trim(),
+      whatsapp: (whatsapp.trim() || phone.trim()),
       email: email.trim(),
       eventName: eventName.trim(),
       eventType,
+      shootType: eventType,
       date,
       venue: venue.trim(),
       budget: Number(budget) || 0,
+      expectedBudget: Number(budget) || 0,
+      requirements: requirements.trim(),
       servicesRequired,
       leadSource,
       notes,
@@ -125,9 +135,9 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 text-xs">
           
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Client Name *</label>
+              <label className="block font-medium text-neutral-700 mb-1">Lead Name *</label>
               <input
                 type="text"
                 required
@@ -144,6 +154,17 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 98200 00000"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-neutral-700 mb-1">WhatsApp Number</label>
+              <input
+                type="text"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
                 placeholder="+91 98200 00000"
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
@@ -324,6 +345,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
               >
                 <option value="New">New</option>
                 <option value="Contacted">Contacted</option>
+                <option value="Discussion">Discussion</option>
                 <option value="Requirement Collected">Requirement Collected</option>
                 <option value="Quote Sent">Quote Sent</option>
                 <option value="Negotiation">Negotiation</option>
@@ -333,15 +355,26 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Client Notes / Preferences</label>
+              <label className="block font-medium text-neutral-700 mb-1">Requirements & Brief</label>
               <textarea
                 rows={2}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Aesthetic notes, preferred audio, wedding style..."
+                value={requirements}
+                onChange={(e) => setRequirements(e.target.value)}
+                placeholder="Bride/groom preferences, coverage timeline, reel aesthetic..."
                 className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block font-medium text-neutral-700 mb-1">Internal Notes & History</label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Internal follow-up history, client demeanor, negotiation points..."
+              className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+            />
           </div>
 
           {/* Footer Actions */}

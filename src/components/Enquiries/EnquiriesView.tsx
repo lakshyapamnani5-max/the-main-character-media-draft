@@ -13,12 +13,16 @@ import {
   MessageSquarePlus, 
   Edit3,
   Clock,
-  ArrowRight
+  ArrowRight,
+  MessageCircle,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react';
 import { Enquiry, PipelineStage } from '../../types';
 import { EnquiryModal } from './EnquiryModal';
 import { FollowUpModal } from './FollowUpModal';
 import { ConvertToClientModal } from './ConvertToClientModal';
+import { StorageService } from '../../services/storage';
 
 interface EnquiriesViewProps {
   enquiries: Enquiry[];
@@ -38,6 +42,7 @@ export const EnquiriesView: React.FC<EnquiriesViewProps> = ({
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStageFilter, setSelectedStageFilter] = useState<string>('All');
+  const [showArchived, setShowArchived] = useState<boolean>(false);
 
   // Modals state
   const [isEnquiryModalOpen, setIsEnquiryModalOpen] = useState(false);
@@ -52,14 +57,34 @@ export const EnquiriesView: React.FC<EnquiriesViewProps> = ({
   const pipelineStages: PipelineStage[] = [
     'New',
     'Contacted',
-    'Requirement Collected',
+    'Discussion',
     'Quote Sent',
     'Negotiation',
     'Confirmed',
     'Lost'
   ];
 
+  const handleWhatsApp = (enquiry: Enquiry) => {
+    const rawNumber = enquiry.whatsapp || enquiry.phone || '';
+    const phone = rawNumber.replace(/\D/g, '');
+    const message = encodeURIComponent(
+      `Hi ${enquiry.clientName}! This is from The Main Character Media regarding your enquiry for ${enquiry.eventName} on ${enquiry.date || 'your upcoming date'}. We'd love to discuss your wedding storytelling coverage!`
+    );
+    const url = phone ? `https://wa.me/${phone}?text=${message}` : `https://wa.me/?text=${message}`;
+    window.open(url, '_blank');
+  };
+
+  const handleToggleArchive = (enquiry: Enquiry) => {
+    StorageService.toggleArchiveEnquiry(enquiry.id);
+  };
+
   const filteredEnquiries = enquiries.filter(e => {
+    if (showArchived) {
+      if (!e.archived) return false;
+    } else {
+      if (e.archived) return false;
+    }
+
     const matchesStage = selectedStageFilter === 'All' || e.pipelineStage === selectedStageFilter;
     const matchesSearch = 
       e.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -254,17 +279,29 @@ export const EnquiriesView: React.FC<EnquiriesViewProps> = ({
                             </div>
 
                             <div className="flex items-center justify-between text-xs font-mono mt-2 pt-2 border-t border-[#F0ECE1]">
-                              <span className="text-neutral-500">Budget:</span>
+                              <span className="text-neutral-500">Expected Budget:</span>
                               <span className="font-bold text-[#181818] tabular-nums">
-                                ₹{enquiry.budget.toLocaleString('en-IN')}
+                                ₹{(enquiry.expectedBudget || enquiry.budget).toLocaleString('en-IN')}
                               </span>
                             </div>
 
-                            {/* Rep & Follow-up */}
-                            <div className="text-[10px] text-neutral-500 mt-1 flex justify-between">
-                              <span>Rep: {enquiry.salesperson}</span>
-                              {enquiry.followUpDate && (
-                                <span className="text-[#C58B39]">Follow: {enquiry.followUpDate}</span>
+                            {/* Contact, Rep & Follow-up */}
+                            <div className="text-[10px] text-neutral-500 mt-1 space-y-0.5">
+                              <div className="flex justify-between">
+                                <span>Rep: {enquiry.salesperson}</span>
+                                {enquiry.followUpDate && (
+                                  <span className="text-[#C58B39] font-medium">Follow: {enquiry.followUpDate}</span>
+                                )}
+                              </div>
+                              {enquiry.phone && (
+                                <div className="text-neutral-600 font-mono">
+                                  📞 {enquiry.phone}
+                                </div>
+                              )}
+                              {enquiry.requirements && (
+                                <div className="text-[10px] text-neutral-600 italic bg-[#FAF8F5] p-1.5 rounded mt-1 line-clamp-2 border border-[#E8E3D9]">
+                                  "{enquiry.requirements}"
+                                </div>
                               )}
                             </div>
                           </div>
@@ -282,29 +319,60 @@ export const EnquiriesView: React.FC<EnquiriesViewProps> = ({
                             </select>
                           </div>
 
-                          {/* Action Buttons as requested: [ Create Quote ] [ Add Follow-up ] [ Convert to Client ] */}
-                          <div className="grid grid-cols-3 gap-1 pt-1">
-                            <button
-                              onClick={() => onCreateQuoteFromEnquiry(enquiry)}
-                              className="px-1.5 py-1 text-[10px] font-medium bg-[#181818] text-white hover:bg-[#282828] rounded text-center truncate transition-colors"
-                              title="Create Quote"
-                            >
-                              Quote
-                            </button>
-                            <button
-                              onClick={() => handleOpenFollowUp(enquiry)}
-                              className="px-1.5 py-1 text-[10px] font-medium bg-[#FAF8F5] text-neutral-800 border border-[#DCD6C8] hover:bg-[#F2ECE1] rounded text-center truncate transition-colors"
-                              title="Add Follow-up"
-                            >
-                              Follow-up
-                            </button>
-                            <button
-                              onClick={() => handleOpenConvert(enquiry)}
-                              className="px-1.5 py-1 text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 rounded text-center truncate transition-colors"
-                              title="Convert to Client"
-                            >
-                              Convert
-                            </button>
+                          {/* Action Buttons as requested: [ Create Quote ] [ Edit ] [ Follow Up ] [ WhatsApp ] [ Convert to Client / Job ] [ Archive ] */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="grid grid-cols-3 gap-1">
+                              <button
+                                onClick={() => onCreateQuoteFromEnquiry(enquiry)}
+                                className="px-1.5 py-1 text-[10px] font-semibold bg-[#181818] text-white hover:bg-black rounded text-center truncate transition-colors shadow-2xs"
+                                title="Create Quote"
+                              >
+                                Quote
+                              </button>
+                              <button
+                                onClick={() => handleOpenFollowUp(enquiry)}
+                                className="px-1.5 py-1 text-[10px] font-medium bg-[#FAF8F5] text-neutral-800 border border-[#DCD6C8] hover:bg-[#F2ECE1] rounded text-center truncate transition-colors"
+                                title="Follow Up"
+                              >
+                                Follow Up
+                              </button>
+                              <button
+                                onClick={() => handleWhatsApp(enquiry)}
+                                className="px-1.5 py-1 text-[10px] font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded text-center truncate transition-colors shadow-2xs flex items-center justify-center gap-0.5"
+                                title="WhatsApp"
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                <span>WA</span>
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-1">
+                              <button
+                                onClick={() => handleEdit(enquiry)}
+                                className="px-1.5 py-1 text-[10px] font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded text-center truncate transition-colors"
+                                title="Edit Enquiry"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleOpenConvert(enquiry)}
+                                className="px-1.5 py-1 text-[10px] font-semibold bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 rounded text-center truncate transition-colors"
+                                title="Convert to Client / Job"
+                              >
+                                Convert
+                              </button>
+                              <button
+                                onClick={() => handleToggleArchive(enquiry)}
+                                className={`px-1.5 py-1 text-[10px] font-medium rounded text-center truncate transition-colors ${
+                                  enquiry.archived
+                                    ? 'bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100'
+                                    : 'bg-neutral-50 text-neutral-500 border border-neutral-200 hover:bg-neutral-100'
+                                }`}
+                                title={enquiry.archived ? 'Restore Enquiry' : 'Archive Enquiry'}
+                              >
+                                {enquiry.archived ? 'Restore' : 'Archive'}
+                              </button>
+                            </div>
                           </div>
 
                         </div>

@@ -73,6 +73,8 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   const [customItemName, setCustomItemName] = useState('');
   const [customItemRate, setCustomItemRate] = useState<number | ''>('');
   const [customItemDesc, setCustomItemDesc] = useState('');
+  const [customItemQty, setCustomItemQty] = useState<number>(1);
+  const [customItemDiscount, setCustomItemDiscount] = useState<number | ''>('');
   const [selectedChargeIdToAdd, setSelectedChargeIdToAdd] = useState('');
 
   const [previewQuote, setPreviewQuote] = useState<Quotation | null>(null);
@@ -230,33 +232,51 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   const handleAddCustomItem = () => {
     if (!customItemName.trim() || customItemRate === '') return;
 
+    const rate = Number(customItemRate);
+    const qty = Math.max(1, customItemQty || 1);
+    const disc = customItemDiscount !== '' ? Number(customItemDiscount) : 0;
+    const baseAmt = rate * qty;
+    const amt = Math.max(0, baseAmt - disc);
+
     const customItem: QuoteItem = {
       id: `qi-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       name: customItemName.trim(),
       description: customItemDesc.trim(),
-      rate: Number(customItemRate),
-      quantity: 1,
-      amount: Number(customItemRate)
+      rate,
+      quantity: qty,
+      discount: disc > 0 ? disc : undefined,
+      amount: amt
     };
 
     setItems([...items, customItem]);
     setCustomItemName('');
     setCustomItemRate('');
     setCustomItemDesc('');
+    setCustomItemQty(1);
+    setCustomItemDiscount('');
   };
 
   const handleUpdateItemQuantity = (index: number, qty: number) => {
     const newItems = [...items];
     const validQty = Math.max(1, qty);
     newItems[index].quantity = validQty;
-    newItems[index].amount = newItems[index].rate * validQty;
+    const itemDisc = newItems[index].discount || 0;
+    newItems[index].amount = Math.max(0, (newItems[index].rate * validQty) - itemDisc);
     setItems(newItems);
   };
 
   const handleUpdateItemRate = (index: number, newRate: number) => {
     const newItems = [...items];
     newItems[index].rate = newRate;
-    newItems[index].amount = newRate * newItems[index].quantity;
+    const itemDisc = newItems[index].discount || 0;
+    newItems[index].amount = Math.max(0, (newRate * newItems[index].quantity) - itemDisc);
+    setItems(newItems);
+  };
+
+  const handleUpdateItemDiscount = (index: number, newDiscount: number) => {
+    const newItems = [...items];
+    newItems[index].discount = Math.max(0, newDiscount);
+    newItems[index].amount = Math.max(0, (newItems[index].rate * newItems[index].quantity) - newItems[index].discount);
     setItems(newItems);
   };
 
@@ -518,17 +538,18 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
               <table className="w-full text-left">
                 <thead className="bg-[#FAF8F5] text-neutral-600 border-b border-[#E8E3D9] font-medium text-[11px] uppercase tracking-wider">
                   <tr>
-                    <th className="py-2.5 px-3">Service Name & Deliverables</th>
-                    <th className="py-2.5 px-3 text-center w-20">Qty</th>
-                    <th className="py-2.5 px-3 text-right w-32">Rate (₹)</th>
-                    <th className="py-2.5 px-3 text-right w-32">Total (₹)</th>
-                    <th className="py-2.5 px-2 text-center w-12">Action</th>
+                    <th className="py-2.5 px-3">Event / Service Name & Deliverables</th>
+                    <th className="py-2.5 px-2 text-center w-16">Qty</th>
+                    <th className="py-2.5 px-2 text-right w-28">Price (₹)</th>
+                    <th className="py-2.5 px-2 text-right w-24">Discount (₹)</th>
+                    <th className="py-2.5 px-3 text-right w-28">Total (₹)</th>
+                    <th className="py-2.5 px-2 text-center w-10">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F0ECE1]">
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-neutral-400 italic">
+                      <td colSpan={6} className="py-6 text-center text-neutral-400 italic">
                         No services added to this quote yet. Pick from master charges above or add custom item below.
                       </td>
                     </tr>
@@ -548,23 +569,34 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
                             </div>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center">
+                        <td className="py-3 px-2 text-center">
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
                             onChange={(e) => handleUpdateItemQuantity(index, Number(e.target.value))}
-                            className="w-14 px-1.5 py-1 text-center border border-[#DCD6C8] rounded font-mono tabular-nums bg-white"
+                            className="w-12 px-1 py-1 text-center border border-[#DCD6C8] rounded font-mono tabular-nums bg-white"
                           />
                         </td>
-                        <td className="py-3 px-3 text-right">
+                        <td className="py-3 px-2 text-right">
                           <input
                             type="number"
                             min="0"
                             step="500"
                             value={item.rate}
                             onChange={(e) => handleUpdateItemRate(index, Number(e.target.value))}
-                            className="w-24 px-2 py-1 text-right border border-[#DCD6C8] rounded font-mono tabular-nums bg-white"
+                            className="w-24 px-1.5 py-1 text-right border border-[#DCD6C8] rounded font-mono tabular-nums bg-white"
+                          />
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <input
+                            type="number"
+                            min="0"
+                            step="500"
+                            value={item.discount || ''}
+                            placeholder="0"
+                            onChange={(e) => handleUpdateItemDiscount(index, Number(e.target.value) || 0)}
+                            className="w-20 px-1.5 py-1 text-right border border-[#DCD6C8] rounded font-mono tabular-nums bg-white text-rose-700"
                           />
                         </td>
                         <td className="py-3 px-3 text-right font-mono font-bold text-neutral-900 tabular-nums">
@@ -587,14 +619,22 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
             </div>
 
             {/* Add Custom Item Row */}
-            <div className="p-3 bg-[#FAF8F5] border border-[#E8E3D9] rounded flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-              <span className="font-medium text-neutral-700 whitespace-nowrap">Add Custom Item:</span>
+            <div className="p-3 bg-[#FAF8F5] border border-[#E8E3D9] rounded flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <span className="font-medium text-neutral-700 whitespace-nowrap text-xs">Add Event Charge:</span>
               <input
                 type="text"
                 value={customItemName}
                 onChange={(e) => setCustomItemName(e.target.value)}
-                placeholder="e.g. Destination Travel & Crew Logistics"
-                className="flex-1 px-2.5 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900"
+                placeholder="e.g. Reception, Haldi, Drone, Extra Photographer"
+                className="flex-1 px-2.5 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 text-xs"
+              />
+              <input
+                type="number"
+                min="1"
+                value={customItemQty}
+                onChange={(e) => setCustomItemQty(Number(e.target.value) || 1)}
+                placeholder="Qty"
+                className="w-14 px-2 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 font-mono text-center text-xs"
               />
               <input
                 type="number"
@@ -602,15 +642,24 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
                 step="500"
                 value={customItemRate}
                 onChange={(e) => setCustomItemRate(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="Rate (₹)"
-                className="w-28 px-2.5 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 font-mono tabular-nums"
+                placeholder="Price (₹)"
+                className="w-24 px-2 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 font-mono tabular-nums text-xs"
+              />
+              <input
+                type="number"
+                min="0"
+                step="500"
+                value={customItemDiscount}
+                onChange={(e) => setCustomItemDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="Discount"
+                className="w-20 px-2 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 font-mono tabular-nums text-xs"
               />
               <button
                 type="button"
                 onClick={handleAddCustomItem}
-                className="px-3.5 py-1.5 bg-[#181818] text-white rounded hover:bg-[#2A2A2A] font-medium whitespace-nowrap"
+                className="px-3.5 py-1.5 bg-[#181818] text-white rounded hover:bg-[#2A2A2A] font-semibold whitespace-nowrap text-xs shadow-2xs"
               >
-                + Add Item
+                + Add Charge
               </button>
             </div>
           </div>

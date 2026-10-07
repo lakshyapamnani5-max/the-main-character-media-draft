@@ -16,21 +16,27 @@ export const EventModal: React.FC<EventModalProps> = ({
   onSave,
   initialData
 }) => {
+  const [category, setCategory] = useState<'Wedding' | 'Event Planner' | 'Other Shoot'>('Wedding');
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [eventName, setEventName] = useState('');
   const [eventType, setEventType] = useState('Wedding');
-  const [shootDate, setShootDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [shootTime, setShootTime] = useState('14:00 - 22:00');
   const [venue, setVenue] = useState('');
   const [city, setCity] = useState('Mumbai');
   const [leadCreator, setLeadCreator] = useState('Devansh Saxena');
   const [crewMembers, setCrewMembers] = useState<string[]>(['Devansh Saxena', 'Tara Sen']);
   const [crewMemberInput, setCrewMemberInput] = useState('');
-  const [crewPayout, setCrewPayout] = useState<number | ''>(14000);
-  const [packageTotal, setPackageTotal] = useState<number | ''>(35000);
-  const [advancePaid, setAdvancePaid] = useState<number | ''>(17500);
+  const [crewPayout, setCrewPayout] = useState<number | ''>(25000);
+  const [packageTotal, setPackageTotal] = useState<number | ''>(75000);
+  const [advancePaid, setAdvancePaid] = useState<number | ''>(35000);
+  const [paymentDueDate, setPaymentDueDate] = useState('');
   const [status, setStatus] = useState<EventStatus>('Confirmed');
+  const [clientRequirements, setClientRequirements] = useState('');
   const [deliverables, setDeliverables] = useState<EventDeliverable[]>([]);
   const [newDeliverableTitle, setNewDeliverableTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -40,11 +46,15 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   useEffect(() => {
     if (initialData) {
+      setCategory(initialData.category || 'Wedding');
       setClientId(initialData.clientId);
       setClientName(initialData.clientName);
+      setClientPhone(initialData.clientContact?.phone || '');
+      setClientEmail(initialData.clientContact?.email || '');
       setEventName(initialData.eventName);
       setEventType(initialData.eventType);
-      setShootDate(initialData.startDate || initialData.shootDate || '');
+      setStartDate(initialData.startDate || initialData.shootDate || '');
+      setEndDate(initialData.endDate || initialData.startDate || initialData.shootDate || '');
       setShootTime(initialData.shootTime || '14:00 - 22:00');
       setVenue(initialData.venue);
       setCity(initialData.locationCity || initialData.city || 'Mumbai');
@@ -53,28 +63,38 @@ export const EventModal: React.FC<EventModalProps> = ({
       setCrewPayout(initialData.crewPayout);
       setPackageTotal(initialData.packageTotal);
       setAdvancePaid(initialData.advancePaid);
+      setPaymentDueDate(initialData.paymentDueDate || '');
       setStatus(initialData.status || 'Confirmed');
+      setClientRequirements(initialData.clientRequirements || '');
       setDeliverables(initialData.deliverables || []);
       setNotes(initialData.notes || '');
     } else {
+      const defaultStart = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const defaultEnd = new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      setCategory('Wedding');
       setClientId('');
       setClientName('');
+      setClientPhone('');
+      setClientEmail('');
       setEventName('');
       setEventType('Wedding');
-      setShootDate(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
+      setStartDate(defaultStart);
+      setEndDate(defaultEnd);
       setShootTime('14:00 - 22:00');
       setVenue('');
       setCity('Mumbai');
       setLeadCreator('Devansh Saxena');
       setCrewMembers(['Devansh Saxena', 'Tara Sen']);
-      setCrewPayout(14000);
-      setPackageTotal(35000);
-      setAdvancePaid(17500);
+      setCrewPayout(25000);
+      setPackageTotal(75000);
+      setAdvancePaid(35000);
+      setPaymentDueDate(defaultEnd);
       setStatus('Confirmed');
+      setClientRequirements('');
       setDeliverables([
-        { id: `del-1`, title: 'Full 4K ProRes Raw Footage Transfer', completed: false },
+        { id: `del-1`, title: 'Full 4K ProRes Raw Footage Transfer on SSD', completed: false },
         { id: `del-2`, title: 'Bride & Groom POV Highlights (x3 Reels)', completed: false },
-        { id: `del-3`, title: 'Ceremonial Master Cut Reel', completed: false }
+        { id: `del-3`, title: 'Ceremonial Master Cut Reel (9:16)', completed: false }
       ]);
       setNotes('');
     }
@@ -87,6 +107,8 @@ export const EventModal: React.FC<EventModalProps> = ({
     const cli = clients.find(c => c.id === id);
     if (cli) {
       setClientName(cli.name);
+      setClientPhone(cli.phone || '');
+      setClientEmail(cli.email || '');
       if (!eventName) {
         setEventName(`${cli.name.split('&')[0].trim()} Wedding Shoot`);
       }
@@ -126,15 +148,94 @@ export const EventModal: React.FC<EventModalProps> = ({
     const adv = Number(advancePaid) || 0;
     const balanceDue = Math.max(0, total - adv);
 
+    // Initial default sub-events for wedding if creating new
+    const initialSubEvents = (!initialData && category === 'Wedding') ? [
+      {
+        id: `sub-${Date.now()}-1`,
+        eventId: '',
+        name: 'Mehendi',
+        date: startDate,
+        startTime: '04:00 PM',
+        endTime: '08:30 PM',
+        venue: venue || 'Terrace / Banquet',
+        status: 'Scheduled' as const,
+        assignedCrewIds: [],
+        eventCharge: 15000,
+        contentRequirements: ['Bride Mehendi Macro POV', 'Bridesmaid Candids'],
+        notes: 'Sunset natural light.'
+      },
+      {
+        id: `sub-${Date.now()}-2`,
+        eventId: '',
+        name: 'Haldi',
+        date: startDate,
+        startTime: '10:00 AM',
+        endTime: '02:00 PM',
+        venue: venue || 'Lawn Area',
+        status: 'Scheduled' as const,
+        assignedCrewIds: [],
+        eventCharge: 15000,
+        contentRequirements: ['Haldi Phoolon Ki Holi', 'Water Splash Candids'],
+        notes: 'Waterproof protective pouches.'
+      },
+      {
+        id: `sub-${Date.now()}-3`,
+        eventId: '',
+        name: 'Sangeet',
+        date: startDate,
+        startTime: '06:00 PM',
+        endTime: '11:45 PM',
+        venue: venue || 'Grand Ballroom',
+        status: 'Scheduled' as const,
+        assignedCrewIds: [],
+        eventCharge: 25000,
+        contentRequirements: ['Stage Choreography Dance POV', 'DJ Floor Party BTS'],
+        notes: 'Audio feed from DJ mixer.'
+      },
+      {
+        id: `sub-${Date.now()}-4`,
+        eventId: '',
+        name: 'Wedding',
+        date: endDate || startDate,
+        startTime: '04:30 PM',
+        endTime: '09:30 PM',
+        venue: venue || 'Mandap Lawn',
+        status: 'Scheduled' as const,
+        assignedCrewIds: [],
+        eventCharge: 30000,
+        contentRequirements: ['Bride POV Walk Down Aisle', 'Groom Baraat Entry', 'Sacred Vows & Phere'],
+        notes: 'Drone coverage for baraat.'
+      },
+      {
+        id: `sub-${Date.now()}-5`,
+        eventId: '',
+        name: 'Reception',
+        date: endDate || startDate,
+        startTime: '08:30 PM',
+        endTime: '01:00 AM',
+        venue: venue || 'Royal Hall',
+        status: 'Scheduled' as const,
+        assignedCrewIds: [],
+        eventCharge: 15000,
+        contentRequirements: ['Cake Cutting & Toast POV', 'Couple Formal Portraits'],
+        notes: 'Guest greetings.'
+      }
+    ] : undefined;
+
     onSave({
       id: initialData?.id,
+      category,
       clientId: clientId || `cli-${Date.now()}`,
       clientName: clientName.trim(),
+      clientContact: {
+        phone: clientPhone.trim(),
+        email: clientEmail.trim()
+      },
       eventName: eventName.trim(),
       eventType,
-      startDate: shootDate,
-      endDate: shootDate,
-      shootDate,
+      startDate: startDate,
+      endDate: endDate || startDate,
+      shootDate: startDate,
       shootTime,
       venue: venue.trim() || 'TBD Venue',
       locationCity: city.trim(),
@@ -145,8 +246,11 @@ export const EventModal: React.FC<EventModalProps> = ({
       packageTotal: total,
       advancePaid: adv,
       balanceDue,
+      paymentDueDate: paymentDueDate || undefined,
+      clientRequirements: clientRequirements.trim(),
       status,
       deliverables,
+      subEvents: initialData?.subEvents || initialSubEvents,
       notes
     });
 
@@ -154,17 +258,17 @@ export const EventModal: React.FC<EventModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg border border-[#E8E3D9] max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-white rounded-xl border border-[#E8E3D9] max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
         
         {/* Header */}
-        <div className="p-5 border-b border-[#E8E3D9] flex items-center justify-between bg-[#FAF8F5]">
+        <div className="p-4 sm:p-5 border-b border-[#E8E3D9] flex items-center justify-between bg-[#FAF8F5]">
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-[#C58B39]">
-              Production Schedule
+              Hierarchical Production Setup · Job & Ceremonies
             </div>
             <h2 className="font-serif text-xl font-bold text-[#181818]">
-              {initialData ? 'Edit Event Shoot' : 'Schedule New Event Shoot'}
+              {initialData ? 'Edit Production Job' : 'Create New Job / Wedding'}
             </h2>
           </div>
           <button
@@ -176,19 +280,42 @@ export const EventModal: React.FC<EventModalProps> = ({
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-5 sm:p-6 space-y-4 text-xs">
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Level 1: Job Category */}
+          <div>
+            <label className="block font-medium text-neutral-700 mb-1.5">
+              Job Category Hierarchy *
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['Wedding', 'Event Planner', 'Other Shoot'] as const).map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(cat)}
+                  className={`py-2 px-3 rounded-lg border text-xs font-semibold transition-all ${
+                    category === cat
+                      ? 'bg-neutral-900 text-white border-neutral-900 shadow-2xs'
+                      : 'bg-[#FAF8F5] text-neutral-700 border-[#E8E3D9] hover:border-neutral-400'
+                  }`}
+                >
+                  {cat === 'Wedding' ? '💍 Wedding' : cat === 'Event Planner' ? '✨ Event Planner' : '🎬 Other Shoot'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block font-medium text-neutral-700 mb-1">
-                Link to Client *
+                Link to Existing Client (Optional)
               </label>
               <select
                 value={clientId}
                 onChange={(e) => handleSelectClient(e.target.value)}
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 bg-white"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 bg-white"
               >
-                <option value="">-- Choose Existing Client or Enter Below --</option>
+                <option value="">-- Choose Client or Type Below --</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -196,28 +323,52 @@ export const EventModal: React.FC<EventModalProps> = ({
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Client Name *</label>
+              <label className="block font-medium text-neutral-700 mb-1">Client / Couple Name *</label>
               <input
                 type="text"
                 required
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                placeholder="e.g. Rhea Kapoor & Siddharth Oberoi"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+                placeholder="e.g. Rahul Mehta & Priya Saxena"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Event Name *</label>
+              <label className="block font-medium text-neutral-700 mb-1">Client Contact Phone</label>
+              <input
+                type="tel"
+                value={clientPhone}
+                onChange={(e) => setClientPhone(e.target.value)}
+                placeholder="+919811033910"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-neutral-700 mb-1">Client Contact Email</label>
+              <input
+                type="email"
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+                placeholder="client@example.com"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label className="block font-medium text-neutral-700 mb-1">Main Event / Job Title *</label>
               <input
                 type="text"
                 required
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
-                placeholder="e.g. Rhea & Siddharth Luxury Wedding Weekend"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+                placeholder="e.g. Rahul & Priya Royal Wedding"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
             </div>
 
@@ -226,192 +377,152 @@ export const EventModal: React.FC<EventModalProps> = ({
               <select
                 value={eventType}
                 onChange={(e) => setEventType(e.target.value)}
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 bg-white"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 bg-white"
               >
                 <option value="Wedding">Wedding</option>
+                <option value="Destination Wedding">Destination Wedding</option>
                 <option value="Haldi Ceremony">Haldi Ceremony</option>
                 <option value="Mehendi Soirée">Mehendi Soirée</option>
                 <option value="Sangeet Gala">Sangeet Gala</option>
                 <option value="Reception Evening">Reception Evening</option>
-                <option value="Engagement">Engagement</option>
                 <option value="Pre-Wedding Cinematic">Pre-Wedding Cinematic</option>
+                <option value="Corporate / Brand Shoot">Corporate / Brand Shoot</option>
+                <option value="Fashion Editorial">Fashion Editorial</option>
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Shoot Date *</label>
+              <label className="block font-medium text-neutral-700 mb-1">Start Date *</label>
               <input
                 type="date"
                 required
-                value={shootDate}
-                onChange={(e) => setShootDate(e.target.value)}
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Call Time / Schedule</label>
+              <label className="block font-medium text-neutral-700 mb-1">End Date</label>
               <input
-                type="text"
-                value={shootTime}
-                onChange={(e) => setShootTime(e.target.value)}
-                placeholder="14:00 - 22:00"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Production Status</label>
+              <label className="block font-medium text-neutral-700 mb-1">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as EventStatus)}
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 bg-white"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 bg-white font-medium"
               >
-                <option value="Upcoming">Upcoming</option>
-                <option value="In Progress">In Progress (Shooting)</option>
-                <option value="In Post-Production">In Post-Production</option>
-                <option value="Delivered">Delivered</option>
+                <option value="Inquiry">Inquiry</option>
+                <option value="Quoted">Quoted</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Scheduled">Scheduled</option>
+                <option value="In Progress">In Progress</option>
                 <option value="Completed">Completed</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Venue / Property</label>
+              <label className="block font-medium text-neutral-700 mb-1">Main Venue / Property</label>
               <input
                 type="text"
                 value={venue}
                 onChange={(e) => setVenue(e.target.value)}
-                placeholder="e.g. ITC Grand Bharat"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900"
+                placeholder="e.g. The St. Regis & Turf Club"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900"
               />
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">City / Location</label>
+              <label className="block font-medium text-neutral-700 mb-1">City / Base</label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="e.g. Manesar / Delhi NCR"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900"
+                placeholder="e.g. Mumbai / Udaipur"
+                className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900"
               />
             </div>
           </div>
 
-          {/* Crew Allocation */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-medium text-neutral-700 mb-1">Lead Creator</label>
-              <select
-                value={leadCreator}
-                onChange={(e) => setLeadCreator(e.target.value)}
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 bg-white"
-              >
-                {crewRoster.map((cr: import('../../types').CrewMember) => (
-                  <option key={cr.id} value={cr.name}>{cr.name} ({cr.role.split(' ')[0]})</option>
-                ))}
-              </select>
+          {/* Commercials: Package Total, Advance, Due Date */}
+          <div className="p-3.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded-xl space-y-3">
+            <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C58B39]">
+              Commercials & Billing
             </div>
 
-            <div>
-              <label className="block font-medium text-neutral-700 mb-1">Crew Remuneration / Payout (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="500"
-                value={crewPayout}
-                onChange={(e) => setCrewPayout(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="14000"
-                className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 font-mono tabular-nums"
-              />
-            </div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-medium text-neutral-700 mb-1">Package Total (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  step="1000"
+                  value={packageTotal}
+                  onChange={(e) => setPackageTotal(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="75000"
+                  className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono font-bold bg-white"
+                />
+              </div>
 
-          {/* Financials: Package Total & Advance Paid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-3.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded">
-            <div>
-              <label className="block font-medium text-neutral-700 mb-1">Contracted Package Value (₹) *</label>
-              <input
-                type="number"
-                required
-                min="0"
-                step="1000"
-                value={packageTotal}
-                onChange={(e) => setPackageTotal(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="35000"
-                className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900 font-mono tabular-nums font-bold"
-              />
-            </div>
+              <div>
+                <label className="block font-medium text-neutral-700 mb-1">Advance Received (₹)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={advancePaid}
+                  onChange={(e) => setAdvancePaid(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="35000"
+                  className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded-lg text-emerald-800 font-mono font-bold bg-white"
+                />
+              </div>
 
-            <div>
-              <label className="block font-medium text-neutral-700 mb-1">Advance Already Received (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="1000"
-                value={advancePaid}
-                onChange={(e) => setAdvancePaid(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="17500"
-                className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900 font-mono tabular-nums text-emerald-700 font-bold"
-              />
+              <div>
+                <label className="block font-medium text-neutral-700 mb-1">Payment Due Date</label>
+                <input
+                  type="date"
+                  value={paymentDueDate}
+                  onChange={(e) => setPaymentDueDate(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded-lg font-mono bg-white"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Deliverables Checklist */}
+          {/* Client Requirements */}
           <div>
-            <label className="block font-medium text-neutral-700 mb-1">
-              Deliverables Checklist
-            </label>
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={newDeliverableTitle}
-                onChange={(e) => setNewDeliverableTitle(e.target.value)}
-                placeholder="e.g. Wedding Highlight Reel (9:16)"
-                className="flex-1 px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900"
-              />
-              <button
-                type="button"
-                onClick={handleAddDeliverable}
-                className="px-3 py-1.5 bg-[#FAF8F5] border border-[#DCD6C8] hover:bg-[#F2ECE1] rounded text-neutral-800 font-medium"
-              >
-                Add Deliverable
-              </button>
-            </div>
-
-            <div className="space-y-1.5 max-h-32 overflow-y-auto p-2.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded">
-              {deliverables.length === 0 ? (
-                <div className="text-neutral-400 italic">No deliverables added yet.</div>
-              ) : (
-                deliverables.map((del) => (
-                  <div key={del.id} className="flex items-center justify-between text-neutral-800 py-1 border-b border-[#E8E3D9]/60 last:border-b-0">
-                    <span className="truncate">{del.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveDeliverable(del.id)}
-                      className="text-neutral-400 hover:text-red-600 p-0.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
+            <label className="block font-medium text-neutral-700 mb-1">Client Requirements & Deliverables Brief</label>
+            <textarea
+              rows={2}
+              value={clientRequirements}
+              onChange={(e) => setClientRequirements(e.target.value)}
+              placeholder="e.g. Fast turnaround reels (within 12h), 4K ProRes SSD handover, vertical orientation."
+              className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900"
+            />
           </div>
 
+          {/* Production Notes */}
           <div>
-            <label className="block font-medium text-neutral-700 mb-1">Production Notes</label>
+            <label className="block font-medium text-neutral-700 mb-1">Internal Production Notes</label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Important logistics, lehenga color, groom entry cue..."
-              className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900"
+              placeholder="Internal coordination notes, crew instructions..."
+              className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900"
             />
           </div>
 
@@ -426,9 +537,9 @@ export const EventModal: React.FC<EventModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#181818] hover:bg-[#282828] text-white font-medium rounded transition-colors shadow-xs"
+              className="px-5 py-2 bg-[#181818] hover:bg-black text-white font-semibold rounded-lg transition-colors shadow-xs"
             >
-              {initialData ? 'Update Shoot' : 'Confirm Event Shoot'}
+              {initialData ? 'Update Job' : 'Create Confirmed Job'}
             </button>
           </div>
         </form>

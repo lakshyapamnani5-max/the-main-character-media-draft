@@ -93,13 +93,27 @@ export const QuotationsView: React.FC<QuotationsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {quotations.length > 0 && (
+            <button
+              onClick={() => {
+                const latest = quotations[0];
+                PDFGeneratorService.downloadQuotationPDF(latest);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-800 bg-[#FAF8F5] hover:bg-neutral-100 border border-[#E8E3D9] rounded transition-colors shadow-2xs"
+              title="Download PDF of latest active quotation"
+            >
+              <Download className="w-3.5 h-3.5 text-[#C58B39]" />
+              <span>Download Full Quotation</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenCreateQuote}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-[#C58B39] hover:bg-[#B37B2E] rounded transition-colors shadow-xs"
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#181818] hover:bg-black rounded transition-colors shadow-xs"
           >
-            <Plus className="w-3.5 h-3.5 text-white" />
-            <span>+ Create Custom Quote</span>
+            <Plus className="w-3.5 h-3.5 text-[#C58B39]" />
+            <span>Custom Quote</span>
           </button>
         </div>
       </div>

@@ -11,6 +11,11 @@ import {
 } from 'lucide-react';
 
 export type NavModule = 
+  | 'home'
+  | 'calendar'
+  | 'jobs'
+  | 'money'
+  | 'more'
   | 'dashboard' 
   | 'enquiries' 
   | 'event-charges' 

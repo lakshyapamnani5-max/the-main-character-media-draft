@@ -16,6 +16,10 @@ import { CalendarView } from './components/Calendar/CalendarView';
 import { JobsView, JobFilterTab } from './components/Jobs/JobsView';
 import { MoneyView, MoneyTab } from './components/Money/MoneyView';
 import { MoreView, MoreSubTab } from './components/More/MoreView';
+import { PartnersView } from './components/Partners/PartnersView';
+import { PartnerCalendarModal } from './components/Partners/PartnerCalendarModal';
+import { AddPartnerEventModal } from './components/Partners/AddPartnerEventModal';
+import { AuthModal } from './components/Auth/AuthModal';
 
 // Dedicated Mobile-First Crew App
 import { CrewAppLayout } from './components/CrewApp/CrewAppLayout';
@@ -37,9 +41,17 @@ import {
   CrewRole,
   LocationVenue,
   Expense,
-  CrewNotification
+  CrewNotification,
+  Partner
 } from './types';
 import { StorageService } from './services/storage';
+import { 
+  auth, 
+  onAuthStateChanged, 
+  FirebaseUser, 
+  subscribeToFirestorePartners, 
+  subscribeToFirestoreEvents 
+} from './services/firebase';
 
 // Modals
 import { EventChargeModal } from './components/EventCharges/EventChargeModal';
@@ -76,6 +88,18 @@ export default function App() {
   const [crew, setCrew] = useState<CrewMember[]>(() => StorageService.getCrewRoster());
   const [locations, setLocations] = useState<LocationVenue[]>(() => StorageService.getLocations());
   const [notifications, setNotifications] = useState<CrewNotification[]>(() => StorageService.getCrewNotifications());
+  const [partners, setPartners] = useState<Partner[]>(() => StorageService.getPartners());
+
+  // Partner Specific Modals
+  const [selectedPartnerForCalendar, setSelectedPartnerForCalendar] = useState<Partner | null>(null);
+  const [isPartnerCalendarOpen, setIsPartnerCalendarOpen] = useState(false);
+  const [selectedPartnerForEvent, setSelectedPartnerForEvent] = useState<Partner | null>(null);
+  const [isAddPartnerEventOpen, setIsAddPartnerEventOpen] = useState(false);
+  const [initialPartnerShootDate, setInitialPartnerShootDate] = useState<string | undefined>(undefined);
+
+  // Firebase Auth State & Modal
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
 
   // Global Action Modals
   const [isNewEnquiryOpen, setIsNewEnquiryOpen] = useState(false);
@@ -113,6 +137,7 @@ export default function App() {
     setQuotations(StorageService.getQuotations());
     setClients(StorageService.getClients());
     setEvents(StorageService.getEvents());
+    setPartners(StorageService.getPartners());
     setPayments(StorageService.getPayments());
     setExpenses(StorageService.getExpenses());
     setCrew(StorageService.getCrewRoster());
@@ -124,12 +149,36 @@ export default function App() {
     StorageService.initialize();
     refreshAllData();
 
+    // Firebase Auth State Listener
+    const unsubscribeAuth = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+      setCurrentUser(user);
+    });
+
+    // Firebase Firestore Realtime Live Sync for Partners
+    const unsubscribePartners = subscribeToFirestorePartners((firestorePartners) => {
+      if (firestorePartners && firestorePartners.length > 0) {
+        localStorage.setItem('tmc_partners_v1', JSON.stringify(firestorePartners));
+        setPartners(firestorePartners);
+      }
+    });
+
+    // Firebase Firestore Realtime Live Sync for Events
+    const unsubscribeEvents = subscribeToFirestoreEvents((firestoreEvents) => {
+      if (firestoreEvents && firestoreEvents.length > 0) {
+        localStorage.setItem('tmc_events_v2', JSON.stringify(firestoreEvents));
+        setEvents(firestoreEvents);
+      }
+    });
+
     const handleStorageUpdate = () => {
       refreshAllData();
     };
 
     window.addEventListener('tmc_storage_updated', handleStorageUpdate);
     return () => {
+      unsubscribeAuth();
+      unsubscribePartners();
+      unsubscribeEvents();
       window.removeEventListener('tmc_storage_updated', handleStorageUpdate);
     };
   }, [refreshAllData]);
@@ -360,6 +409,12 @@ export default function App() {
         onDownloadRateCard={() => setIsRateCardPreviewOpen(true)}
         onSwitchToCrewApp={() => handleSwitchToCrewMode()}
         onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onClearDummyData={() => {
+          StorageService.clearAllDummyData();
+          refreshAllData();
+        }}
+        currentUser={currentUser}
       />
 
       {/* Main ERP Viewport Area (offset by sidebar width on desktop) */}
@@ -397,6 +452,24 @@ export default function App() {
         {/* Content Container */}
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 sm:pt-7 pb-20 md:pb-8">
           
+          {/* PARTNERS VIEW */}
+          {activeModule === 'partners' && (
+            <PartnersView
+              partners={partners}
+              events={events}
+              onOpenPartnerCalendar={(partner) => {
+                setSelectedPartnerForCalendar(partner);
+                setIsPartnerCalendarOpen(true);
+              }}
+              onRefreshData={refreshAllData}
+              onOpenNewEventForPartner={(partner) => {
+                setSelectedPartnerForEvent(partner);
+                setInitialPartnerShootDate(new Date().toISOString().split('T')[0]);
+                setIsAddPartnerEventOpen(true);
+              }}
+            />
+          )}
+
           {/* 1. HOME VIEW */}
           {(activeModule === 'home' || activeModule === 'dashboard') && (
             <HomeView
@@ -681,6 +754,44 @@ export default function App() {
         isOpen={isReminderSettingsOpen}
         onClose={() => setIsReminderSettingsOpen(false)}
         onSaveSettings={refreshAllData}
+      />
+
+      {/* Partner Calendar Modal */}
+      <PartnerCalendarModal
+        isOpen={isPartnerCalendarOpen}
+        onClose={() => setIsPartnerCalendarOpen(false)}
+        partner={selectedPartnerForCalendar}
+        events={events}
+        onRefreshData={refreshAllData}
+        onOpenEventDetail={(event) => {
+          setIsPartnerCalendarOpen(false);
+          setActiveModule('jobs');
+        }}
+        onScheduleShootForPartner={(partner, date) => {
+          setSelectedPartnerForEvent(partner);
+          setInitialPartnerShootDate(date || new Date().toISOString().split('T')[0]);
+          setIsAddPartnerEventOpen(true);
+        }}
+      />
+
+      {/* Add Outsourced Event for Partner Modal */}
+      <AddPartnerEventModal
+        isOpen={isAddPartnerEventOpen}
+        onClose={() => setIsAddPartnerEventOpen(false)}
+        partner={selectedPartnerForEvent}
+        initialDate={initialPartnerShootDate}
+        onSave={(eventData) => {
+          handleSaveEvent(eventData);
+          setIsAddPartnerEventOpen(false);
+          refreshAllData();
+        }}
+      />
+
+      {/* Firebase Auth & Credentials Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
       />
     </div>
   );

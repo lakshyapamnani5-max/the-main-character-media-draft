@@ -12,6 +12,7 @@ import {
 
 export type NavModule = 
   | 'home'
+  | 'partners'
   | 'calendar'
   | 'jobs'
   | 'money'

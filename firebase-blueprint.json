@@ -1,0 +1,55 @@
+{
+  "entities": {
+    "Partner": {
+      "title": "Partner",
+      "description": "Event companies or agencies that outsource shoots to The Main Character Media",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "companyName": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "role": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "city": { "type": "string" },
+        "commissionOrTerms": { "type": "string" },
+        "instagram": { "type": "string" },
+        "website": { "type": "string" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "companyName", "phone"]
+    },
+    "EventShoot": {
+      "title": "EventShoot",
+      "description": "Weddings and production jobs",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "partnerName": { "type": "string" },
+        "eventName": { "type": "string" },
+        "clientName": { "type": "string" },
+        "eventType": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "venue": { "type": "string" },
+        "packageTotal": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "eventName"]
+    }
+  },
+  "firestore": {
+    "/partners/{partnerId}": {
+      "schema": "Partner",
+      "description": "Registered partner event companies and agencies"
+    },
+    "/events/{eventId}": {
+      "schema": "EventShoot",
+      "description": "Production jobs, weddings, and outsourced partner shoots"
+    }
+  }
+}

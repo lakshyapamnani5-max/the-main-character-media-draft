@@ -38,6 +38,9 @@ interface SidebarProps {
   onDownloadRateCard: () => void;
   onSwitchToCrewApp?: () => void;
   onOpenReminderSettings?: () => void;
+  onOpenAuthModal?: () => void;
+  onClearDummyData?: () => void;
+  currentUser?: any;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -56,7 +59,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenNewEvent,
   onDownloadRateCard,
   onSwitchToCrewApp,
-  onOpenReminderSettings
+  onOpenReminderSettings,
+  onOpenAuthModal,
+  onClearDummyData,
+  currentUser
 }) => {
   const pendingEnquiriesCount = enquiries.filter(
     e => e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost'
@@ -65,6 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const upcomingShootsCount = events.filter(
     e => e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress'
   ).length;
+
+  const partnerShootsCount = events.filter(e => e.partnerId).length;
 
   const activeQuotesCount = quotations.filter(
     q => q.status === 'Sent' || q.status === 'Draft' || q.status === 'Viewed'
@@ -81,6 +89,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: LayoutDashboard,
           badge: metrics.todayShootsCount > 0 ? `${metrics.todayShootsCount} today` : null,
           badgeColor: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/40',
+        },
+        {
+          id: 'partners' as NavModule,
+          label: 'Partners',
+          subtext: 'Outsourced event companies',
+          icon: Building2,
+          badge: partnerShootsCount > 0 ? `${partnerShootsCount} shoots` : null,
+          badgeColor: 'bg-[#C58B39]/20 text-[#D89B48] border-[#C58B39]/30',
         },
         {
           id: 'jobs' as NavModule,
@@ -319,29 +335,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-[9px] font-mono text-neutral-500">24h / 2h</span>
               </button>
             )}
+
+            {onClearDummyData && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Wipe all mock/dummy records to start completely clean? Real data you add will be saved.')) {
+                    onClearDummyData();
+                    if (isOpenMobile) onCloseMobile();
+                  }
+                }}
+                className="w-full flex items-center justify-between p-2 bg-[#141414] hover:bg-rose-950/30 border border-[#222222] hover:border-rose-800/40 rounded text-left transition-colors text-neutral-400 hover:text-rose-300 text-[11px]"
+                title="Wipe demo dummy data"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-rose-400">🗑️</span>
+                  <span>Clear All Dummy Data</span>
+                </div>
+                <span className="text-[9px] font-mono text-neutral-500">Clean DB</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* User & System Footer */}
-        <div className="p-3.5 border-t border-[#222222] bg-[#101010]">
+        <div className="p-3.5 border-t border-[#222222] bg-[#101010] space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div 
+              onClick={() => {
+                if (onOpenAuthModal) onOpenAuthModal();
+                if (isOpenMobile) onCloseMobile();
+              }}
+              className="flex items-center gap-2.5 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+              title="Click to manage Firebase Email Authentication and credentials"
+            >
               <div className="w-7 h-7 rounded-full bg-[#242220] border border-[#C58B39]/40 flex items-center justify-center font-serif text-xs font-bold text-[#C58B39] shrink-0">
-                DS
+                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'DS'}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-neutral-200 truncate">
-                  Devansh Saxena
+                  {currentUser?.displayName || currentUser?.email || 'Devansh Saxena'}
                 </div>
-                <div className="text-[10px] text-neutral-500 truncate">
-                  Creative Director · Admin
+                <div className="text-[10px] text-emerald-400 flex items-center gap-1 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>{currentUser ? 'Firebase Auth Active' : 'Firebase Sync Ready'}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5" title="System Operational & Synced">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            </div>
+            <button
+              onClick={() => {
+                if (onOpenAuthModal) onOpenAuthModal();
+                if (isOpenMobile) onCloseMobile();
+              }}
+              className="p-1.5 text-neutral-400 hover:text-[#C58B39] hover:bg-[#1A1A1A] rounded transition-colors text-xs font-mono"
+              title="Firebase Settings & Email Auth"
+            >
+              🔑
+            </button>
           </div>
         </div>
       </aside>

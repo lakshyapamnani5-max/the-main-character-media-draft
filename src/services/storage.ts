@@ -23,10 +23,17 @@ import {
   ReminderSettings,
   Expense,
   PlannerVendor,
+  Partner,
   Invoice,
   InvoiceItem,
   InvoiceStatus
 } from '../types';
+import {
+  savePartnerToFirestore,
+  deletePartnerFromFirestore,
+  saveEventToFirestore,
+  deleteEventFromFirestore
+} from './firebase';
 
 export function normalizeIndianPhoneNumber(input: string): string {
   if (!input) return '';
@@ -76,6 +83,7 @@ const STORAGE_KEYS = {
   APP_VIEW_MODE: 'tmc_app_view_mode_v1',
   EXPENSES: 'tmc_expenses_v2',
   PLANNERS: 'tmc_planners_v1',
+  PARTNERS: 'tmc_partners_v1',
   INVOICES: 'tmc_invoices_v1',
 };
 
@@ -1268,17 +1276,33 @@ export class StorageService {
   static initialize(): void {
     if (typeof window === 'undefined') return;
 
+    // Remove all dummy data on initial load to connect with clean Firebase storage as requested
+    const dummyCleared = localStorage.getItem('tmc_dummy_data_cleared_v3');
+    if (!dummyCleared) {
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+      localStorage.setItem('tmc_dummy_data_cleared_v3', 'true');
+    }
+
     if (!localStorage.getItem(STORAGE_KEYS.EVENT_CHARGES)) {
       localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify(DEFAULT_EVENT_CHARGES));
     }
     if (!localStorage.getItem(STORAGE_KEYS.CLIENTS)) {
-      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(DEFAULT_CLIENTS));
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.EVENTS)) {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(DEFAULT_EVENTS));
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.PAYMENTS)) {
-      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(DEFAULT_PAYMENTS));
+      localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.CREW_ROSTER)) {
       localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify(DEFAULT_CREW_ROSTER));
@@ -1287,19 +1311,22 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(DEFAULT_LOCATIONS));
     }
     if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(DEFAULT_NOTIFICATIONS));
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.REMINDER_SETTINGS)) {
       localStorage.setItem(STORAGE_KEYS.REMINDER_SETTINGS, JSON.stringify(DEFAULT_REMINDER_SETTINGS));
     }
     if (!localStorage.getItem(STORAGE_KEYS.EXPENSES)) {
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(DEFAULT_EXPENSES));
+      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.PLANNERS)) {
-      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(DEFAULT_PLANNERS));
+      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.PARTNERS)) {
+      localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.INVOICES)) {
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(DEFAULT_INVOICES));
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_CREW_ID)) {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_CREW_ID, 'cr-aman');
@@ -1474,6 +1501,7 @@ export class StorageService {
         };
         events[idx] = updated;
         localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+        saveEventToFirestore(updated).catch(() => {});
         this.notifyListeners();
         return updated;
       }
@@ -1580,8 +1608,21 @@ export class StorageService {
 
     events.unshift(newEvent);
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+    saveEventToFirestore(newEvent).catch(() => {});
     this.notifyListeners();
     return newEvent;
+  }
+
+  static deleteEvent(eventId: string): boolean {
+    const events = this.getEvents();
+    const filtered = events.filter(e => e.id !== eventId);
+    if (filtered.length !== events.length) {
+      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(filtered));
+      deleteEventFromFirestore(eventId).catch(() => {});
+      this.notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   // Sub-Events Management
@@ -2513,6 +2554,88 @@ export class StorageService {
       return true;
     }
     return false;
+  }
+
+  // --- PARTNERS & OUTSOURCED EVENT COMPANIES ---
+  static getPartners(): Partner[] {
+    this.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PARTNERS);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static savePartner(partnerData: Partial<Partner> & { companyName: string; phone: string }): Partner {
+    const partners = this.getPartners();
+    const now = new Date().toISOString();
+
+    if (partnerData.id) {
+      const idx = partners.findIndex(p => p.id === partnerData.id);
+      if (idx !== -1) {
+        partners[idx] = {
+          ...partners[idx],
+          ...partnerData,
+          phone: normalizeIndianPhoneNumber(partnerData.phone),
+          updatedAt: now
+        } as Partner;
+        localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+        savePartnerToFirestore(partners[idx]).catch(() => {});
+        this.notifyListeners();
+        return partners[idx];
+      }
+    }
+
+    const newPartner: Partner = {
+      id: `ptn-${Date.now()}`,
+      name: partnerData.name?.trim() || partnerData.contactPerson?.trim() || partnerData.companyName.trim(),
+      companyName: partnerData.companyName.trim(),
+      contactPerson: partnerData.contactPerson?.trim() || '',
+      role: partnerData.role || 'Event Company',
+      phone: normalizeIndianPhoneNumber(partnerData.phone),
+      email: partnerData.email?.trim() || '',
+      city: partnerData.city || 'Mumbai',
+      commissionOrTerms: partnerData.commissionOrTerms || 'Standard Outsourced Vendor',
+      instagram: partnerData.instagram || '',
+      website: partnerData.website || '',
+      rating: partnerData.rating || 5,
+      notes: partnerData.notes || '',
+      createdAt: now,
+      updatedAt: now
+    };
+
+    partners.unshift(newPartner);
+    localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+    savePartnerToFirestore(newPartner).catch(() => {});
+    this.notifyListeners();
+    return newPartner;
+  }
+
+  static deletePartner(id: string): boolean {
+    const partners = this.getPartners();
+    const filtered = partners.filter(p => p.id !== id);
+    if (filtered.length !== partners.length) {
+      localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(filtered));
+      deletePartnerFromFirestore(id).catch(() => {});
+      this.notifyListeners();
+      return true;
+    }
+    return false;
+  }
+
+  // Clear all mock/dummy records to start clean connected with Firebase
+  static clearAllDummyData(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify([]));
+    this.notifyListeners();
   }
 
   // --- INVOICE MANAGEMENT ---

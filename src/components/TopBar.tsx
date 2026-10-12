@@ -88,6 +88,8 @@ export const TopBar: React.FC<TopBarProps> = ({
       case 'jobs':
       case 'events':
         return { section: 'Operations & Production', page: 'Weddings & Production Jobs' };
+      case 'partners':
+        return { section: 'B2B & Agencies', page: 'Partners & Event Planners' };
       case 'calendar':
         return { section: 'Operations & Scheduling', page: 'Production Calendar' };
       case 'money':

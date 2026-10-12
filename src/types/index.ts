@@ -434,6 +434,8 @@ export interface ReminderSettings {
 export interface EventShoot {
   id: string;
   category?: 'Wedding' | 'Event Planner' | 'Other Shoot';
+  partnerId?: string;
+  partnerName?: string;
   clientId: string;
   clientName: string;
   clientContact?: {
@@ -495,6 +497,24 @@ export interface Expense {
   paymentMode: 'UPI' | 'Bank Transfer' | 'Cash' | 'Credit Card';
   notes?: string;
   createdAt: string;
+}
+
+export interface Partner {
+  id: string;
+  name: string; // Contact person or lead name
+  companyName: string; // Event company / Agency name
+  contactPerson?: string;
+  role?: string; // 'Event Company' | 'Wedding Planner' | 'Production House' | 'Agency'
+  phone: string;
+  email?: string;
+  city: string;
+  commissionOrTerms?: string; // e.g. "20% commission on reels", "Outsourced video vendor"
+  instagram?: string;
+  website?: string;
+  rating?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PlannerVendor {

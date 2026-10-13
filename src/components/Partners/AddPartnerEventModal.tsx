@@ -41,7 +41,7 @@ export const AddPartnerEventModal: React.FC<AddPartnerEventModalProps> = ({
   const [city, setCity] = useState(partner?.city || 'Mumbai');
   const [packageTotal, setPackageTotal] = useState<number | ''>(50000);
   const [advancePaid, setAdvancePaid] = useState<number | ''>(25000);
-  const [leadCreator, setLeadCreator] = useState('Devansh Saxena');
+  const [leadCreator, setLeadCreator] = useState('');
   const [clientRequirements, setClientRequirements] = useState('');
   const [notes, setNotes] = useState('');
 

@@ -9,7 +9,8 @@ import {
   Save, 
   Calculator, 
   Layers,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { 
   EventCharge, 
@@ -30,6 +31,7 @@ interface QuoteBuilderModalProps {
   preloadedCharge?: EventCharge | null;
   preloadedEnquiry?: Enquiry | null;
   preloadedClient?: Client | null;
+  onConvertToInvoice?: (quote: Quotation) => void;
 }
 
 export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
@@ -39,7 +41,8 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   initialQuote,
   preloadedCharge,
   preloadedEnquiry,
-  preloadedClient
+  preloadedClient,
+  onConvertToInvoice
 }) => {
   const [quoteNumber, setQuoteNumber] = useState('');
   const [clientId, setClientId] = useState<string>('');
@@ -62,13 +65,8 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   const [advanceAmount, setAdvanceAmount] = useState<number | ''>('');
   const [customAdvance, setCustomAdvance] = useState(false);
 
-  const [notes, setNotes] = useState('Capture formatted exclusively for 9:16 social storytelling with high-bitrate audio and wireless lavalier microphones.');
-  const [terms, setTerms] = useState(
-    '1. 50% advance booking deposit required to lock team & equipment on the roster.\n' +
-    '2. Remaining 50% balance payable on or before event day.\n' +
-    '3. Raw uncut footage transferred on-site via AirDrop / portable SSD at the end of each shoot.\n' +
-    '4. Edited 9:16 high-definition reels delivered within 5-7 working days.'
-  );
+  const [notes, setNotes] = useState(() => StorageService.getCompanySettings().defaultCommercialNotes);
+  const [terms, setTerms] = useState(() => StorageService.getCompanySettings().defaultTerms);
 
   const [customItemName, setCustomItemName] = useState('');
   const [customItemRate, setCustomItemRate] = useState<number | ''>('');
@@ -351,6 +349,20 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   const handleDownloadPDF = () => {
     const quote = constructQuotationObject(initialQuote?.status || 'Draft');
     PDFGeneratorService.downloadQuotationPDF(quote);
+  };
+
+  const handleMakeInvoice = () => {
+    const quote = constructQuotationObject('Draft');
+    const saved = onSave(quote);
+    const targetQuote = saved || quote;
+    const inv = StorageService.createInvoiceFromQuote(targetQuote);
+    if (inv) {
+      PDFGeneratorService.downloadInvoicePDF(inv);
+      if (onConvertToInvoice) {
+        onConvertToInvoice(targetQuote);
+      }
+    }
+    onClose();
   };
 
   return (
@@ -833,6 +845,16 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
             >
               <Download className="w-3.5 h-3.5 text-[#C58B39]" />
               <span>Download PDF</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMakeInvoice}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded transition-colors shadow-xs"
+              title="Save quote and generate Tax Invoice PDF"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Make Invoice</span>
             </button>
           </div>
 

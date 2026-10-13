@@ -69,6 +69,7 @@ interface MoreViewProps {
   onDownloadRateCard: () => void;
   onOpenReminderSettings: () => void;
   onSwitchToCrewApp: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const MoreView: React.FC<MoreViewProps> = ({
@@ -95,7 +96,8 @@ export const MoreView: React.FC<MoreViewProps> = ({
   onSaveLocation,
   onDownloadRateCard,
   onOpenReminderSettings,
-  onSwitchToCrewApp
+  onSwitchToCrewApp,
+  onOpenSettings
 }) => {
   const [currentTab, setCurrentTab] = useState<MoreSubTab>(initialSubTab);
 
@@ -387,8 +389,21 @@ export const MoreView: React.FC<MoreViewProps> = ({
           Production Utilities & Settings
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           
+          <button
+            onClick={onOpenSettings}
+            className="p-3.5 rounded-xl border border-[#E8E3D9] bg-[#FAF8F5] hover:bg-white text-left transition-all space-y-1"
+          >
+            <div className="font-bold text-neutral-900 flex items-center gap-1.5">
+              <Building2 className="w-4 h-4 text-[#C58B39]" />
+              <span>Company Branding & Settings</span>
+            </div>
+            <p className="text-neutral-500 text-[11px]">
+              Configure master logo, contacts, bank details, UPI & signature.
+            </p>
+          </button>
+
           <button
             onClick={onOpenReminderSettings}
             className="p-3.5 rounded-xl border border-[#E8E3D9] bg-[#FAF8F5] hover:bg-white text-left transition-all space-y-1"

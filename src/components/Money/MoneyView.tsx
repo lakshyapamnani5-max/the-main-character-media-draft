@@ -18,7 +18,9 @@ import {
   CreditCard,
   X,
   FileCheck2,
-  FileText
+  FileText,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { 
   PaymentRecord, 
@@ -65,6 +67,12 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   // Modals
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedEventForPayment, setSelectedEventForPayment] = useState<EventShoot | null>(null);
+  const [expandedCrewId, setExpandedCrewId] = useState<string | null>(null);
+
+  const handleUpdateCrewPayoutStatus = (eventId: string, crewId: string, status: 'Paid' | 'Unpaid') => {
+    StorageService.updateCrewAssignmentPaymentStatus(eventId, crewId, status);
+    onRefreshData();
+  };
   
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<{
@@ -115,24 +123,37 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   const crewPayoutSummary = crewRoster.map(crew => {
     let assignedShootCount = 0;
     let totalEarned = 0;
+    let settled = 0;
+    let unsettled = 0;
+    const shootsDetails: { event: EventShoot; amount: number; status: 'Paid' | 'Unpaid'; role: string }[] = [];
 
     events.forEach(ev => {
       const assignment = (ev.crewAssignments || []).find(a => a.crewId === crew.id);
       if (assignment) {
         assignedShootCount++;
-        totalEarned += (assignment.payout || crew.defaultPayout || 0);
+        const amt = assignment.payout || crew.defaultPayout || 0;
+        const status = assignment.paymentStatus || 'Unpaid';
+        totalEarned += amt;
+        if (status === 'Paid') settled += amt; else unsettled += amt;
+        shootsDetails.push({ event: ev, amount: amt, status, role: assignment.role });
       } else if (ev.crewMembers && ev.crewMembers.includes(crew.name)) {
         assignedShootCount++;
-        totalEarned += (crew.defaultPayout || 0);
+        const amt = crew.defaultPayout || 0;
+        totalEarned += amt;
+        unsettled += amt;
+        shootsDetails.push({ event: ev, amount: amt, status: 'Unpaid', role: crew.role });
       }
     });
 
     return {
       crew,
       shootsCount: assignedShootCount,
-      totalEarned
+      totalEarned,
+      settled,
+      unsettled,
+      shootsDetails
     };
-  }).filter(c => c.shootsCount > 0);
+  });
 
   // Clients with pending balance
   const outstandingClients = events.filter(e => 
@@ -508,40 +529,112 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-serif text-lg font-bold text-neutral-900">Crew Compensation Roster</h2>
-                <p className="text-xs text-neutral-500">Agreed day-rates and shoot deployments per creator</p>
+                <p className="text-xs text-neutral-500">Agreed day-rates and shoot deployments per creator with Paid / Unpaid settlement controls</p>
               </div>
               <span className="font-mono font-bold text-neutral-900 text-sm">
                 Total Committed: ₹{totalCrewPayouts.toLocaleString('en-IN')}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {crewPayoutSummary.map(({ crew, shootsCount, totalEarned }) => (
-                <div key={crew.id} className="p-4 rounded-xl border border-[#E8E3D9] bg-[#FAF8F5] space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-serif font-bold text-base text-neutral-900">{crew.name}</h3>
-                      <div className="text-xs text-neutral-500">{crew.role} · {crew.specialization}</div>
+            {crewPayoutSummary.length === 0 ? (
+              <div className="py-8 text-center text-xs text-neutral-400 italic">
+                No crew members currently on roster.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {crewPayoutSummary.map(({ crew, shootsCount, totalEarned, settled, unsettled, shootsDetails }) => {
+                  const isExpanded = expandedCrewId === crew.id;
+
+                  return (
+                    <div key={crew.id} className={`rounded-xl border transition-all flex flex-col justify-between ${
+                      isExpanded ? 'border-[#C58B39] bg-white ring-2 ring-[#C58B39]/20' : 'border-[#E8E3D9] bg-[#FAF8F5]'
+                    }`}>
+                      <div className="p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h3 className="font-serif font-bold text-base text-neutral-900">{crew.name}</h3>
+                            <div className="text-xs text-neutral-500">{crew.role}</div>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#E8E3D9] text-neutral-700">
+                            {shootsCount} Shoot{shootsCount > 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                          <div className="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
+                            <span className="text-[9px] uppercase font-mono text-emerald-800 font-bold block">Settled</span>
+                            <span className="font-mono font-bold text-emerald-800 text-xs block">
+                              ₹{settled.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                          <div className="p-2 bg-amber-50 rounded-lg border border-amber-200">
+                            <span className="text-[9px] uppercase font-mono text-amber-800 font-bold block">Unsettled</span>
+                            <span className="font-mono font-bold text-amber-800 text-xs block">
+                              ₹{unsettled.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#E8E3D9] flex items-center justify-between text-xs">
+                          <span className="text-neutral-500">Total Compensation:</span>
+                          <span className="font-mono font-bold text-neutral-900 text-sm">
+                            ₹{totalEarned.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expandable shoot payout details */}
+                      <div className="border-t border-[#E8E3D9] bg-white rounded-b-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCrewId(isExpanded ? null : crew.id)}
+                          className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-[#FAF8F5]"
+                        >
+                          <span>{isExpanded ? 'Hide Shoots' : `View Shoots (${shootsCount})`}</span>
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-3 border-t border-[#E8E3D9] space-y-2 bg-[#FAF8F5]/50">
+                            {shootsDetails.length === 0 ? (
+                              <div className="text-center py-2 text-xs text-neutral-400 italic">No shoots assigned.</div>
+                            ) : (
+                              shootsDetails.map(({ event, amount, status, role }) => (
+                                <div key={event.id} className="p-2 bg-white border border-[#E8E3D9] rounded-lg flex items-center justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-xs text-neutral-900 truncate">{event.eventName}</div>
+                                    <div className="text-[10px] text-neutral-500 font-mono">
+                                      {event.startDate || (event as any).shootDate} · Role: {role}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <span className="font-mono font-bold text-xs text-neutral-900">
+                                      ₹{amount.toLocaleString('en-IN')}
+                                    </span>
+                                    <select
+                                      value={status}
+                                      onChange={(e) => handleUpdateCrewPayoutStatus(event.id, crew.id, e.target.value as 'Paid' | 'Unpaid')}
+                                      className={`text-[10px] font-semibold px-2 py-1 rounded border cursor-pointer focus:outline-none ${
+                                        status === 'Paid'
+                                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
+                                          : 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
+                                      }`}
+                                    >
+                                      <option value="Unpaid">Unpaid</option>
+                                      <option value="Paid">Paid</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#E8E3D9] text-neutral-700">
-                      {shootsCount} Shoot{shootsCount > 1 ? 's' : ''}
-                    </span>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#E8E3D9] flex items-center justify-between text-xs">
-                    <span className="text-neutral-500">Total Compensation:</span>
-                    <span className="font-mono font-bold text-neutral-900 text-sm">
-                      ₹{totalEarned.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-neutral-500 font-mono flex items-center justify-between">
-                    <span>Default Rate: ₹{crew.defaultPayout}/day</span>
-                    <span>{crew.phone}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

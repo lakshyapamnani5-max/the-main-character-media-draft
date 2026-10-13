@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -17,6 +17,7 @@ import {
   Sunset
 } from 'lucide-react';
 import { EventShoot, CrewMember } from '../../types';
+import { CalendarExportModal } from '../Common/CalendarExportModal';
 
 interface CrewHomeTabProps {
   activeCrew: CrewMember;
@@ -33,6 +34,8 @@ export const CrewHomeTab: React.FC<CrewHomeTabProps> = ({
   onSelectShoot,
   onNavigateToShoots
 }) => {
+  const [exportShootTarget, setExportShootTarget] = useState<EventShoot | null>(null);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return { text: 'Good Morning', icon: Sun };
@@ -137,13 +140,24 @@ export const CrewHomeTab: React.FC<CrewHomeTabProps> = ({
                 Role: <strong className="text-neutral-900">{todayRole}</strong>
               </div>
 
-              <button
-                onClick={() => onSelectShoot(todayShoot)}
-                className="py-3 px-5 bg-[#C58B39] hover:bg-[#B37B2E] active:scale-[0.98] text-white rounded-xl text-xs font-bold tracking-wide transition-all shadow-md flex items-center gap-2"
-              >
-                <span>VIEW SHOOT</span>
-                <ArrowRight className="w-4 h-4 stroke-[2.5]" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setExportShootTarget(todayShoot)}
+                  className="py-2.5 px-3 bg-[#FAF8F5] hover:bg-[#F3EFE6] border border-[#E8E3D9] active:scale-[0.98] text-neutral-800 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-xs flex items-center gap-1.5"
+                  title="Add to Apple Calendar (.ics) or Google Calendar (Android)"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-[#C58B39]" />
+                  <span>Sync Calendar</span>
+                </button>
+
+                <button
+                  onClick={() => onSelectShoot(todayShoot)}
+                  className="py-2.5 px-4 bg-[#C58B39] hover:bg-[#B37B2E] active:scale-[0.98] text-white rounded-xl text-xs font-bold tracking-wide transition-all shadow-md flex items-center gap-2"
+                >
+                  <span>VIEW SHOOT</span>
+                  <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -236,6 +250,15 @@ export const CrewHomeTab: React.FC<CrewHomeTabProps> = ({
           Maintain 4K 60fps ProRes formats for all bridal entries and slow-motion ceremonial highlights. Ensure backup memory cards are cleared.
         </p>
       </div>
+
+      {/* Calendar Export Modal for Today's Shoot */}
+      <CalendarExportModal
+        isOpen={!!exportShootTarget}
+        onClose={() => setExportShootTarget(null)}
+        shoot={exportShootTarget}
+        crewMember={activeCrew}
+        allShoots={todayShoot ? [todayShoot] : []}
+      />
     </div>
   );
 };

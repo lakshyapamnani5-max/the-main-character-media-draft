@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { EventCharge, Quotation, Invoice } from '../types';
+import { StorageService } from './storage';
 
 export class PDFGeneratorService {
   /**
@@ -12,6 +13,7 @@ export class PDFGeneratorService {
       format: 'a4'
     });
 
+    const company = StorageService.getCompanySettings();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 18;
@@ -20,145 +22,158 @@ export class PDFGeneratorService {
 
     // Header Background Accent Bar
     doc.setFillColor(18, 18, 18); // Deep black
-    doc.rect(0, 0, pageWidth, 36, 'F');
+    doc.rect(0, 0, pageWidth, 38, 'F');
 
     // Subtle Gold stripe
     doc.setFillColor(217, 119, 6); // Gold / warm accent
-    doc.rect(0, 36, pageWidth, 1.5, 'F');
+    doc.rect(0, 38, pageWidth, 1.5, 'F');
+
+    // Brand Logo if available
+    let hasLogo = false;
+    if (company.logoUrl && company.logoUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(company.logoUrl, 'PNG', margin, 9, 20, 20);
+        hasLogo = true;
+      } catch {
+        hasLogo = false;
+      }
+    }
+
+    const headerTextX = hasLogo ? margin + 24 : margin;
 
     // Brand Name
     doc.setTextColor(255, 255, 255);
     doc.setFont('times', 'bold');
     doc.setFontSize(18);
-    doc.text('THE MAIN CHARACTER MEDIA', margin, 18);
+    doc.text(company.companyName.toUpperCase(), headerTextX, 17);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setTextColor(210, 205, 195);
-    doc.text('MASTER RATE CARD & PRICING CATALOGUE · SEASON 2026-2027', margin, 25);
-    doc.text('LUXURY WEDDING & EVENT CONTENT CREATION', margin, 30);
+    doc.text(`MASTER RATE CARD & PRICING CATALOGUE · SEASON ${new Date().getFullYear()}-${new Date().getFullYear() + 1}`, headerTextX, 23);
+    doc.text(company.tagline.toUpperCase(), headerTextX, 28);
 
-    // Contact info in top right
-    doc.setFontSize(7.5);
-    doc.setTextColor(220, 220, 220);
-    doc.text('hello@themaincharactermedia.com', pageWidth - margin, 18, { align: 'right' });
-    doc.text('+91 98201 44552 · Mumbai | New Delhi', pageWidth - margin, 24, { align: 'right' });
-    doc.text('Instagram: @themaincharactermedia', pageWidth - margin, 30, { align: 'right' });
+    const contactStr = [company.phone, company.email, company.website].filter(Boolean).join('  ·  ');
+    doc.setFontSize(7.2);
+    doc.setTextColor(190, 185, 175);
+    doc.text(contactStr, headerTextX, 33);
 
     yPos = 46;
 
-    // Introduction note
-    doc.setFont('times', 'italic');
-    doc.setFontSize(9.5);
-    doc.setTextColor(60, 60, 60);
-    const introText = 'Exclusively capturing unfiltered raw emotion, cinematic beauty, and viral-ready 9:16 reels for luxury celebrations. Shot on iPhone 16 Pro Max ProRes with studio stabilization.';
-    const splitIntro = doc.splitTextToSize(introText, contentWidth);
-    doc.text(splitIntro, margin, yPos);
-    yPos += splitIntro.length * 5 + 4;
+    // Category / Intro Banner
+    doc.setFillColor(252, 250, 246);
+    doc.setDrawColor(229, 223, 211);
+    doc.roundedRect(margin, yPos, contentWidth, 14, 1.5, 1.5, 'FD');
 
-    // Group charges by Category
-    const activeCharges = charges.filter(c => c.status === 'Active');
-    const categories = Array.from(new Set(activeCharges.map(c => c.category)));
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 100, 40);
+    doc.text('OFFICIAL PRODUCTION SERVICES & EVENT CHARGES', margin + 4, yPos + 5.5);
 
-    categories.forEach(category => {
-      // Category Section Header
-      if (yPos > pageHeight - 45) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
+    doc.setTextColor(100, 100, 100);
+    doc.text('All rates are baseline commercial offerings. Specific multi-day wedding packages can be tailored upon request.', margin + 4, yPos + 10);
+
+    yPos += 18;
+
+    // Table Header
+    doc.setFillColor(18, 18, 18);
+    doc.rect(margin, yPos, contentWidth, 7, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text('SERVICE / PACKAGE', margin + 4, yPos + 4.8);
+    doc.text('CATEGORY', margin + 65, yPos + 4.8);
+    doc.text('DURATION / CREW', margin + 115, yPos + 4.8);
+    doc.text('INVESTMENT (INR)', pageWidth - margin - 4, yPos + 4.8, { align: 'right' });
+
+    yPos += 7;
+
+    // Charges Table Rows
+    charges.forEach((chg, index) => {
+      const hasIncludes = chg.includedServices && chg.includedServices.length > 0;
+      const rowHeight = hasIncludes ? 18 : 13;
+
+      if (yPos + rowHeight > pageHeight - 55) {
         doc.addPage();
         yPos = margin;
       }
 
-      doc.setFillColor(248, 246, 240);
-      doc.rect(margin, yPos, contentWidth, 7, 'F');
-      doc.setDrawColor(229, 223, 211);
-      doc.rect(margin, yPos, contentWidth, 7, 'S');
+      if (index % 2 === 1) {
+        doc.setFillColor(250, 248, 245);
+        doc.rect(margin, yPos, contentWidth, rowHeight, 'F');
+      }
 
+      doc.setDrawColor(235, 230, 222);
+      doc.line(margin, yPos + rowHeight, pageWidth - margin, yPos + rowHeight);
+
+      // Service Title
+      doc.setFont('times', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(20, 20, 20);
+      doc.text(chg.name, margin + 4, yPos + 5);
+
+      // Short Description
+      if (chg.description) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(100, 100, 100);
+        doc.text(chg.description.slice(0, 65), margin + 4, yPos + 9);
+      }
+
+      // Included deliverables
+      if (hasIncludes) {
+        doc.setFontSize(6);
+        doc.setTextColor(150, 110, 50);
+        doc.text(`Includes: ${chg.includedServices.slice(0, 4).join(', ')}`, margin + 4, yPos + 14);
+      }
+
+      // Category
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(60, 60, 60);
+      doc.text(chg.category || 'General Shoot', margin + 65, yPos + 5.5);
+
+      // Duration & Crew
+      doc.setFontSize(7);
+      doc.setTextColor(90, 90, 90);
+      const meta = [chg.duration, chg.crewRequirement].filter(Boolean).join(' · ');
+      doc.text(meta || 'As per requirement', margin + 115, yPos + 5.5);
+
+      // Price
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.setTextColor(18, 18, 18);
-      doc.text(category.toUpperCase(), margin + 4, yPos + 4.8);
-      yPos += 10;
+      doc.setTextColor(197, 139, 57);
+      doc.text(`₹${chg.price.toLocaleString('en-IN')}`, pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
 
-      const categoryItems = activeCharges.filter(c => c.category === category);
-
-      categoryItems.forEach(item => {
-        const itemBoxHeight = 32;
-        if (yPos + itemBoxHeight > pageHeight - 25) {
-          doc.addPage();
-          yPos = margin;
-        }
-
-        // Card Box
-        doc.setFillColor(255, 255, 255);
-        doc.setDrawColor(232, 227, 217);
-        doc.roundedRect(margin, yPos, contentWidth, itemBoxHeight, 1.5, 1.5, 'FD');
-
-        // Item Name
-        doc.setFont('times', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(20, 20, 20);
-        doc.text(item.name.toUpperCase(), margin + 5, yPos + 7);
-
-        // Price
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(197, 139, 57);
-        doc.text(`INR ${item.price.toLocaleString('en-IN')}`, pageWidth - margin - 5, yPos + 7, { align: 'right' });
-
-        // Meta: Duration & Crew
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`${item.duration} · ${item.crewRequirement}`, margin + 5, yPos + 12);
-
-        // Description
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
-        doc.setTextColor(70, 70, 70);
-        const desc = doc.splitTextToSize(item.description, contentWidth - 10);
-        doc.text(desc.slice(0, 1), margin + 5, yPos + 17);
-
-        // Deliverables / Includes
-        if (item.includedServices && item.includedServices.length > 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(6.5);
-          doc.setTextColor(140, 100, 40);
-          doc.text('INCLUDES: ', margin + 5, yPos + 23);
-
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(60, 60, 60);
-          const servicesList = item.includedServices.join('  ·  ');
-          const splitServices = doc.splitTextToSize(servicesList, contentWidth - 25);
-          doc.text(splitServices.slice(0, 2), margin + 20, yPos + 23);
-        }
-
-        yPos += itemBoxHeight + 4;
-      });
-
-      yPos += 3;
+      yPos += rowHeight;
     });
 
-    // Check space for Terms & Banking
-    if (yPos > pageHeight - 55) {
+    yPos += 8;
+
+    // Booking Terms Box
+    if (yPos > pageHeight - 65) {
       doc.addPage();
       yPos = margin;
     }
 
-    // Terms Box
-    doc.setFillColor(250, 248, 245);
+    doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
-    doc.rect(margin, yPos, contentWidth, 38, 'FD');
+    doc.roundedRect(margin, yPos, contentWidth, 42, 1.5, 1.5, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(18, 18, 18);
     doc.text('TERMS & BOOKING POLICY', margin + 4, yPos + 6);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(80, 80, 80);
     const termsList = [
-      '1. Date Reservation: A 50% non-refundable advance is required to lock dates on our crew calendar.',
-      '2. Payment Terms: Balance 50% is due on or before the event shoot date prior to final footage handover.',
+      `1. Date Reservation: A ${company.defaultAdvancePercentage}% non-refundable advance is required to lock dates on our crew calendar.`,
+      `2. Payment Terms: Balance ${100 - company.defaultAdvancePercentage}% is due on or before the event shoot date prior to final footage handover.`,
       '3. Raw Delivery: All 4K ProRes raw footage transferred on-site via AirDrop or fast portable SSD immediately.',
       '4. Reels Delivery: Curated, color-graded 9:16 vertical edits delivered within 5 to 7 working days.',
       '5. Outstation Travel & Stay: Flight/rail tickets and hotel accommodations to be arranged by the client.'
@@ -167,20 +182,21 @@ export class PDFGeneratorService {
     let tY = yPos + 11;
     termsList.forEach(t => {
       doc.text(t, margin + 4, tY);
-      tY += 4.5;
+      tY += 4.2;
     });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(197, 139, 57);
-    doc.text('BANK DETAILS: The Main Character Media · HDFC Bank Current A/C #50200088912344 · IFSC: HDFC0000045 · UPI: tmcmedia@hdfcbank', margin + 4, yPos + 34);
+    const bankSummary = `BANK DETAILS: ${company.bankName} · A/C: ${company.accountName} · No: ${company.accountNumber} · IFSC: ${company.ifscCode} · UPI: ${company.upiId}`;
+    doc.text(doc.splitTextToSize(bankSummary, contentWidth - 8), margin + 4, yPos + 34);
 
     // Footer
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(140, 140, 140);
-    doc.text('The Main Character Media © 2026. Confidential & Proprietary Pricing Document.', pageWidth / 2, pageHeight - 8, { align: 'center' });
+    doc.text(`${company.companyName} © ${new Date().getFullYear()}. Confidential & Proprietary Pricing Document.`, pageWidth / 2, pageHeight - 8, { align: 'center' });
 
-    doc.save('TMC_Master_Rate_Card_2026.pdf');
+    doc.save(`${company.companyName.replace(/[^a-zA-Z0-9]/g, '_')}_Rate_Card_${new Date().getFullYear()}.pdf`);
   }
 
   /**
@@ -193,6 +209,7 @@ export class PDFGeneratorService {
       format: 'a4'
     });
 
+    const company = StorageService.getCompanySettings();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 18;
@@ -201,36 +218,61 @@ export class PDFGeneratorService {
 
     // Header Background
     doc.setFillColor(18, 18, 18);
-    doc.rect(0, 0, pageWidth, 38, 'F');
+    doc.rect(0, 0, pageWidth, 40, 'F');
 
     // Accent line
     doc.setFillColor(217, 119, 6);
-    doc.rect(0, 38, pageWidth, 1.5, 'F');
+    doc.rect(0, 40, pageWidth, 1.5, 'F');
+
+    // Brand Logo
+    let hasLogo = false;
+    if (company.logoUrl && company.logoUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(company.logoUrl, 'PNG', margin, 8, 22, 22);
+        hasLogo = true;
+      } catch {
+        hasLogo = false;
+      }
+    }
+
+    const headerTextX = hasLogo ? margin + 26 : margin;
 
     // Brand Name
     doc.setTextColor(255, 255, 255);
     doc.setFont('times', 'bold');
-    doc.setFontSize(19);
-    doc.text('THE MAIN CHARACTER MEDIA', margin, 18);
+    doc.setFontSize(hasLogo ? 16 : 18);
+    doc.text(company.companyName.toUpperCase(), headerTextX, 17);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(7.8);
     doc.setTextColor(215, 210, 200);
-    doc.text('PREMIUM WEDDING & CELEBRATION CONTENT CREATION', margin, 25);
-    doc.text('OFFICIAL PROPOSAL & COMMERCIAL ESTIMATE', margin, 31);
+    doc.text(company.tagline.toUpperCase(), headerTextX, 23);
+
+    const contactLine = [
+      company.phone,
+      company.email,
+      company.city ? `${company.city}, ${company.state}` : ''
+    ].filter(Boolean).join('  ·  ');
+    doc.setFontSize(7);
+    doc.setTextColor(190, 185, 175);
+    doc.text(contactLine, headerTextX, 29);
+
+    if (company.gstin) {
+      doc.text(`GSTIN: ${company.gstin}`, headerTextX, 35);
+    }
 
     // Quote details top right
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(245, 180, 80);
-    doc.text(quote.quoteNumber, pageWidth - margin, 18, { align: 'right' });
+    doc.text(quote.quoteNumber, pageWidth - margin, 17, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(220, 220, 220);
-    doc.text(`Date: ${new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 24, { align: 'right' });
-    doc.text(`Valid Until: ${new Date(quote.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 29, { align: 'right' });
-    doc.text(`Status: ${quote.status.toUpperCase()}`, pageWidth - margin, 34, { align: 'right' });
+    doc.text(`Date: ${new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 23, { align: 'right' });
+    doc.text(`Valid Until: ${new Date(quote.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(`Status: ${quote.status.toUpperCase()}`, pageWidth - margin, 33, { align: 'right' });
 
     yPos = 48;
 
@@ -296,7 +338,7 @@ export class PDFGeneratorService {
     quote.items.forEach((item, index) => {
       const itemRowHeight = item.includedServices && item.includedServices.length > 0 ? 15 : 11;
 
-      if (yPos + itemRowHeight > pageHeight - 70) {
+      if (yPos + itemRowHeight > pageHeight - 75) {
         doc.addPage();
         yPos = margin;
       }
@@ -346,34 +388,37 @@ export class PDFGeneratorService {
       yPos += itemRowHeight;
     });
 
-    yPos += 4;
+    yPos += 5;
 
-    // Financial Breakdown Box
-    if (yPos > pageHeight - 75) {
+    // Check page space for breakdown
+    if (yPos > pageHeight - 80) {
       doc.addPage();
       yPos = margin;
     }
 
     const totalsBoxWidth = 85;
     const totalsBoxX = pageWidth - margin - totalsBoxWidth;
+    const leftWidth = totalsBoxX - margin - 6;
+    const initialBreakdownY = yPos;
 
+    // Totals Box (Right Side)
+    let curTotalY = initialBreakdownY;
     doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
-    doc.roundedRect(totalsBoxX, yPos, totalsBoxWidth, 44, 1.5, 1.5, 'FD');
+    doc.roundedRect(totalsBoxX, curTotalY, totalsBoxWidth, 48, 1.5, 1.5, 'FD');
 
     const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false) => {
       doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      doc.setFontSize(isHighlight ? 9.5 : 7.8);
+      doc.setFontSize(isHighlight ? 9.5 : 7.6);
       doc.setTextColor(isHighlight ? 20 : (isBold ? 30 : 80), isHighlight ? 20 : 30, isHighlight ? 20 : 30);
-      doc.text(label, totalsBoxX + 4, yPos + 5);
+      doc.text(label, totalsBoxX + 4, curTotalY + 5.5);
 
       doc.setFont('helvetica', 'bold');
       if (isHighlight) doc.setTextColor(197, 139, 57);
-      doc.text(value, pageWidth - margin - 4, yPos + 5, { align: 'right' });
-      yPos += 6;
+      doc.text(value, pageWidth - margin - 4, curTotalY + 5.5, { align: 'right' });
+      curTotalY += 6;
     };
 
-    const initialBreakdownY = yPos;
     addFinancialRow('Subtotal:', `INR ${quote.subtotal.toLocaleString('en-IN')}`);
 
     if (quote.discountAmount > 0) {
@@ -388,15 +433,14 @@ export class PDFGeneratorService {
     }
 
     doc.setDrawColor(220, 215, 205);
-    doc.line(totalsBoxX + 4, yPos + 1, pageWidth - margin - 4, yPos + 1);
-    yPos += 3;
+    doc.line(totalsBoxX + 4, curTotalY + 1.5, pageWidth - margin - 4, curTotalY + 1.5);
+    curTotalY += 3.5;
 
     addFinancialRow('Grand Total:', `INR ${quote.grandTotal.toLocaleString('en-IN')}`, true, true);
-    addFinancialRow('Advance Booking Due (50%):', `INR ${quote.advanceAmount.toLocaleString('en-IN')}`);
+    addFinancialRow(`Advance Due (${quote.advancePercentage || company.defaultAdvancePercentage}%):`, `INR ${quote.advanceAmount.toLocaleString('en-IN')}`);
     addFinancialRow('Balance Due on Event Day:', `INR ${quote.balanceAmount.toLocaleString('en-IN')}`, true);
 
-    // Left of breakdown: Notes and Banking
-    const leftWidth = totalsBoxX - margin - 6;
+    // Left of breakdown: Commercial Notes (Strictly bounded by leftWidth)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(140, 100, 40);
@@ -405,22 +449,45 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
     doc.setTextColor(70, 70, 70);
-    const notesText = doc.splitTextToSize(quote.notes || 'All content created exclusively for 9:16 social storytelling with high-bitrate audio.', leftWidth);
-    doc.text(notesText, margin, initialBreakdownY + 9);
+    const notesText = doc.splitTextToSize(
+      quote.notes || company.defaultCommercialNotes || 'Capture formatted exclusively for 9:16 social storytelling with high-bitrate audio.', 
+      leftWidth
+    );
+    doc.text(notesText, margin, initialBreakdownY + 8.5);
+
+    const notesHeight = Math.max(12, notesText.length * 3.5 + 4);
+    const bankBoxY = initialBreakdownY + notesHeight + 2;
+
+    // Dedicated Banking & UPI Box (Strictly bounded by leftWidth - NEVER overlaps!)
+    const bankBoxHeight = 25;
+    doc.setFillColor(250, 247, 240);
+    doc.setDrawColor(226, 213, 190);
+    doc.roundedRect(margin, bankBoxY, leftWidth, bankBoxHeight, 1.5, 1.5, 'FD');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(18, 18, 18);
-    doc.text('BANKING & UPI TRANSFER:', margin, initialBreakdownY + 26);
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
-    doc.setTextColor(80, 80, 80);
-    doc.text('HDFC Bank · The Main Character Media · A/C 50200088912344 · IFSC: HDFC0000045 · UPI: tmcmedia@hdfcbank', margin, initialBreakdownY + 31);
+    doc.setTextColor(140, 100, 40);
+    doc.text('DIRECT BANKING & UPI SETTLEMENT:', margin + 3.5, bankBoxY + 4.5);
 
-    yPos = Math.max(yPos + 4, initialBreakdownY + 46);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.4);
+    doc.setTextColor(50, 50, 50);
 
-    // Terms & Signatures
-    if (yPos > pageHeight - 48) {
+    const bankLine1 = `Bank: ${company.bankName}  ·  A/C: ${company.accountName}`;
+    const bankLine2 = `A/C #: ${company.accountNumber}  ·  IFSC: ${company.ifscCode}${company.branch ? ` (${company.branch})` : ''}`;
+    const bankLine3 = `UPI ID: ${company.upiId}`;
+
+    doc.text(doc.splitTextToSize(bankLine1, leftWidth - 7), margin + 3.5, bankBoxY + 9.5);
+    doc.text(doc.splitTextToSize(bankLine2, leftWidth - 7), margin + 3.5, bankBoxY + 14.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(140, 100, 40);
+    doc.text(bankLine3, margin + 3.5, bankBoxY + 20);
+
+    yPos = Math.max(curTotalY + 4, bankBoxY + bankBoxHeight + 6);
+
+    // Terms & Conditions
+    if (yPos > pageHeight - 55) {
       doc.addPage();
       yPos = margin;
     }
@@ -433,10 +500,17 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(80, 80, 80);
-    const terms = doc.splitTextToSize(quote.terms, contentWidth);
-    doc.text(terms.slice(0, 4), margin, yPos + 4.5);
+    const terms = doc.splitTextToSize(quote.terms || company.defaultTerms, contentWidth);
+    const displayedTerms = terms.slice(0, 5);
+    doc.text(displayedTerms, margin, yPos + 4.5);
 
-    yPos += terms.slice(0, 4).length * 4 + 8;
+    yPos += displayedTerms.length * 3.8 + 8;
+
+    // Check space for signature
+    if (yPos > pageHeight - 35) {
+      doc.addPage();
+      yPos = margin + 5;
+    }
 
     // Signature Blocks
     const sigColWidth = contentWidth / 2 - 10;
@@ -445,13 +519,27 @@ export class PDFGeneratorService {
     doc.setFont('times', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(18, 18, 18);
-    doc.text('For The Main Character Media', margin, yPos);
+    doc.text(`For ${company.companyName}`, margin, yPos);
+
+    // Digital Signature Image if uploaded
+    if (company.signatureUrl && company.signatureUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(company.signatureUrl, 'PNG', margin, yPos + 2, 36, 12);
+      } catch {}
+    }
+
     doc.setDrawColor(200, 195, 185);
-    doc.line(margin, yPos + 14, margin + sigColWidth, yPos + 14);
+    doc.line(margin, yPos + 16, margin + sigColWidth, yPos + 16);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(40, 40, 40);
+    doc.text(company.signatoryName || 'Authorized Signatory', margin, yPos + 20);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(120, 120, 120);
-    doc.text('Authorized Signatory & Creative Producer', margin, yPos + 18);
+    doc.setFontSize(6.2);
+    doc.setTextColor(110, 110, 110);
+    doc.text(company.signatoryTitle || 'Creative Producer & Founder', margin, yPos + 24);
 
     // Client Signature
     const clientSigX = pageWidth - margin - sigColWidth;
@@ -459,16 +547,24 @@ export class PDFGeneratorService {
     doc.setFontSize(8.5);
     doc.setTextColor(18, 18, 18);
     doc.text('Client Acceptance Signature', clientSigX, yPos);
-    doc.line(clientSigX, yPos + 14, clientSigX + sigColWidth, yPos + 14);
+
+    doc.setDrawColor(200, 195, 185);
+    doc.line(clientSigX, yPos + 16, clientSigX + sigColWidth, yPos + 16);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(40, 40, 40);
+    doc.text(quote.clientName, clientSigX, yPos + 20);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(120, 120, 120);
-    doc.text(`${quote.clientName} · Date of Approval`, clientSigX, yPos + 18);
+    doc.setFontSize(6.2);
+    doc.setTextColor(110, 110, 110);
+    doc.text('Date of Acceptance & Booking Authorization', clientSigX, yPos + 24);
 
     // Footer
     doc.setFontSize(6.5);
     doc.setTextColor(150, 150, 150);
-    doc.text('The Main Character Media · Luxury Wedding & Event Content Creation · www.themaincharactermedia.com', pageWidth / 2, pageHeight - 6, { align: 'center' });
+    doc.text(`${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
 
     doc.save(`${quote.quoteNumber}_${quote.clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
   }
@@ -483,6 +579,7 @@ export class PDFGeneratorService {
       format: 'a4'
     });
 
+    const company = StorageService.getCompanySettings();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 18;
@@ -491,36 +588,61 @@ export class PDFGeneratorService {
 
     // Header Background
     doc.setFillColor(18, 18, 18);
-    doc.rect(0, 0, pageWidth, 38, 'F');
+    doc.rect(0, 0, pageWidth, 40, 'F');
 
     // Accent line
     doc.setFillColor(217, 119, 6);
-    doc.rect(0, 38, pageWidth, 1.5, 'F');
+    doc.rect(0, 40, pageWidth, 1.5, 'F');
+
+    // Brand Logo
+    let hasLogo = false;
+    if (company.logoUrl && company.logoUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(company.logoUrl, 'PNG', margin, 8, 22, 22);
+        hasLogo = true;
+      } catch {
+        hasLogo = false;
+      }
+    }
+
+    const headerTextX = hasLogo ? margin + 26 : margin;
 
     // Brand Name
     doc.setTextColor(255, 255, 255);
     doc.setFont('times', 'bold');
-    doc.setFontSize(19);
-    doc.text('THE MAIN CHARACTER MEDIA', margin, 18);
+    doc.setFontSize(hasLogo ? 16 : 18);
+    doc.text(company.companyName.toUpperCase(), headerTextX, 17);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(7.8);
     doc.setTextColor(215, 210, 200);
-    doc.text('PREMIUM WEDDING & CELEBRATION CONTENT CREATION', margin, 25);
-    doc.text('TAX INVOICE & PAYMENT VOUCHER', margin, 31);
+    doc.text('OFFICIAL TAX INVOICE & COMMERCIAL SETTLEMENT', headerTextX, 23);
+
+    const contactLine = [
+      company.phone,
+      company.email,
+      company.city ? `${company.city}, ${company.state}` : ''
+    ].filter(Boolean).join('  ·  ');
+    doc.setFontSize(7);
+    doc.setTextColor(190, 185, 175);
+    doc.text(contactLine, headerTextX, 29);
+
+    if (company.gstin) {
+      doc.text(`GSTIN: ${company.gstin}`, headerTextX, 35);
+    }
 
     // Invoice details top right
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(245, 180, 80);
-    doc.text(invoice.invoiceNumber, pageWidth - margin, 18, { align: 'right' });
+    doc.text(invoice.invoiceNumber, pageWidth - margin, 17, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(220, 220, 220);
-    doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 24, { align: 'right' });
-    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 29, { align: 'right' });
-    doc.text(`Status: ${invoice.paymentStatus.toUpperCase()}`, pageWidth - margin, 34, { align: 'right' });
+    doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 23, { align: 'right' });
+    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(`Status: ${invoice.paymentStatus.toUpperCase()}`, pageWidth - margin, 33, { align: 'right' });
 
     yPos = 48;
 
@@ -651,9 +773,15 @@ export class PDFGeneratorService {
     yPos += 5;
 
     // Financial Summary
+    if (yPos > pageHeight - 75) {
+      doc.addPage();
+      yPos = margin;
+    }
+
     const summaryBoxWidth = 80;
     const summaryBoxX = pageWidth - margin - summaryBoxWidth;
-    let sY = yPos;
+    const leftWidth = contentWidth - summaryBoxWidth - 8;
+    const sY = yPos;
 
     doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
@@ -668,7 +796,7 @@ export class PDFGeneratorService {
 
     // Discount
     if (invoice.discountAmount > 0) {
-      doc.text(`Discount:`, summaryBoxX + 4, sY + 12);
+      doc.text('Discount:', summaryBoxX + 4, sY + 12);
       doc.setTextColor(180, 40, 40);
       doc.text(`- INR ${invoice.discountAmount.toLocaleString('en-IN')}`, pageWidth - margin - 4, sY + 12, { align: 'right' });
       doc.setTextColor(80, 80, 80);
@@ -698,32 +826,83 @@ export class PDFGeneratorService {
     doc.text('Balance Outstanding:', summaryBoxX + 4, sY + 43);
     doc.text(`INR ${invoice.balanceDue.toLocaleString('en-IN')}`, pageWidth - margin - 4, sY + 43, { align: 'right' });
 
-    // Left info
-    const leftWidth = contentWidth - summaryBoxWidth - 8;
+    // Left info: Payment Terms & Notes (Strictly bounded by leftWidth)
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(140, 100, 40);
-    doc.text('PAYMENT TERMS & NOTES:', margin, sY + 6);
+    doc.text('PAYMENT TERMS & NOTES:', margin, sY + 5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
     doc.setTextColor(70, 70, 70);
-    const notesText = doc.splitTextToSize(invoice.notes || 'Luxury 9:16 wedding content creation and social storytelling.', leftWidth);
-    doc.text(notesText, margin, sY + 11);
+    const notesText = doc.splitTextToSize(invoice.notes || company.defaultCommercialNotes || 'Luxury 9:16 wedding content creation and social storytelling.', leftWidth);
+    doc.text(notesText, margin, sY + 9.5);
+
+    const notesHeight = Math.max(12, notesText.length * 3.5 + 4);
+    const bankBoxY = sY + notesHeight + 2;
+
+    // Banking & UPI Box (Strictly bounded by leftWidth)
+    const bankBoxHeight = 25;
+    doc.setFillColor(250, 247, 240);
+    doc.setDrawColor(226, 213, 190);
+    doc.roundedRect(margin, bankBoxY, leftWidth, bankBoxHeight, 1.5, 1.5, 'FD');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.8);
+    doc.setTextColor(140, 100, 40);
+    doc.text('DIRECT BANKING & UPI SETTLEMENT:', margin + 3.5, bankBoxY + 4.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.4);
+    doc.setTextColor(50, 50, 50);
+
+    const bankLine1 = `Bank: ${company.bankName}  ·  A/C: ${company.accountName}`;
+    const bankLine2 = `A/C #: ${company.accountNumber}  ·  IFSC: ${company.ifscCode}${company.branch ? ` (${company.branch})` : ''}`;
+    const bankLine3 = `UPI ID: ${company.upiId}`;
+
+    doc.text(doc.splitTextToSize(bankLine1, leftWidth - 7), margin + 3.5, bankBoxY + 9.5);
+    doc.text(doc.splitTextToSize(bankLine2, leftWidth - 7), margin + 3.5, bankBoxY + 14.5);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(140, 100, 40);
+    doc.text(bankLine3, margin + 3.5, bankBoxY + 20);
+
+    // Signatures
+    yPos = Math.max(sY + 52, bankBoxY + bankBoxHeight + 6);
+    if (yPos > pageHeight - 35) {
+      doc.addPage();
+      yPos = margin + 5;
+    }
+
+    const sigColWidth = contentWidth / 2 - 10;
+    doc.setFont('times', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(18, 18, 18);
+    doc.text(`For ${company.companyName}`, margin, yPos);
+
+    if (company.signatureUrl && company.signatureUrl.startsWith('data:image/')) {
+      try {
+        doc.addImage(company.signatureUrl, 'PNG', margin, yPos + 2, 36, 12);
+      } catch {}
+    }
+
+    doc.setDrawColor(200, 195, 185);
+    doc.line(margin, yPos + 16, margin + sigColWidth, yPos + 16);
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
-    doc.setTextColor(18, 18, 18);
-    doc.text('BANKING & UPI SETTLEMENT:', margin, sY + 26);
+    doc.setTextColor(40, 40, 40);
+    doc.text(company.signatoryName || 'Authorized Signatory', margin, yPos + 20);
+
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.8);
-    doc.setTextColor(80, 80, 80);
-    doc.text('HDFC Bank Current A/C #50200088912344 · IFSC: HDFC0000045 · UPI: tmcmedia@hdfcbank', margin, sY + 31);
+    doc.setFontSize(6.2);
+    doc.setTextColor(110, 110, 110);
+    doc.text(company.signatoryTitle || 'Creative Producer & Founder', margin, yPos + 24);
 
     // Footer
     doc.setFontSize(6.5);
     doc.setTextColor(150, 150, 150);
-    doc.text('The Main Character Media · Luxury Wedding & Event Content Creation · www.themaincharactermedia.com', pageWidth / 2, pageHeight - 6, { align: 'center' });
+    doc.text(`${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
 
     doc.save(`${invoice.invoiceNumber}_${invoice.clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
   }

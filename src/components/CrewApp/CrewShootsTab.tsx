@@ -8,9 +8,11 @@ import {
   Filter, 
   Search,
   Camera,
-  Layers
+  Layers,
+  Share2
 } from 'lucide-react';
 import { EventShoot, CrewMember } from '../../types';
+import { CalendarExportModal } from '../Common/CalendarExportModal';
 
 interface CrewShootsTabProps {
   activeCrew: CrewMember;
@@ -25,6 +27,8 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'today' | 'upcoming' | 'completed'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
+  const [exportShootTarget, setExportShootTarget] = useState<EventShoot | null>(null);
+  const [isBulkExportOpen, setIsBulkExportOpen] = useState(false);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -77,6 +81,17 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
             {myAssignedShoots.length} total productions assigned
           </div>
         </div>
+
+        {myAssignedShoots.length > 0 && (
+          <button
+            onClick={() => setIsBulkExportOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FAF8F5] hover:bg-neutral-100 border border-[#E8E3D9] rounded-xl text-xs font-semibold text-neutral-800 transition-colors shadow-xs active:scale-95"
+            title="Export shoots to Apple Calendar (.ics) or Google Calendar (Android)"
+          >
+            <Calendar className="w-3.5 h-3.5 text-[#C58B39]" />
+            <span>Export (iOS / Android)</span>
+          </button>
+        )}
       </div>
 
       {/* 3 Mobile Tabs */}
@@ -208,24 +223,52 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
                 </div>
 
                 {/* Role & View Action */}
-                <div className="flex items-center justify-between gap-3 pt-1">
-                  <div className="text-xs text-neutral-600">
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="text-xs text-neutral-600 truncate">
                     Role: <strong className="text-neutral-900">{role}</strong>
                   </div>
 
-                  <button
-                    onClick={() => onSelectShoot(event)}
-                    className="py-2 px-4 bg-[#121212] hover:bg-[#252525] active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
-                  >
-                    <span>View Shoot</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => setExportShootTarget(event)}
+                      className="py-2 px-2.5 bg-[#FAF8F5] hover:bg-neutral-100 border border-[#E8E3D9] active:scale-95 text-neutral-800 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all shadow-xs"
+                      title="Sync shoot to iPhone / Android calendar"
+                    >
+                      <Calendar className="w-3.5 h-3.5 text-[#C58B39]" />
+                      <span className="hidden sm:inline">Sync</span>
+                    </button>
+
+                    <button
+                      onClick={() => onSelectShoot(event)}
+                      className="py-2 px-3.5 bg-[#121212] hover:bg-[#252525] active:scale-95 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <span>View</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      {/* Calendar Export Modal for Single Shoot */}
+      <CalendarExportModal
+        isOpen={!!exportShootTarget}
+        onClose={() => setExportShootTarget(null)}
+        shoot={exportShootTarget}
+        crewMember={activeCrew}
+        allShoots={myAssignedShoots}
+      />
+
+      {/* Calendar Export Modal for Bulk Shoots */}
+      <CalendarExportModal
+        isOpen={isBulkExportOpen}
+        onClose={() => setIsBulkExportOpen(false)}
+        crewMember={activeCrew}
+        allShoots={myAssignedShoots}
+      />
     </div>
   );
 };

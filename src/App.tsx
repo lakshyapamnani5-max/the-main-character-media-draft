@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MobileBottomNav } from './components/Navigation/MobileBottomNav';
 import { NotificationDrawer } from './components/Navigation/NotificationDrawer';
+import { ShieldCheck, Smartphone } from 'lucide-react';
 
 // Production ERP Views
 import { HomeView } from './components/Home/HomeView';
@@ -20,6 +21,9 @@ import { PartnersView } from './components/Partners/PartnersView';
 import { PartnerCalendarModal } from './components/Partners/PartnerCalendarModal';
 import { AddPartnerEventModal } from './components/Partners/AddPartnerEventModal';
 import { AuthModal } from './components/Auth/AuthModal';
+import { CrewManagementView } from './components/Crew/CrewManagementView';
+import { EventChargesView } from './components/EventCharges/EventChargesView';
+import { InvoiceModal } from './components/Invoices/InvoiceModal';
 
 // Dedicated Mobile-First Crew App
 import { CrewAppLayout } from './components/CrewApp/CrewAppLayout';
@@ -42,7 +46,8 @@ import {
   LocationVenue,
   Expense,
   CrewNotification,
-  Partner
+  Partner,
+  Invoice
 } from './types';
 import { StorageService } from './services/storage';
 import { 
@@ -50,7 +55,11 @@ import {
   onAuthStateChanged, 
   FirebaseUser, 
   subscribeToFirestorePartners, 
-  subscribeToFirestoreEvents 
+  subscribeToFirestoreEvents,
+  subscribeToFirestoreCrew,
+  subscribeToRealtimeCrew,
+  saveCrewToFirestore,
+  deleteCrewFromFirestore
 } from './services/firebase';
 
 // Modals
@@ -61,6 +70,7 @@ import { QuotePreviewModal } from './components/Quotations/QuotePreviewModal';
 import { EnquiryModal } from './components/Enquiries/EnquiryModal';
 import { EventModal } from './components/Events/EventModal';
 import { AddPaymentModal } from './components/Clients/AddPaymentModal';
+import { CompanySettingsView } from './components/Settings/CompanySettingsView';
 
 export default function App() {
   const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => StorageService.getAppViewMode());
@@ -128,6 +138,7 @@ export default function App() {
 
   // Global Preview Modal
   const [previewingQuote, setPreviewingQuote] = useState<Quotation | null>(null);
+  const [previewingInvoice, setPreviewingInvoice] = useState<Invoice | null>(null);
 
   // Sync state from storage
   const refreshAllData = useCallback(() => {
@@ -170,6 +181,17 @@ export default function App() {
       }
     });
 
+    // Firebase Firestore & Realtime Database Live Sync for Crew Roster
+    const handleIncomingCrew = (liveCrew: CrewMember[]) => {
+      if (liveCrew && liveCrew.length > 0) {
+        localStorage.setItem('tmc_crew_roster_v2', JSON.stringify(liveCrew));
+        setCrew(liveCrew);
+      }
+    };
+
+    const unsubscribeCrewFirestore = subscribeToFirestoreCrew(handleIncomingCrew);
+    const unsubscribeCrewRealtime = subscribeToRealtimeCrew(handleIncomingCrew);
+
     const handleStorageUpdate = () => {
       refreshAllData();
     };
@@ -179,6 +201,8 @@ export default function App() {
       unsubscribeAuth();
       unsubscribePartners();
       unsubscribeEvents();
+      unsubscribeCrewFirestore();
+      if (unsubscribeCrewRealtime) unsubscribeCrewRealtime();
       window.removeEventListener('tmc_storage_updated', handleStorageUpdate);
     };
   }, [refreshAllData]);
@@ -199,19 +223,9 @@ export default function App() {
       setMoreSubTab('leads');
       return;
     }
-    if (module === 'crew') {
-      setActiveModule('more');
-      setMoreSubTab('crew');
-      return;
-    }
     if (module === 'quotations') {
       setActiveModule('more');
       setMoreSubTab('quotes');
-      return;
-    }
-    if (module === 'event-charges') {
-      setActiveModule('more');
-      setMoreSubTab('rate-card');
       return;
     }
     if (module === 'locations') {
@@ -322,8 +336,23 @@ export default function App() {
   };
 
   // Handlers for Crew
-  const handleSaveCrew = (crewData: Partial<CrewMember> & { name: string; phone: string; role: CrewRole }) => {
-    StorageService.saveCrewMember(crewData);
+  const handleSaveCrew = async (crewData: Partial<CrewMember> & { name: string; phone: string; role: CrewRole; email?: string; password?: string; firebaseUid?: string }) => {
+    const saved = StorageService.saveCrewMember(crewData);
+    try {
+      await saveCrewToFirestore(saved);
+    } catch (e) {
+      console.warn('Could not sync crew to Firestore immediately:', e);
+    }
+    refreshAllData();
+  };
+
+  const handleDeleteCrew = async (crewId: string) => {
+    StorageService.deleteCrewMember(crewId);
+    try {
+      await deleteCrewFromFirestore(crewId);
+    } catch (e) {
+      console.warn('Could not delete crew from Firestore immediately:', e);
+    }
     refreshAllData();
   };
 
@@ -358,6 +387,41 @@ export default function App() {
   if (appViewMode === 'crew') {
     return (
       <div className="min-h-screen bg-[#FAF8F5]">
+        {/* Top Admin / Crew Mode Switcher (Visible ONLY for Admin session) */}
+        <div className="bg-[#101010] border-b border-[#242424] text-white px-4 py-2 sticky top-0 z-50 shadow-md">
+          <div className="max-w-md mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-mono text-neutral-300 font-semibold text-[11px]">Admin Mode</span>
+              <span className="text-neutral-600">·</span>
+              <span className="text-neutral-400 text-[11px] truncate max-w-[130px]">
+                {crew.find(c => c.id === activeCrewId)?.name || 'Crew Persona'}
+              </span>
+            </div>
+
+            {/* Segmented Toggle back to Admin */}
+            <div className="bg-black/60 p-0.5 border border-white/10 rounded-lg flex items-center shadow-xs">
+              <button
+                type="button"
+                onClick={handleSwitchToAdminMode}
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold bg-[#C58B39] text-[#121212] hover:bg-[#d89b43] transition-colors"
+                title="Switch back to Admin ERP"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Admin</span>
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold text-white/90 bg-white/10 cursor-default"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
+                <span>Crew</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <CrewAppLayout
           events={events}
           crewRoster={crew}
@@ -447,6 +511,9 @@ export default function App() {
           onOpenNotifications={() => setIsNotificationDrawerOpen(true)}
           onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}
           onSwitchToCrewApp={() => handleSwitchToCrewMode()}
+          appViewMode={appViewMode}
+          onToggleAppViewMode={(mode) => mode === 'admin' ? handleSwitchToAdminMode() : handleSwitchToCrewMode()}
+          isAdmin={true}
         />
 
         {/* Content Container */}
@@ -560,8 +627,49 @@ export default function App() {
             />
           )}
 
-          {/* 5. MORE VIEW */}
-          {(activeModule === 'more' || activeModule === 'enquiries' || activeModule === 'event-charges' || activeModule === 'quotations' || activeModule === 'clients' || activeModule === 'crew' || activeModule === 'locations') && (
+          {/* 5. CREW ROSTER VIEW */}
+          {activeModule === 'crew' && (
+            <CrewManagementView
+              crew={crew}
+              events={events}
+              onSaveCrew={handleSaveCrew}
+              onDeleteCrew={handleDeleteCrew}
+              onOpenEventCommandCenter={(event) => {
+                setActiveModule('jobs');
+              }}
+              onRefreshData={refreshAllData}
+              onLoginAsCrew={(cr) => handleSwitchToCrewMode(cr.id)}
+            />
+          )}
+
+          {/* 6. EVENT RATES & MASTER CATALOGUE VIEW */}
+          {activeModule === 'event-charges' && (
+            <EventChargesView
+              charges={eventCharges}
+              onSaveCharge={handleSaveEventCharge}
+              onDeleteCharge={handleDeleteEventCharge}
+              onAddChargeToQuote={handleAddChargeToQuote}
+              onCreateCustomQuote={() => {
+                setQuoteToEdit(null);
+                setPreloadedChargeForQuote(null);
+                setPreloadedEnquiryForQuote(null);
+                setPreloadedClientForQuote(null);
+                setIsQuoteBuilderOpen(true);
+              }}
+            />
+          )}
+
+          {/* 7. COMPANY SETTINGS VIEW */}
+          {activeModule === 'settings' && (
+            <CompanySettingsView
+              onSettingsSaved={() => {
+                refreshAllData();
+              }}
+            />
+          )}
+
+          {/* 8. MORE VIEW */}
+          {(activeModule === 'more' || activeModule === 'enquiries' || activeModule === 'quotations' || activeModule === 'clients' || activeModule === 'locations') && (
             <MoreView
               initialSubTab={moreSubTab}
               enquiries={enquiries}
@@ -599,6 +707,7 @@ export default function App() {
               onDownloadRateCard={() => setIsRateCardPreviewOpen(true)}
               onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
               onSwitchToCrewApp={() => handleSwitchToCrewMode()}
+              onOpenSettings={() => setActiveModule('settings')}
             />
           )}
 
@@ -654,6 +763,7 @@ export default function App() {
         isOpen={isNewEnquiryOpen}
         onClose={() => setIsNewEnquiryOpen(false)}
         onSave={handleSaveEnquiry}
+        eventCharges={eventCharges}
       />
 
       <EventChargeModal
@@ -676,6 +786,11 @@ export default function App() {
         preloadedCharge={preloadedChargeForQuote}
         preloadedEnquiry={preloadedEnquiryForQuote}
         preloadedClient={preloadedClientForQuote}
+        onConvertToInvoice={(quote) => {
+          const inv = StorageService.createInvoiceFromQuote(quote);
+          setPreviewingInvoice(inv);
+          refreshAllData();
+        }}
       />
 
       <EventModal
@@ -704,6 +819,29 @@ export default function App() {
           onUpdateStatus={(id, st) => {
             handleUpdateQuoteStatus(id, st);
             setPreviewingQuote({ ...previewingQuote, status: st });
+          }}
+          onConvertToInvoice={(quote) => {
+            const inv = StorageService.createInvoiceFromQuote(quote);
+            setPreviewingQuote(null);
+            setPreviewingInvoice(inv);
+            refreshAllData();
+          }}
+        />
+      )}
+
+      {/* Global Invoice Preview Modal */}
+      {previewingInvoice && (
+        <InvoiceModal
+          isOpen={true}
+          onClose={() => setPreviewingInvoice(null)}
+          invoice={previewingInvoice}
+          onUpdateStatus={(id, st) => {
+            StorageService.updateInvoiceStatus(id, st);
+            refreshAllData();
+          }}
+          onRecordPayment={(id, amt) => {
+            StorageService.recordPaymentForInvoice(id, amt);
+            refreshAllData();
           }}
         />
       )}

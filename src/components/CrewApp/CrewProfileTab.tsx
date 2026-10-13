@@ -24,7 +24,7 @@ interface CrewProfileTabProps {
   allCrew: CrewMember[];
   allShoots: EventShoot[];
   onSelectCrewPersona: (crewId: string) => void;
-  onSwitchToAdmin: () => void;
+  onSwitchToAdmin?: () => void;
 }
 
 export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
@@ -89,50 +89,50 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
         </div>
       </div>
 
-      {/* Persona Switcher (For Demo & Testing) */}
+      {/* Earnings & Settlement Status */}
       <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
           <div className="font-serif font-bold text-sm text-neutral-900 flex items-center gap-2">
-            <ArrowRightLeft className="w-4 h-4 text-[#C58B39]" />
-            <span>Switch Crew Member Persona</span>
+            <Award className="w-4 h-4 text-[#C58B39]" />
+            <span>Earnings & Settlement Status</span>
           </div>
-          <span className="text-[11px] text-neutral-500">Live test</span>
+          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase">Live Account</span>
         </div>
 
-        <p className="text-xs text-neutral-600">
-          Viewing mobile app as <strong>{activeCrew.name}</strong>. Switch to another creator or cinematographer to test their unique call sheets and POV queues:
-        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-1">
+            <span className="text-[10px] uppercase font-mono font-bold text-emerald-800 flex items-center gap-1">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>Settled</span>
+            </span>
+            <div className="font-mono text-base font-bold text-emerald-900">
+              ₹{myShoots.reduce((sum, ev) => {
+                const asg = ev.crewAssignments?.find(a => a.crewId === activeCrew.id);
+                const isPaid = asg?.paymentStatus === 'Paid';
+                const amt = asg?.payout || activeCrew.defaultPayout || 0;
+                return isPaid ? sum + amt : sum;
+              }, 0).toLocaleString('en-IN')}
+            </div>
+            <div className="text-[10px] text-emerald-700">Paid to your account</div>
+          </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {allCrew.map((c) => {
-            const isCurrent = c.id === activeCrew.id;
-
-            return (
-              <button
-                key={c.id}
-                onClick={() => onSelectCrewPersona(c.id)}
-                className={`p-2.5 rounded-xl border text-left text-xs transition-all flex items-center justify-between ${
-                  isCurrent 
-                    ? 'border-[#C58B39] bg-[#FAF8F5] font-bold text-neutral-900 ring-2 ring-[#C58B39]/20' 
-                    : 'border-[#E8E3D9] bg-white hover:border-neutral-400 text-neutral-700'
-                }`}
-              >
-                <div className="min-w-0">
-                  <div className="truncate">{c.name.split(' ')[0]}</div>
-                  <div className="text-[10px] text-neutral-400 truncate font-light">{c.role}</div>
-                </div>
-
-                {isCurrent && (
-                  <Check className="w-3.5 h-3.5 text-[#C58B39] shrink-0" />
-                )}
-              </button>
-            );
-          })}
+          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl space-y-1">
+            <span className="text-[10px] uppercase font-mono font-bold text-amber-800 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Unsettled</span>
+            </span>
+            <div className="font-mono text-base font-bold text-amber-900">
+              ₹{myShoots.reduce((sum, ev) => {
+                const asg = ev.crewAssignments?.find(a => a.crewId === activeCrew.id);
+                const isPaid = asg?.paymentStatus === 'Paid';
+                const amt = asg?.payout || activeCrew.defaultPayout || 0;
+                return !isPaid ? sum + amt : sum;
+              }, 0).toLocaleString('en-IN')}
+            </div>
+            <div className="text-[10px] text-amber-700">Payment pending</div>
+          </div>
         </div>
       </div>
-
-      {/* PWA Install Promotion Box */}
-      <PWAInstallButton variant="crew-card" />
 
       {/* Production Skills & Payout info */}
       <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-2.5 text-xs">
@@ -152,20 +152,9 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
             <strong>Standard Day Rate:</strong> <span className="font-mono text-neutral-900 font-bold">₹{activeCrew.defaultPayout.toLocaleString('en-IN')}</span>
           </div>
           <div>
-            <strong>WhatsApp Contact:</strong> <span className="font-mono text-neutral-900">{activeCrew.phone}</span>
+            <strong>WhatsApp Contact:</strong> <span className="font-mono text-neutral-900">{activeCrew.phone || 'Not configured'}</span>
           </div>
         </div>
-      </div>
-
-      {/* Switch to Admin ERP Button */}
-      <div className="pt-2">
-        <button
-          onClick={onSwitchToAdmin}
-          className="w-full py-3 px-4 bg-[#121212] hover:bg-[#252525] active:scale-[0.98] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-transform shadow-md"
-        >
-          <Building2 className="w-4 h-4 text-[#C58B39]" />
-          <span>Exit to Admin ERP System</span>
-        </button>
       </div>
     </div>
   );

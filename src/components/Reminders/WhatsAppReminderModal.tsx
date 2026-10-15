@@ -37,7 +37,7 @@ export const WhatsAppReminderModal: React.FC<WhatsAppReminderModalProps> = ({
   const [activeCrewIndex, setActiveCrewIndex] = useState<number>(0);
   const [customMessages, setCustomMessages] = useState<Record<string, string>>({});
   const [remindedStatus, setRemindedStatus] = useState<Record<string, 'Prepared' | 'WhatsApp Opened' | 'Cancelled'>>({});
-  const [adminName, setAdminName] = useState('Devansh Saxena');
+  const [adminName, setAdminName] = useState(() => StorageService.getCompanySettings().signatoryName || 'Production Lead');
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
 
   useEffect(() => {

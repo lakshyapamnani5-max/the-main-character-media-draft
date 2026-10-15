@@ -35,6 +35,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [paymentInput, setPaymentInput] = useState('');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const company = StorageService.getCompanySettings();
 
   if (!isOpen || !invoice) return null;
 
@@ -125,9 +126,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         {/* Top Header & Actions Bar */}
         <div className="p-4 sm:p-5 border-b border-[#2A2A2A] bg-[#121212] text-white flex flex-wrap items-center justify-between gap-3 no-print">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded border border-[#C58B39] bg-[#1F1E1C] flex items-center justify-center font-serif text-[#C58B39] font-bold text-sm">
-              M
-            </div>
+            {company.logoUrl ? (
+              <img 
+                src={company.logoUrl} 
+                alt="Logo" 
+                className="w-8 h-8 object-contain rounded border border-[#C58B39]/40 bg-[#1F1E1C] p-0.5"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded border border-[#C58B39] bg-[#1F1E1C] flex items-center justify-center font-serif text-[#C58B39] font-bold text-sm">
+                {company.companyName.charAt(0) || 'M'}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-serif font-bold text-base text-white tracking-wide uppercase">
@@ -141,7 +150,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 </span>
               </div>
               <div className="text-[11px] text-neutral-400 mt-0.5">
-                Issued for {invoice.clientName} · {invoice.eventName}
+                Issued by {company.companyName} for {invoice.clientName} · {invoice.eventName}
               </div>
             </div>
           </div>
@@ -256,18 +265,35 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           {/* Header Brand Banner */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-[#E8E3D9]">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-[#C58B39] font-bold">
-                Luxury Wedding & Event Content Creation
+              <div className="flex items-center gap-3 mb-2">
+                {company.logoUrl ? (
+                  <img 
+                    src={company.logoUrl} 
+                    alt="Company Logo" 
+                    className="w-10 h-10 object-contain rounded border border-[#C58B39]/30 p-0.5 bg-white shadow-2xs"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded border border-[#C58B39] bg-[#181818] text-[#C58B39] font-serif font-bold flex items-center justify-center text-sm shadow-2xs">
+                    {company.companyName.charAt(0) || 'M'}
+                  </div>
+                )}
+                <div>
+                  <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 leading-tight">
+                    {company.companyName}
+                  </h2>
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-[#C58B39] font-bold">
+                    {company.tagline}
+                  </div>
+                </div>
               </div>
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-neutral-900 mt-1">
-                THE MAIN CHARACTER MEDIA
-              </h2>
               <p className="text-neutral-500 text-[11px] mt-0.5 max-w-sm">
-                Cinematic vertical reels, high-resolution photo archives, and comprehensive event production coverage.
+                {[company.phone, company.email, company.address ? `${company.address}, ${company.city}` : ''].filter(Boolean).join(' · ')}
               </p>
-              <div className="text-[10px] font-mono text-neutral-500 mt-1">
-                GSTIN: 27AABCT8921M1Z5 · Mumbai, Maharashtra, India
-              </div>
+              {company.gstin && (
+                <div className="text-[10px] font-mono text-neutral-500 mt-1">
+                  GSTIN: {company.gstin}
+                </div>
+              )}
             </div>
 
             <div className="text-right sm:text-right space-y-1 bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E3D9] min-w-[220px]">
@@ -351,11 +377,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   Banking & Electronic Remittance
                 </div>
                 <div className="space-y-1 text-[11px] text-neutral-700">
-                  <div>Bank Name: <strong>HDFC Bank Ltd.</strong></div>
-                  <div>Account Name: <strong>The Main Character Media LLP</strong></div>
-                  <div>Account Number: <strong className="font-mono">50200088912344</strong></div>
-                  <div>IFSC Code: <strong className="font-mono">HDFC0000045</strong></div>
-                  <div>UPI ID: <strong className="font-mono text-[#C58B39]">tmcmedia@hdfcbank</strong></div>
+                  <div>Bank Name: <strong>{company.bankName}</strong></div>
+                  <div>Account Name: <strong>{company.accountName}</strong></div>
+                  <div>Account Number: <strong className="font-mono">{company.accountNumber}</strong></div>
+                  <div>IFSC Code: <strong className="font-mono">{company.ifscCode}</strong>{company.branch ? ` (${company.branch})` : ''}</div>
+                  <div>UPI ID: <strong className="font-mono text-[#C58B39]">{company.upiId}</strong></div>
                 </div>
               </div>
 
@@ -403,9 +429,35 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
           </div>
 
+          {/* Signature Block */}
+          <div className="pt-6 border-t border-[#E8E3D9] flex justify-end">
+            <div className="text-right">
+              <div className="h-16 flex items-end justify-end pb-1">
+                {company.signatureUrl ? (
+                  <img 
+                    src={company.signatureUrl} 
+                    alt="Authorized Signature" 
+                    className="max-h-12 object-contain"
+                  />
+                ) : (
+                  <span className="font-serif italic text-neutral-700">
+                    {company.signatoryName || company.companyName}
+                  </span>
+                )}
+              </div>
+              <div className="w-48 border-b border-neutral-300 ml-auto mb-1"></div>
+              <div className="font-semibold text-neutral-900 text-xs">
+                {company.signatoryName || 'Authorized Signatory'}
+              </div>
+              <div className="text-[10px] text-neutral-500">
+                {company.signatoryTitle || 'Creative Producer & Founder'} · {company.companyName}
+              </div>
+            </div>
+          </div>
+
           {/* Footer note */}
           <div className="text-center text-[10px] text-neutral-400 pt-4 border-t border-[#E8E3D9]">
-            This is a computer-generated tax invoice issued by The Main Character Media. Thank you for your partnership.
+            This is a computer-generated tax invoice issued by {company.companyName}. Thank you for your partnership.
           </div>
 
         </div>

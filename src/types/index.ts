@@ -176,6 +176,7 @@ export interface Quotation {
   taxAmount: number;
   grandTotal: number;
   advanceAmount: number;
+  advancePercentage?: number;
   balanceAmount: number;
   notes: string;
   terms: string;
@@ -267,6 +268,7 @@ export interface CrewMember {
   status: 'Active' | 'Inactive';
   username?: string;
   password?: string;
+  firebaseUid?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -357,6 +359,8 @@ export interface EventCrewAssignment {
   assignedPOVIds: string[];
   notes?: string;
   overrideConflictConfirmed?: boolean;
+  paymentStatus?: 'Paid' | 'Unpaid';
+  paidAt?: string;
   createdAt: string;
 }
 
@@ -429,6 +433,43 @@ export interface ReminderSettings {
   reminder24hEnabled: boolean;
   reminder2hEnabled: boolean;
   defaultTemplate: string;
+}
+
+export interface CompanySettings {
+  companyName: string;
+  tagline: string;
+  logoUrl?: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  website: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  gstin?: string;
+  
+  // Banking Details
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branch: string;
+  
+  // UPI
+  upiId: string;
+  upiQrUrl?: string;
+  
+  // Signature & Authorization
+  signatureUrl?: string;
+  signatoryName: string;
+  signatoryTitle: string;
+  
+  // Defaults for Quotes & Invoices
+  defaultAdvancePercentage: number;
+  defaultValidityDays: number;
+  defaultTerms: string;
+  defaultCommercialNotes: string;
 }
 
 export interface EventShoot {

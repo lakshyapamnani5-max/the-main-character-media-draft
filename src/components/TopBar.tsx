@@ -12,7 +12,8 @@ import {
   ArrowRight,
   UserCheck,
   Smartphone,
-  Bell
+  Bell,
+  ShieldCheck
 } from 'lucide-react';
 import { NavModule } from './Header';
 import { Enquiry, Quotation, Client, EventShoot, DashboardMetrics, CrewNotification } from '../types';
@@ -35,6 +36,9 @@ interface TopBarProps {
   onOpenNotifications?: () => void;
   onSelectQuoteForPreview: (quote: Quotation) => void;
   onSwitchToCrewApp?: () => void;
+  appViewMode?: 'admin' | 'crew';
+  onToggleAppViewMode?: (mode: 'admin' | 'crew') => void;
+  isAdmin?: boolean;
 }
 
 interface SearchResultItem {
@@ -62,7 +66,10 @@ export const TopBar: React.FC<TopBarProps> = ({
   notifications = [],
   onOpenNotifications = () => {},
   onSelectQuoteForPreview,
-  onSwitchToCrewApp
+  onSwitchToCrewApp,
+  appViewMode = 'admin',
+  onToggleAppViewMode,
+  isAdmin = true
 }) => {
   const [quickActionOpen, setQuickActionOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,6 +115,8 @@ export const TopBar: React.FC<TopBarProps> = ({
         return { section: 'Operations & Production', page: 'Crew Management & Roster' };
       case 'locations':
         return { section: 'Operations & Production', page: 'Venues & Locations Directory' };
+      case 'settings':
+        return { section: 'System Administration', page: 'Company Profile & Settings' };
       default:
         return { section: 'System', page: 'Overview' };
     }
@@ -228,16 +237,36 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* PWA In-App Install Button */}
             <PWAInstallButton variant="compact" />
 
-            {/* Crew Mobile App Fast Trigger */}
-            {onSwitchToCrewApp && (
-              <button
-                onClick={onSwitchToCrewApp}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#C58B39]/50 rounded-lg text-xs font-semibold text-[#8C6222] transition-colors"
-                title="Launch Crew Mobile App Persona"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
-                <span className="hidden md:inline">Crew App</span>
-              </button>
+            {/* Top Admin / Crew Mode Toggle (Only for Admin) */}
+            {isAdmin && (
+              <div className="bg-[#FAF8F5] p-0.5 border border-[#DCD6C8] rounded-lg flex items-center shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => onToggleAppViewMode && onToggleAppViewMode('admin')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                    appViewMode !== 'crew'
+                      ? 'bg-[#181818] text-white shadow-2xs'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                  title="Admin ERP Workspace"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C58B39]" />
+                  <span>Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleAppViewMode ? onToggleAppViewMode('crew') : onSwitchToCrewApp && onSwitchToCrewApp()}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
+                    appViewMode === 'crew'
+                      ? 'bg-[#181818] text-white shadow-2xs'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                  title="Switch to Crew Mobile View"
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
+                  <span>Crew</span>
+                </button>
+              </div>
             )}
 
             {/* Season pill */}

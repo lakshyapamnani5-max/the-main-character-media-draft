@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, deleteApp } from 'firebase/app';
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { Partner, EventShoot } from '../types';
+import { Partner, EventShoot, CrewMember } from '../types';
 
 // Custom credentials storage key
 const CUSTOM_FIREBASE_CONFIG_KEY = 'tmc_custom_firebase_credentials';
@@ -69,10 +69,19 @@ export const db = getFirestore(
   (activeConfig as any).firestoreDatabaseId || undefined
 );
 
-// Realtime Database instance (if databaseURL configured)
-export const rtdb = (activeConfig as any).databaseURL 
-  ? getDatabase(app, (activeConfig as any).databaseURL) 
-  : null;
+// Realtime Database instance
+export const rtdb = (() => {
+  try {
+    const dbUrl = (activeConfig as any).databaseURL || `https://${activeConfig.projectId}-default-rtdb.firebaseio.com`;
+    return getDatabase(app, dbUrl);
+  } catch (err) {
+    try {
+      return getDatabase(app);
+    } catch {
+      return null;
+    }
+  }
+})();
 
 // Error Handling conforming to firebase-integration-rpc skill
 export enum OperationType {
@@ -216,6 +225,117 @@ export function subscribeToFirestoreEvents(onUpdate: (events: EventShoot[]) => v
       console.warn('Events listener notice (sign in to sync live with Cloud Firestore):', error.message);
     }
   );
+}
+
+// --- FIRESTORE CREW ROSTER & FIREBASE AUTH HELPERS ---
+
+/**
+ * Provisions a user into Firebase Auth without signing out the currently active admin session.
+ * Utilizes an ephemeral secondary Firebase App instance.
+ */
+export async function createCrewFirebaseAuthUser(
+  email: string, 
+  password: string, 
+  displayName?: string
+): Promise<{ success: boolean; uid?: string; error?: string }> {
+  const config = getEffectiveFirebaseConfig();
+  const secondaryAppName = `SecondaryAuth_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  let secondaryApp: any = null;
+
+  try {
+    secondaryApp = initializeApp(config, secondaryAppName);
+    const secondaryAuth = getAuth(secondaryApp);
+    const userCred = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
+
+    if (displayName && userCred.user) {
+      try {
+        await updateProfile(userCred.user, { displayName: displayName.trim() });
+      } catch {
+        // non-blocking
+      }
+    }
+
+    const uid = userCred.user.uid;
+    await signOut(secondaryAuth);
+    return { success: true, uid };
+  } catch (err: any) {
+    console.error('Firebase Auth crew provisioning error:', err);
+    let errorMessage = err.message || 'Failed to create user in Firebase Auth';
+    if (err.code === 'auth/email-already-in-use') {
+      errorMessage = 'This email is already registered in Firebase Auth.';
+    } else if (err.code === 'auth/weak-password') {
+      errorMessage = 'Password is too weak. Please use at least 6 characters.';
+    } else if (err.code === 'auth/invalid-email') {
+      errorMessage = 'Invalid email address provided.';
+    }
+    return { success: false, error: errorMessage };
+  } finally {
+    if (secondaryApp) {
+      try {
+        await deleteApp(secondaryApp);
+      } catch {
+        // ignore secondary app deletion error
+      }
+    }
+  }
+}
+
+export async function saveCrewToFirestore(crewMember: CrewMember): Promise<void> {
+  const path = `crew/${crewMember.id}`;
+  try {
+    await setDoc(doc(db, 'crew', crewMember.id), crewMember);
+    if (rtdb) {
+      await set(ref(rtdb, `crew/${crewMember.id}`), crewMember);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteCrewFromFirestore(crewMemberId: string): Promise<void> {
+  const path = `crew/${crewMemberId}`;
+  try {
+    await deleteDoc(doc(db, 'crew', crewMemberId));
+    if (rtdb) {
+      await remove(ref(rtdb, `crew/${crewMemberId}`));
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export function subscribeToFirestoreCrew(onUpdate: (crew: CrewMember[]) => void): Unsubscribe {
+  const path = 'crew';
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const crewList: CrewMember[] = [];
+      snapshot.forEach((doc) => {
+        crewList.push(doc.data() as CrewMember);
+      });
+      onUpdate(crewList);
+    },
+    (error) => {
+      console.warn('Crew listener notice (sign in to sync live with Cloud Firestore):', error.message);
+    }
+  );
+}
+
+export function subscribeToRealtimeCrew(onUpdate: (crew: CrewMember[]) => void): (() => void) | null {
+  if (!rtdb) return null;
+  try {
+    const crewRef = ref(rtdb, 'crew');
+    return onValue(crewRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const list: CrewMember[] = Object.values(val);
+        onUpdate(list);
+      }
+    });
+  } catch (err) {
+    console.warn('Realtime Database crew listener error:', err);
+    return null;
+  }
 }
 
 export default app;

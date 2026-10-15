@@ -28,8 +28,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [shootTime, setShootTime] = useState('14:00 - 22:00');
   const [venue, setVenue] = useState('');
   const [city, setCity] = useState('Mumbai');
-  const [leadCreator, setLeadCreator] = useState('Devansh Saxena');
-  const [crewMembers, setCrewMembers] = useState<string[]>(['Devansh Saxena', 'Tara Sen']);
+  const [leadCreator, setLeadCreator] = useState('');
+  const [crewMembers, setCrewMembers] = useState<string[]>([]);
   const [crewMemberInput, setCrewMemberInput] = useState('');
   const [crewPayout, setCrewPayout] = useState<number | ''>(25000);
   const [packageTotal, setPackageTotal] = useState<number | ''>(75000);
@@ -83,8 +83,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setShootTime('14:00 - 22:00');
       setVenue('');
       setCity('Mumbai');
-      setLeadCreator('Devansh Saxena');
-      setCrewMembers(['Devansh Saxena', 'Tara Sen']);
+      setLeadCreator('');
+      setCrewMembers([]);
       setCrewPayout(25000);
       setPackageTotal(75000);
       setAdvancePaid(35000);
@@ -458,8 +458,30 @@ export const EventModal: React.FC<EventModalProps> = ({
 
           {/* Commercials: Package Total, Advance, Due Date */}
           <div className="p-3.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded-xl space-y-3">
-            <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C58B39]">
-              Commercials & Billing
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C58B39]">
+                Commercials & Billing
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-[10px] text-neutral-500 font-medium">Auto-fill Rate:</span>
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const chg = StorageService.getActiveEventCharges().find(c => c.id === e.target.value);
+                      if (chg) {
+                        setPackageTotal(chg.price);
+                        setEventType(chg.name);
+                      }
+                    }
+                  }}
+                  className="px-2 py-1 text-[11px] border border-[#DCD6C8] rounded bg-white text-neutral-800"
+                >
+                  <option value="">-- Select from Event Rates --</option>
+                  {StorageService.getActiveEventCharges().map(chg => (
+                    <option key={chg.id} value={chg.id}>{chg.name} — ₹{chg.price.toLocaleString('en-IN')}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

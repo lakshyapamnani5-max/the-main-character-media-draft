@@ -9,7 +9,8 @@ import {
   Sparkles,
   ShieldCheck,
   Building2,
-  Smartphone
+  Smartphone,
+  Wallet
 } from 'lucide-react';
 import { EventShoot, CrewMember, CrewNotification } from '../../types';
 import { StorageService } from '../../services/storage';
@@ -21,15 +22,16 @@ import { CrewCalendarTab } from './CrewCalendarTab';
 import { CrewNotificationsTab } from './CrewNotificationsTab';
 import { CrewProfileTab } from './CrewProfileTab';
 import { CrewShootDetailView } from './CrewShootDetailView';
+import { CrewPayoutsTab } from './CrewPayoutsTab';
 
-export type CrewNavTab = 'home' | 'shoots' | 'calendar' | 'notifications' | 'profile';
+export type CrewNavTab = 'home' | 'shoots' | 'payouts' | 'calendar' | 'notifications' | 'profile';
 
 interface CrewAppLayoutProps {
   events: EventShoot[];
   crewRoster: CrewMember[];
   activeCrewId: string;
   onChangeCrewPersona: (crewId: string) => void;
-  onSwitchToAdmin: () => void;
+  onSwitchToAdmin?: () => void;
   onRefreshData: () => void;
 }
 
@@ -44,15 +46,15 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
   const [activeTab, setActiveTab] = useState<CrewNavTab>('home');
   const [selectedEventDetail, setSelectedEventDetail] = useState<EventShoot | null>(null);
 
-  const activeCrew = crewRoster.find(c => c.id === activeCrewId) || crewRoster[0] || {
-    id: 'cr-aman',
-    name: 'Aman Joshi',
-    phone: '+919820666778',
-    email: 'aman@themaincharactermedia.com',
-    role: 'Editor',
-    specialization: 'Same-Day Reel Delivery',
-    experience: '3 Years',
-    defaultPayout: 4500,
+  const activeCrew: CrewMember = crewRoster.find(c => c.id === activeCrewId) || crewRoster[0] || {
+    id: 'creator-portal',
+    name: 'Crew Member',
+    phone: '',
+    email: '',
+    role: 'Content Creator',
+    specialization: 'Luxury Weddings & Social POV',
+    experience: 'Production Specialist',
+    defaultPayout: 0,
     availability: 'Available',
     status: 'Active'
   };
@@ -107,22 +109,19 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
             <div className="font-serif tracking-widest text-xs font-bold text-white uppercase">
               The Main Character
             </div>
-            <div className="text-[9px] uppercase font-mono tracking-widest text-[#C58B39]">
-              Crew Mobile App
+            <div className="flex items-center gap-1.5 text-[9px] uppercase font-mono tracking-widest text-[#C58B39]">
+              <span>Crew Portal</span>
+              <span className="text-neutral-600">·</span>
+              <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Realtime DB</span>
+              </span>
             </div>
           </div>
         </div>
 
         {/* Right Actions: Switch to ERP & Notification Bell */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={onSwitchToAdmin}
-            className="p-1.5 text-neutral-400 hover:text-white rounded-lg bg-white/5 active:bg-white/10 flex items-center gap-1 text-[10px] font-mono"
-            title="Switch to Admin ERP"
-          >
-            <Building2 className="w-3.5 h-3.5 text-[#C58B39]" />
-            <span className="hidden sm:inline">Admin</span>
-          </button>
 
           <button
             onClick={() => setActiveTab('notifications')}
@@ -179,6 +178,13 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
           />
         )}
 
+        {activeTab === 'payouts' && (
+          <CrewPayoutsTab
+            activeCrew={activeCrew}
+            allShoots={events}
+          />
+        )}
+
         {activeTab === 'profile' && (
           <CrewProfileTab
             activeCrew={activeCrew}
@@ -230,18 +236,15 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
             <span className="text-[10px] font-medium tracking-wide uppercase">Calendar</span>
           </button>
 
-          {/* NOTIFICATIONS */}
+          {/* PAYOUTS */}
           <button
-            onClick={() => setActiveTab('notifications')}
-            className={`flex flex-col items-center justify-center gap-1 relative transition-colors ${
-              activeTab === 'notifications' ? 'text-[#C58B39]' : 'text-neutral-400 hover:text-neutral-200'
+            onClick={() => setActiveTab('payouts')}
+            className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+              activeTab === 'payouts' ? 'text-[#C58B39]' : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
-            <Bell className="w-5 h-5" />
-            {unreadNotifsCount > 0 && (
-              <span className="absolute top-2 right-5 w-2 h-2 rounded-full bg-[#C58B39] ring-2 ring-[#121212]" />
-            )}
-            <span className="text-[10px] font-medium tracking-wide uppercase">Notifs</span>
+            <Wallet className="w-5 h-5" />
+            <span className="text-[10px] font-medium tracking-wide uppercase">Payouts</span>
           </button>
 
           {/* PROFILE */}

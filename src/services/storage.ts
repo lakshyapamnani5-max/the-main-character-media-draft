@@ -26,7 +26,8 @@ import {
   Partner,
   Invoice,
   InvoiceItem,
-  InvoiceStatus
+  InvoiceStatus,
+  CompanySettings
 } from '../types';
 import {
   savePartnerToFirestore,
@@ -34,6 +35,7 @@ import {
   saveEventToFirestore,
   deleteEventFromFirestore
 } from './firebase';
+import { RealtimeSyncService, SyncCollection } from './realtimeSync';
 
 export function normalizeIndianPhoneNumber(input: string): string {
   if (!input) return '';
@@ -85,15 +87,16 @@ const STORAGE_KEYS = {
   PLANNERS: 'tmc_planners_v1',
   PARTNERS: 'tmc_partners_v1',
   INVOICES: 'tmc_invoices_v1',
+  COMPANY_SETTINGS: 'tmc_company_settings_v1',
 };
 
 const DEFAULT_EVENT_CHARGES: EventCharge[] = [
   {
     id: 'chg-wedding-day',
-    name: 'Wedding Day',
+    name: 'Wedding',
     category: 'Wedding Day',
-    description: 'Comprehensive wedding day storytelling capturing all sacred moments and unfiltered joy.',
-    price: 25000,
+    description: 'Comprehensive royal wedding day storytelling capturing all sacred moments and unfiltered joy.',
+    price: 50000,
     duration: '8 Hours',
     crewRequirement: '2 Content Creators',
     includedServices: [
@@ -266,92 +269,7 @@ const DEFAULT_EVENT_CHARGES: EventCharge[] = [
   }
 ];
 
-const DEFAULT_CREW_ROSTER: CrewMember[] = [
-  {
-    id: 'cr-devansh',
-    name: 'Devansh Saxena',
-    phone: '+919820111223',
-    email: 'devansh@themaincharactermedia.com',
-    role: 'Cinematographer',
-    specialization: 'Creative Direction, Couple POVs, 4K ProRes Grading',
-    experience: '6 Years / 140+ Luxury Weddings',
-    defaultPayout: 8000,
-    availability: 'Available',
-    status: 'Active',
-    username: 'devansh',
-    notes: 'Lead director for palace and destination weddings across Rajasthan & Goa.'
-  },
-  {
-    id: 'cr-ishaan',
-    name: 'Ishaan Verma',
-    phone: '+919820222334',
-    email: 'ishaan@themaincharactermedia.com',
-    role: 'Content Creator',
-    specialization: 'Groom POV, Baraat Energy, High-Beat Reels',
-    experience: '4 Years / 90+ Weddings',
-    defaultPayout: 6000,
-    availability: 'Available',
-    status: 'Active',
-    username: 'ishaan',
-    notes: 'Excellent crowd engagement during high energy Baraat and DJ afterparties.'
-  },
-  {
-    id: 'cr-tara',
-    name: 'Tara Sen',
-    phone: '+919820333445',
-    email: 'tara@themaincharactermedia.com',
-    role: 'Content Creator',
-    specialization: 'Bridal Prep POV, Aesthetic Details, Jewelry & Lehenga Micro-shots',
-    experience: '4 Years / 110+ Weddings',
-    defaultPayout: 6000,
-    availability: 'Available',
-    status: 'Active',
-    username: 'tara',
-    notes: 'Preferred creator for brides. Specializes in editorial slow-motion.'
-  },
-  {
-    id: 'cr-rohit',
-    name: 'Rohit Bansal',
-    phone: '+919820555667',
-    email: 'rohit@themaincharactermedia.com',
-    role: 'Drone Operator',
-    specialization: 'DGCA Certified, 4K FPV Fly-through, Twilight Orbits',
-    experience: '5 Years / 200+ Flights',
-    defaultPayout: 5000,
-    availability: 'Available',
-    status: 'Active',
-    username: 'rohit_pilot',
-    notes: 'Operates DJI Mavic 3 Pro Cine and Avata 2 indoor rigs.'
-  },
-  {
-    id: 'cr-aman',
-    name: 'Aman Joshi',
-    phone: '+919820666778',
-    email: 'aman@themaincharactermedia.com',
-    role: 'Editor',
-    specialization: 'Rapid Same-Day Editing, Sound Design, Trending Audio Curation',
-    experience: '3 Years / On-site Specialist',
-    defaultPayout: 4500,
-    availability: 'Available',
-    status: 'Active',
-    username: 'aman_edit',
-    notes: 'Mobile editing setup with M3 Max MacBook Pro for lightning fast 4K renders.'
-  },
-  {
-    id: 'cr-kavya',
-    name: 'Kavya Nair',
-    phone: '+919820444556',
-    email: 'kavya@themaincharactermedia.com',
-    role: 'Photographer',
-    specialization: 'Candid Portraits, Decor & Floral Architecture, Editorial Frames',
-    experience: '5 Years / 95+ Weddings',
-    defaultPayout: 6500,
-    availability: 'Available',
-    status: 'Active',
-    username: 'kavya_nair',
-    notes: 'Leica SL2 & Sony A7R V shooter for ultra-high-resolution candid stills.'
-  }
-];
+const DEFAULT_CREW_ROSTER: CrewMember[] = [];
 
 const DEFAULT_LOCATIONS: LocationVenue[] = [
   {
@@ -1036,6 +954,39 @@ const DEFAULT_PAYMENTS: PaymentRecord[] = [
   }
 ];
 
+const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
+  companyName: 'The Main Character Media',
+  tagline: 'Luxury Wedding & Celebration Content Creation',
+  logoUrl: '',
+  phone: '+91 98200 12345',
+  whatsapp: '+91 98200 12345',
+  email: 'hello@themaincharactermedia.com',
+  website: 'www.themaincharactermedia.com',
+  address: 'Studio 402, Pali Hill, Bandra West',
+  city: 'Mumbai',
+  state: 'Maharashtra',
+  pincode: '400050',
+  gstin: '27AABCT1234F1Z5',
+  bankName: 'HDFC Bank',
+  accountName: 'The Main Character Media',
+  accountNumber: '50200088912344',
+  ifscCode: 'HDFC0000045',
+  branch: 'Bandra West, Mumbai',
+  upiId: 'tmcmedia@hdfcbank',
+  upiQrUrl: '',
+  signatureUrl: '',
+  signatoryName: 'Devansh Saxena',
+  signatoryTitle: 'Creative Producer & Founder',
+  defaultAdvancePercentage: 50,
+  defaultValidityDays: 15,
+  defaultTerms: `1. 50% advance booking deposit required to lock team & equipment on the roster.
+2. Remaining 50% balance payable on or before event day prior to final footage handover.
+3. Raw uncut 4K footage transferred on-site via AirDrop / fast portable SSD at the end of each function.
+4. Curated, color-graded 9:16 high-definition reels delivered within 5-7 working days.
+5. Outstation Travel & Stay: Flight/rail tickets and hotel accommodations to be arranged by the client.`,
+  defaultCommercialNotes: `Capture formatted exclusively for 9:16 social storytelling with high-bitrate audio and wireless lavalier microphones.`
+};
+
 const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   reminder24hEnabled: true,
   reminder2hEnabled: false,
@@ -1065,57 +1016,7 @@ Please reach 15 minutes before call time with full battery packs & formatted SD 
 — The Main Character Media`
 };
 
-const DEFAULT_NOTIFICATIONS: CrewNotification[] = [
-  {
-    id: 'notif-1',
-    crewId: 'cr-aman',
-    title: 'New Shoot Assignment',
-    message: 'You have been assigned to Rahul & Priya Wedding on 12 Oct 2026 as Content Creator.',
-    type: 'shoot_assigned',
-    eventId: 'evt-rahul-priya',
-    read: false,
-    createdAt: new Date(Date.now() - 3600000 * 2).toISOString()
-  },
-  {
-    id: 'notif-2',
-    crewId: 'cr-aman',
-    title: 'Call Time Confirmed',
-    message: 'Call time for Taj Lands End Baraat & Wedding is set to 08:00 AM sharp.',
-    type: 'call_time_changed',
-    eventId: 'evt-rahul-priya',
-    read: false,
-    createdAt: new Date(Date.now() - 3600000 * 5).toISOString()
-  },
-  {
-    id: 'notif-3',
-    crewId: 'cr-aman',
-    title: 'Special POV Assigned',
-    message: 'Bride POV (High Priority) and Transition Reel assigned to your queue.',
-    type: 'pov_assigned',
-    eventId: 'evt-rahul-priya',
-    read: false,
-    createdAt: new Date(Date.now() - 3600000 * 12).toISOString()
-  },
-  {
-    id: 'notif-4',
-    crewId: 'cr-tara',
-    title: 'New Shoot Assignment',
-    message: 'Assigned as Dedicated Bride POV creator for Rahul & Priya Wedding.',
-    type: 'shoot_assigned',
-    eventId: 'evt-rahul-priya',
-    read: false,
-    createdAt: new Date(Date.now() - 3600000 * 6).toISOString()
-  },
-  {
-    id: 'notif-5',
-    crewId: 'all',
-    title: 'Production Guidelines Update',
-    message: 'ProRes 4K 60fps setting mandatory for all slow-motion ceremonial captures.',
-    type: 'general',
-    read: true,
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
-  }
-];
+const DEFAULT_NOTIFICATIONS: CrewNotification[] = [];
 
 const DEFAULT_EXPENSES: Expense[] = [
   {
@@ -1273,8 +1174,29 @@ export class StorageService {
     }
   }
 
+  public static persistAndSync<T extends { id?: string }>(
+    col: SyncCollection,
+    storageKey: string,
+    items: T[],
+    changedItem?: T | null,
+    removedId?: string
+  ) {
+    localStorage.setItem(storageKey, JSON.stringify(items));
+    if (removedId) {
+      RealtimeSyncService.removeItem(col, removedId);
+    } else if (changedItem) {
+      RealtimeSyncService.saveItem(col, changedItem);
+    } else {
+      RealtimeSyncService.syncAllItems(col, items);
+    }
+    this.notifyListeners();
+  }
+
   static initialize(): void {
     if (typeof window === 'undefined') return;
+
+    // Connect and initialize Firebase Realtime Database live sync
+    RealtimeSyncService.initialize();
 
     // Remove all dummy data on initial load to connect with clean Firebase storage as requested
     const dummyCleared = localStorage.getItem('tmc_dummy_data_cleared_v3');
@@ -1290,6 +1212,13 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
       localStorage.setItem('tmc_dummy_data_cleared_v3', 'true');
+    }
+
+    // Purge cached demo crew members for fresh production readiness
+    const crewDemoPurged = localStorage.getItem('tmc_crew_demo_purged_prod_v2');
+    if (!crewDemoPurged) {
+      localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify([]));
+      localStorage.setItem('tmc_crew_demo_purged_prod_v2', 'true');
     }
 
     if (!localStorage.getItem(STORAGE_KEYS.EVENT_CHARGES)) {
@@ -1334,6 +1263,9 @@ export class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.APP_VIEW_MODE)) {
       localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, 'admin');
     }
+    if (!localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS)) {
+      localStorage.setItem(STORAGE_KEYS.COMPANY_SETTINGS, JSON.stringify(DEFAULT_COMPANY_SETTINGS));
+    }
   }
 
   // --- CREW ROSTER & CONFLICT DETECTOR ---
@@ -1368,7 +1300,7 @@ export class StorageService {
     }
 
     const newCrew: CrewMember = {
-      id: `cr-${Date.now()}`,
+      id: crewData.id || `cr-${Date.now()}`,
       name: crewData.name.trim(),
       photo: crewData.photo,
       phone: normalizedPhone,
@@ -1381,15 +1313,39 @@ export class StorageService {
       status: crewData.status || 'Active',
       username: crewData.username || crewData.name.toLowerCase().replace(/\s+/g, '_'),
       password: crewData.password || '',
+      firebaseUid: crewData.firebaseUid || undefined,
       notes: crewData.notes || '',
       createdAt: now,
       updatedAt: now
     };
 
     roster.unshift(newCrew);
-    localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify(roster));
-    this.notifyListeners();
+    this.persistAndSync('crew', STORAGE_KEYS.CREW_ROSTER, roster, newCrew);
     return newCrew;
+  }
+
+  static updateCrewMember(crewId: string, updates: Partial<CrewMember>): CrewMember | null {
+    const roster = this.getCrewRoster();
+    const idx = roster.findIndex(c => c.id === crewId);
+    if (idx === -1) return null;
+    const updated = {
+      ...roster[idx],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    roster[idx] = updated;
+    this.persistAndSync('crew', STORAGE_KEYS.CREW_ROSTER, roster, updated);
+    return updated;
+  }
+
+  static deleteCrewMember(crewId: string): boolean {
+    const roster = this.getCrewRoster();
+    const updated = roster.filter(c => c.id !== crewId);
+    if (updated.length !== roster.length) {
+      this.persistAndSync('crew', STORAGE_KEYS.CREW_ROSTER, updated, null, crewId);
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -1533,8 +1489,8 @@ export class StorageService {
       status: eventData.status || 'Confirmed',
       notes: eventData.notes || '',
       consentUsageNotes: eventData.consentUsageNotes || 'Standard Social Media Usage',
-      leadCreator: eventData.leadCreator || 'Devansh Saxena',
-      crewMembers: eventData.crewMembers || ['Devansh Saxena'],
+      leadCreator: eventData.leadCreator || '',
+      crewMembers: eventData.crewMembers || [],
       crewAssignments: eventData.crewAssignments || [],
       subEvents: eventData.subEvents || [
         {
@@ -1607,19 +1563,41 @@ export class StorageService {
     };
 
     events.unshift(newEvent);
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    saveEventToFirestore(newEvent).catch(() => {});
-    this.notifyListeners();
+    this.persistEvents(events, newEvent);
     return newEvent;
+  }
+
+  public static persistEvents(events: EventShoot[], modifiedEvent?: EventShoot, deletedEventId?: string) {
+    if (deletedEventId) {
+      this.persistAndSync('events', STORAGE_KEYS.EVENTS, events, null, deletedEventId);
+      deleteEventFromFirestore(deletedEventId).catch(() => {});
+    } else if (modifiedEvent) {
+      this.persistAndSync('events', STORAGE_KEYS.EVENTS, events, modifiedEvent);
+      saveEventToFirestore(modifiedEvent).catch(() => {});
+    } else {
+      this.persistAndSync('events', STORAGE_KEYS.EVENTS, events);
+    }
+  }
+
+  static updateEvent(eventId: string, updates: Partial<EventShoot>): EventShoot | null {
+    const events = this.getEvents();
+    const idx = events.findIndex(e => e.id === eventId);
+    if (idx === -1) return null;
+    const updated = {
+      ...events[idx],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    events[idx] = updated;
+    this.persistEvents(events, updated);
+    return updated;
   }
 
   static deleteEvent(eventId: string): boolean {
     const events = this.getEvents();
     const filtered = events.filter(e => e.id !== eventId);
     if (filtered.length !== events.length) {
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(filtered));
-      deleteEventFromFirestore(eventId).catch(() => {});
-      this.notifyListeners();
+      this.persistEvents(filtered, undefined, eventId);
       return true;
     }
     return false;
@@ -1655,8 +1633,7 @@ export class StorageService {
     });
 
     event.updatedAt = now;
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newSub;
   }
 
@@ -1675,8 +1652,7 @@ export class StorageService {
     };
     event.subEvents[idx] = updated;
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return updated;
   }
 
@@ -1689,8 +1665,7 @@ export class StorageService {
     event.subEvents = event.subEvents.filter(s => s.id !== subEventId);
     if (event.subEvents.length !== initialLen) {
       event.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-      this.notifyListeners();
+      this.persistEvents(events, event);
       return true;
     }
     return false;
@@ -1711,8 +1686,7 @@ export class StorageService {
     if (!event.timeline) event.timeline = [];
     event.timeline.push(newItem);
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newItem;
   }
 
@@ -1726,8 +1700,7 @@ export class StorageService {
 
     event.timeline[idx] = { ...event.timeline[idx], ...updates };
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return event.timeline[idx];
   }
 
@@ -1740,8 +1713,7 @@ export class StorageService {
     event.timeline = event.timeline.filter(t => t.id !== timelineId);
     if (event.timeline.length !== initialLen) {
       event.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-      this.notifyListeners();
+      this.persistEvents(events, event);
       return true;
     }
     return false;
@@ -1762,8 +1734,7 @@ export class StorageService {
     if (!event.povs) event.povs = [];
     event.povs.push(newPOV);
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newPOV;
   }
 
@@ -1777,8 +1748,7 @@ export class StorageService {
 
     event.povs[idx] = { ...event.povs[idx], ...updates };
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return event.povs[idx];
   }
 
@@ -1791,8 +1761,7 @@ export class StorageService {
     event.povs = event.povs.filter(p => p.id !== povId);
     if (event.povs.length !== initialLen) {
       event.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-      this.notifyListeners();
+      this.persistEvents(events, event);
       return true;
     }
     return false;
@@ -1836,9 +1805,54 @@ export class StorageService {
     });
 
     event.updatedAt = now;
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newAssignment;
+  }
+
+  static updateCrewAssignmentPaymentStatus(
+    eventId: string,
+    crewId: string,
+    paymentStatus: 'Paid' | 'Unpaid'
+  ): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return false;
+
+    if (!event.crewAssignments) {
+      event.crewAssignments = [];
+    }
+
+    const assignment = event.crewAssignments.find(a => a.crewId === crewId);
+    if (assignment) {
+      assignment.paymentStatus = paymentStatus;
+      if (paymentStatus === 'Paid') {
+        assignment.paidAt = new Date().toISOString();
+      } else {
+        delete assignment.paidAt;
+      }
+    } else {
+      const crewRoster = this.getCrewRoster();
+      const crewMember = crewRoster.find(c => c.id === crewId || c.name === crewId);
+      event.crewAssignments.push({
+        id: `asg-${Date.now()}`,
+        eventId,
+        crewId: crewMember ? crewMember.id : crewId,
+        crewName: crewMember ? crewMember.name : crewId,
+        role: crewMember ? crewMember.role : 'Content Creator',
+        callTime: '08:00 AM',
+        wrapTime: '11:00 PM',
+        payout: crewMember ? crewMember.defaultPayout : 6000,
+        assignedSubEventIds: [],
+        assignedPOVIds: [],
+        paymentStatus,
+        paidAt: paymentStatus === 'Paid' ? new Date().toISOString() : undefined,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    event.updatedAt = new Date().toISOString();
+    this.persistEvents(events, event);
+    return true;
   }
 
   // File Management
@@ -1869,8 +1883,7 @@ export class StorageService {
     });
 
     event.updatedAt = now;
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newFile;
   }
 
@@ -1883,8 +1896,7 @@ export class StorageService {
     if (del) {
       del.completed = !del.completed;
       event.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-      this.notifyListeners();
+      this.persistEvents(events, event);
     }
   }
 
@@ -1901,8 +1913,7 @@ export class StorageService {
     if (!event.deliverables) event.deliverables = [];
     event.deliverables.push(newDel);
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
     return newDel;
   }
 
@@ -1915,8 +1926,7 @@ export class StorageService {
     event.deliverables = event.deliverables.filter(d => d.id !== deliverableId);
     if (event.deliverables.length !== len) {
       event.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-      this.notifyListeners();
+      this.persistEvents(events, event);
       return true;
     }
     return false;
@@ -1932,8 +1942,7 @@ export class StorageService {
     event.packageTotal += addOn.price;
     event.balanceDue = Math.max(0, event.packageTotal - event.advancePaid);
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
   }
 
   static removeEventAddOn(eventId: string, index: number): void {
@@ -1946,8 +1955,7 @@ export class StorageService {
     event.packageTotal = Math.max(0, event.packageTotal - removed.price);
     event.balanceDue = Math.max(0, event.packageTotal - event.advancePaid);
     event.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, event);
   }
 
   static getExpensesByEvent(eventId: string): Expense[] {
@@ -1981,8 +1989,7 @@ export class StorageService {
           ...charge,
           updatedAt: now
         } as EventCharge;
-        localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify(charges));
-        this.notifyListeners();
+        this.persistAndSync('eventCharges', STORAGE_KEYS.EVENT_CHARGES, charges, charges[idx]);
         return charges[idx];
       }
     }
@@ -2004,8 +2011,7 @@ export class StorageService {
     };
 
     charges.unshift(newCharge);
-    localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify(charges));
-    this.notifyListeners();
+    this.persistAndSync('eventCharges', STORAGE_KEYS.EVENT_CHARGES, charges, newCharge);
     return newCharge;
   }
 
@@ -2022,8 +2028,7 @@ export class StorageService {
     if (isUsedInQuotes) {
       charges[idx].status = 'Archived';
       charges[idx].updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify(charges));
-      this.notifyListeners();
+      this.persistAndSync('eventCharges', STORAGE_KEYS.EVENT_CHARGES, charges, charges[idx]);
       return { 
         success: true, 
         action: 'archived', 
@@ -2031,8 +2036,7 @@ export class StorageService {
       };
     } else {
       charges.splice(idx, 1);
-      localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify(charges));
-      this.notifyListeners();
+      this.persistAndSync('eventCharges', STORAGE_KEYS.EVENT_CHARGES, charges, null, chargeId);
       return { success: true, action: 'deleted', message: 'Event charge removed from catalogue.' };
     }
   }
@@ -2060,8 +2064,7 @@ export class StorageService {
           ...enquiry,
           updatedAt: now
         } as Enquiry;
-        localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
-        this.notifyListeners();
+        this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, list, list[idx]);
         return list[idx];
       }
     }
@@ -2093,8 +2096,7 @@ export class StorageService {
     };
 
     list.unshift(newEnquiry);
-    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
-    this.notifyListeners();
+    this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, list, newEnquiry);
     return newEnquiry;
   }
 
@@ -2117,8 +2119,7 @@ export class StorageService {
     if (nextDate) list[idx].followUpDate = nextDate;
     list[idx].updatedAt = new Date().toISOString();
 
-    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
-    this.notifyListeners();
+    this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, list, list[idx]);
     return list[idx];
   }
 
@@ -2140,7 +2141,7 @@ export class StorageService {
     list[idx].pipelineStage = 'Confirmed';
     list[idx].convertedToClientId = newClient.id;
     list[idx].updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
+    this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, list, list[idx]);
 
     let createdEvent: EventShoot | undefined;
     if (createEventAlso) {
@@ -2169,7 +2170,6 @@ export class StorageService {
       });
     }
 
-    this.notifyListeners();
     return { client: newClient, event: createdEvent };
   }
 
@@ -2179,8 +2179,7 @@ export class StorageService {
     if (idx === -1) return false;
     list[idx].archived = !list[idx].archived;
     list[idx].updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
-    this.notifyListeners();
+    this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, list, list[idx]);
     return true;
   }
 
@@ -2188,8 +2187,7 @@ export class StorageService {
     const list = this.getEnquiries();
     const filtered = list.filter(e => e.id !== enquiryId);
     if (filtered.length !== list.length) {
-      localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(filtered));
-      this.notifyListeners();
+      this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, filtered, null, enquiryId);
       return true;
     }
     return false;
@@ -2306,7 +2304,7 @@ export class StorageService {
     };
 
     quotes.unshift(newQuote);
-    localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotes));
+    this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, newQuote);
 
     if (newQuote.enquiryId) {
       const enquiries = this.getEnquiries();
@@ -2314,11 +2312,10 @@ export class StorageService {
       if (enq && (enq.pipelineStage === 'New' || enq.pipelineStage === 'Contacted' || enq.pipelineStage === 'Requirement Collected')) {
         enq.pipelineStage = 'Quote Sent';
         enq.updatedAt = now;
-        localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(enquiries));
+        this.persistAndSync('enquiries', STORAGE_KEYS.ENQUIRIES, enquiries, enq);
       }
     }
 
-    this.notifyListeners();
     return newQuote;
   }
 
@@ -2335,9 +2332,18 @@ export class StorageService {
       quotes[idx].acceptedAt = new Date().toISOString();
     }
 
-    localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotes));
-    this.notifyListeners();
+    this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, quotes[idx]);
     return quotes[idx];
+  }
+
+  static deleteQuotation(quoteId: string): boolean {
+    const quotes = this.getQuotations();
+    const filtered = quotes.filter(q => q.id !== quoteId);
+    if (filtered.length !== quotes.length) {
+      this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, filtered, null, quoteId);
+      return true;
+    }
+    return false;
   }
 
   // --- CLIENTS ---
@@ -2364,8 +2370,7 @@ export class StorageService {
           phone: clientData.phone ? normalizeIndianPhoneNumber(clientData.phone) : clients[idx].phone,
           updatedAt: now
         } as Client;
-        localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-        this.notifyListeners();
+        this.persistAndSync('clients', STORAGE_KEYS.CLIENTS, clients, clients[idx]);
         return clients[idx];
       }
     }
@@ -2384,9 +2389,18 @@ export class StorageService {
     };
 
     clients.unshift(newClient);
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-    this.notifyListeners();
+    this.persistAndSync('clients', STORAGE_KEYS.CLIENTS, clients, newClient);
     return newClient;
+  }
+
+  static deleteClient(clientId: string): boolean {
+    const clients = this.getClients();
+    const filtered = clients.filter(c => c.id !== clientId);
+    if (filtered.length !== clients.length) {
+      this.persistAndSync('clients', STORAGE_KEYS.CLIENTS, filtered, null, clientId);
+      return true;
+    }
+    return false;
   }
 
   // --- PAYMENTS ---
@@ -2409,7 +2423,7 @@ export class StorageService {
     };
 
     payments.unshift(newPayment);
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+    this.persistAndSync('payments', STORAGE_KEYS.PAYMENTS, payments, newPayment);
 
     if (payment.eventId) {
       const events = this.getEvents();
@@ -2429,11 +2443,10 @@ export class StorageService {
         });
 
         evt.updatedAt = new Date().toISOString();
-        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+        this.persistEvents(events, evt);
       }
     }
 
-    this.notifyListeners();
     return newPayment;
   }
 
@@ -2460,8 +2473,7 @@ export class StorageService {
           ...expenseData,
           amount: Number(expenseData.amount) || 0
         } as Expense;
-        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
-        this.notifyListeners();
+        this.persistAndSync('expenses', STORAGE_KEYS.EXPENSES, expenses, expenses[idx]);
         return expenses[idx];
       }
     }
@@ -2481,8 +2493,7 @@ export class StorageService {
     };
 
     expenses.unshift(newExpense);
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
-    this.notifyListeners();
+    this.persistAndSync('expenses', STORAGE_KEYS.EXPENSES, expenses, newExpense);
     return newExpense;
   }
 
@@ -2490,8 +2501,7 @@ export class StorageService {
     const expenses = this.getExpenses();
     const filtered = expenses.filter(e => e.id !== id);
     if (filtered.length !== expenses.length) {
-      localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
-      this.notifyListeners();
+      this.persistAndSync('expenses', STORAGE_KEYS.EXPENSES, filtered, null, id);
       return true;
     }
     return false;
@@ -2519,8 +2529,7 @@ export class StorageService {
           ...plannerData,
           phone: normalizeIndianPhoneNumber(plannerData.phone)
         } as PlannerVendor;
-        localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(planners));
-        this.notifyListeners();
+        this.persistAndSync('planners', STORAGE_KEYS.PLANNERS, planners, planners[idx]);
         return planners[idx];
       }
     }
@@ -2540,8 +2549,7 @@ export class StorageService {
     };
 
     planners.unshift(newPlanner);
-    localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(planners));
-    this.notifyListeners();
+    this.persistAndSync('planners', STORAGE_KEYS.PLANNERS, planners, newPlanner);
     return newPlanner;
   }
 
@@ -2549,8 +2557,7 @@ export class StorageService {
     const planners = this.getPlanners();
     const filtered = planners.filter(p => p.id !== id);
     if (filtered.length !== planners.length) {
-      localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify(filtered));
-      this.notifyListeners();
+      this.persistAndSync('planners', STORAGE_KEYS.PLANNERS, filtered, null, id);
       return true;
     }
     return false;
@@ -2580,9 +2587,8 @@ export class StorageService {
           phone: normalizeIndianPhoneNumber(partnerData.phone),
           updatedAt: now
         } as Partner;
-        localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+        this.persistAndSync('partners', STORAGE_KEYS.PARTNERS, partners, partners[idx]);
         savePartnerToFirestore(partners[idx]).catch(() => {});
-        this.notifyListeners();
         return partners[idx];
       }
     }
@@ -2606,9 +2612,8 @@ export class StorageService {
     };
 
     partners.unshift(newPartner);
-    localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+    this.persistAndSync('partners', STORAGE_KEYS.PARTNERS, partners, newPartner);
     savePartnerToFirestore(newPartner).catch(() => {});
-    this.notifyListeners();
     return newPartner;
   }
 
@@ -2616,9 +2621,8 @@ export class StorageService {
     const partners = this.getPartners();
     const filtered = partners.filter(p => p.id !== id);
     if (filtered.length !== partners.length) {
-      localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(filtered));
+      this.persistAndSync('partners', STORAGE_KEYS.PARTNERS, filtered, null, id);
       deletePartnerFromFirestore(id).catch(() => {});
-      this.notifyListeners();
       return true;
     }
     return false;
@@ -2677,8 +2681,7 @@ export class StorageService {
           ...invoiceData,
           updatedAt: now
         } as Invoice;
-        localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-        this.notifyListeners();
+        this.persistAndSync('invoices', STORAGE_KEYS.INVOICES, invoices, invoices[idx]);
         return invoices[idx];
       }
     }
@@ -2747,8 +2750,7 @@ export class StorageService {
     };
 
     invoices.unshift(newInvoice);
-    localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-    this.notifyListeners();
+    this.persistAndSync('invoices', STORAGE_KEYS.INVOICES, invoices, newInvoice);
     return newInvoice;
   }
 
@@ -2834,12 +2836,70 @@ export class StorageService {
     });
   }
 
+  static createInvoiceFromQuote(quote: Quotation): Invoice {
+    const invoices = this.getInvoices();
+    const existing = invoices.find(i => i.quoteId === quote.id);
+    if (existing) return existing;
+
+    const items: InvoiceItem[] = (quote.items || []).map((it, idx) => ({
+      id: `ii-${Date.now()}-${idx}`,
+      name: it.name,
+      description: it.description || '',
+      quantity: it.quantity || 1,
+      rate: it.rate,
+      amount: it.amount
+    }));
+
+    if (items.length === 0) {
+      items.push({
+        id: `ii-${Date.now()}-main`,
+        name: `${quote.eventName} (${quote.eventType})`,
+        description: `Complete production coverage for ${quote.clientName}`,
+        quantity: 1,
+        rate: quote.grandTotal,
+        amount: quote.grandTotal
+      });
+    }
+
+    const newInvoice: Invoice = {
+      id: `inv-${Date.now()}`,
+      invoiceNumber: `TMC-INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(4, '0')}`,
+      quoteId: quote.id,
+      clientId: quote.clientId,
+      clientName: quote.clientName,
+      clientPhone: quote.clientPhone || '',
+      clientEmail: quote.clientEmail || '',
+      clientAddress: quote.clientAddress || '',
+      eventName: quote.eventName,
+      eventType: quote.eventType,
+      eventDate: quote.eventDate,
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: quote.validUntil || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      items,
+      subtotal: quote.subtotal,
+      discountType: quote.discountType,
+      discountValue: quote.discountValue,
+      discountAmount: quote.discountAmount,
+      taxPercentage: quote.taxPercentage,
+      taxAmount: quote.taxAmount,
+      grandTotal: quote.grandTotal,
+      amountPaid: quote.advanceAmount || 0,
+      balanceDue: quote.balanceAmount,
+      paymentStatus: quote.balanceAmount === 0 ? 'Paid' : (quote.advanceAmount > 0 ? 'Partially Paid' : 'Sent'),
+      notes: quote.notes || 'Luxury Wedding Production Service',
+      terms: quote.terms || '1. Final footage handover subject to full clearance.\n2. Bank Details: HDFC Current A/C #50200088912344, IFSC: HDFC0000045.',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    return this.saveInvoice(newInvoice);
+  }
+
   static deleteInvoice(invoiceId: string): boolean {
     const invoices = this.getInvoices();
     const filtered = invoices.filter(i => i.id !== invoiceId);
     if (filtered.length !== invoices.length) {
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(filtered));
-      this.notifyListeners();
+      this.persistAndSync('invoices', STORAGE_KEYS.INVOICES, filtered, null, invoiceId);
       return true;
     }
     return false;
@@ -2851,8 +2911,7 @@ export class StorageService {
     if (idx !== -1) {
       invoices[idx].paymentStatus = status;
       invoices[idx].updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-      this.notifyListeners();
+      this.persistAndSync('invoices', STORAGE_KEYS.INVOICES, invoices, invoices[idx]);
       return invoices[idx];
     }
     return null;
@@ -2880,8 +2939,7 @@ export class StorageService {
         notes: `Settlement for Invoice ${inv.invoiceNumber}`
       });
 
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-      this.notifyListeners();
+      this.persistAndSync('invoices', STORAGE_KEYS.INVOICES, invoices, inv);
       return inv;
     }
     return null;
@@ -3092,8 +3150,7 @@ export class StorageService {
     });
 
     evt.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-    this.notifyListeners();
+    this.persistEvents(events, evt);
     return true;
   }
 
@@ -3116,5 +3173,27 @@ export class StorageService {
   static setAppViewMode(mode: 'admin' | 'crew'): void {
     localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, mode);
     this.notifyListeners();
+  }
+
+  // --- COMPANY SETTINGS & MASTER BRANDING ---
+  static getCompanySettings(): CompanySettings {
+    this.initialize();
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS);
+      if (!data) return DEFAULT_COMPANY_SETTINGS;
+      const parsed = JSON.parse(data);
+      return { ...DEFAULT_COMPANY_SETTINGS, ...parsed };
+    } catch {
+      return DEFAULT_COMPANY_SETTINGS;
+    }
+  }
+
+  static saveCompanySettings(settings: CompanySettings): void {
+    localStorage.setItem(STORAGE_KEYS.COMPANY_SETTINGS, JSON.stringify(settings));
+    RealtimeSyncService.saveSingleton('companySettings', settings);
+    this.notifyListeners();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('tmc_company_settings_updated', { detail: settings }));
+    }
   }
 }

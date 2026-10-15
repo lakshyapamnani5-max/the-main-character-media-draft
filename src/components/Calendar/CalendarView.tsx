@@ -16,9 +16,11 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Smartphone
 } from 'lucide-react';
 import { EventShoot, CrewMember, SubEvent } from '../../types';
+import { CalendarExportModal } from '../Common/CalendarExportModal';
 
 export type CalendarType = 'weddings' | 'functions' | 'crew';
 export type CalendarViewMode = 'month' | 'week' | 'day';
@@ -44,6 +46,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
   });
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [eventToExport, setEventToExport] = useState<EventShoot | null>(null);
   
   // Filter by crew member in crew calendar
   const [selectedCrewFilter, setSelectedCrewFilter] = useState<string>('all');
@@ -321,6 +325,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 </button>
               ))}
             </div>
+
+            {/* Export to Calendar (iOS / Android) */}
+            <button
+              type="button"
+              onClick={() => {
+                setEventToExport(null);
+                setIsExportModalOpen(true);
+              }}
+              className="px-3 py-1.5 bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#C58B39]/60 text-[#8C6222] text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs"
+              title="Export shoots to iPhone (iOS) or Android Phone Calendar"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
+              <span className="hidden sm:inline">Export (iOS / Android)</span>
+              <span className="sm:hidden">Export</span>
+            </button>
 
             <button
               onClick={() => onOpenNewEvent(selectedDate)}
@@ -611,6 +630,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         )}
       </div>
 
+      {/* Calendar Export Modal (iOS & Android) */}
+      <CalendarExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => {
+          setIsExportModalOpen(false);
+          setEventToExport(null);
+        }}
+        event={eventToExport}
+        allEvents={events}
+        title={eventToExport ? `Export ${eventToExport.eventName}` : 'Export Production Calendar (iOS / Android)'}
+      />
     </div>
   );
 };

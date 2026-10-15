@@ -34,6 +34,23 @@ export const SubEventModal: React.FC<SubEventModalProps> = ({
   const [notes, setNotes] = useState('');
 
   const crewRoster = StorageService.getCrewRoster();
+  const activeRateCharges = StorageService.getActiveEventCharges();
+
+  const handleSelectEventRate = (chargeId: string) => {
+    if (!chargeId) return;
+    const charge = activeRateCharges.find(c => c.id === chargeId);
+    if (charge) {
+      setName(charge.name);
+      setEventCharge(charge.price);
+      if (charge.description) {
+        setDescription(charge.description);
+      }
+      if (charge.includedServices && charge.includedServices.length > 0) {
+        const merged = Array.from(new Set([...contentRequirements, ...charge.includedServices]));
+        setContentRequirements(merged);
+      }
+    }
+  };
 
   const commonSubEvents = [
     'Mehendi',
@@ -172,6 +189,28 @@ export const SubEventModal: React.FC<SubEventModalProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-4 text-xs">
           
+          {/* Quick Fetch from Master Event Rates */}
+          <div className="p-3 bg-[#FAF8F5] border border-[#E2DBD0] rounded-lg space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-neutral-800 uppercase tracking-wide flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-[#C58B39]" />
+                <span>Fetch from Master Event Rates</span>
+              </span>
+              <span className="text-[10px] text-neutral-500">Auto-sets name & rate</span>
+            </div>
+            <select
+              onChange={(e) => handleSelectEventRate(e.target.value)}
+              className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 bg-white font-medium focus:outline-none focus:border-[#C58B39]"
+            >
+              <option value="">-- Select Rate (e.g. Wedding ₹50,000, Haldi ₹8,000...) --</option>
+              {activeRateCharges.map(chg => (
+                <option key={chg.id} value={chg.id}>
+                  {chg.name} — ₹{chg.price.toLocaleString('en-IN')} ({chg.duration || 'Coverage'})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block font-medium text-neutral-700 mb-1">Function / Ceremony Name *</label>
             <div className="flex gap-2">

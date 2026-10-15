@@ -16,10 +16,12 @@ import {
   Building2,
   ExternalLink,
   Smartphone,
-  Bell
+  Bell,
+  Settings
 } from 'lucide-react';
 import { NavModule } from './Header';
-import { DashboardMetrics, Enquiry, EventShoot, Quotation, Client } from '../types';
+import { DashboardMetrics, Enquiry, EventShoot, Quotation, Client, CompanySettings } from '../types';
+import { StorageService } from '../services/storage';
 
 interface SidebarProps {
   activeModule: NavModule;
@@ -64,6 +66,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClearDummyData,
   currentUser
 }) => {
+  const [companySettings, setCompanySettings] = React.useState<CompanySettings>(() => 
+    StorageService.getCompanySettings()
+  );
+
+  React.useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail) setCompanySettings(e.detail);
+    };
+    window.addEventListener('tmc_company_settings_updated', handleUpdate);
+    return () => window.removeEventListener('tmc_company_settings_updated', handleUpdate);
+  }, []);
+
   const pendingEnquiriesCount = enquiries.filter(
     e => e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost'
   ).length;
@@ -122,9 +136,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'bg-amber-900/30 text-amber-300 border-amber-700/40',
         },
         {
+          id: 'crew' as NavModule,
+          label: 'Crew Roster',
+          subtext: 'Credentials & Firebase Auth',
+          icon: UserCheck,
+          badge: `${metrics.crewOnRosterCount} crew`,
+          badgeColor: 'bg-[#C58B39]/25 text-[#D89B48] border-[#C58B39]/40',
+        },
+        {
+          id: 'event-charges' as NavModule,
+          label: 'Event Rates',
+          subtext: 'Master ratecard & packages',
+          icon: FileText,
+          badge: 'Rate Card',
+          badgeColor: 'bg-[#C58B39]/20 text-[#D89B48] border-[#C58B39]/30',
+        },
+        {
+          id: 'settings' as NavModule,
+          label: 'Company Settings',
+          subtext: 'Logo, bank, UPI & signature',
+          icon: Settings,
+          badge: 'Profile',
+          badgeColor: 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40',
+        },
+        {
           id: 'more' as NavModule,
           label: 'More Modules',
-          subtext: 'Leads, crew, quotes & reports',
+          subtext: 'Leads, CRM, quotes & settings',
           icon: Layers,
           badge: pendingEnquiriesCount > 0 ? `${pendingEnquiriesCount} leads` : null,
           badgeColor: 'bg-blue-900/30 text-blue-300 border-blue-700/40',
@@ -184,17 +222,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className="flex items-center gap-3 text-left group focus:outline-none"
           >
-            <div className="w-8 h-8 rounded border border-[#C58B39] bg-[#1C1A18] flex items-center justify-center font-serif text-[#C58B39] font-bold text-base tracking-wider group-hover:scale-105 transition-transform shadow-xs">
-              M
-            </div>
-            <div>
-              <div className="font-serif tracking-widest text-sm font-bold text-white uppercase group-hover:text-[#FAF8F5] transition-colors">
-                The Main Character
+            {companySettings.logoUrl ? (
+              <img 
+                src={companySettings.logoUrl} 
+                alt="Logo" 
+                className="w-8 h-8 rounded border border-[#C58B39]/50 bg-white p-0.5 object-contain group-hover:scale-105 transition-transform shadow-xs"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded border border-[#C58B39] bg-[#1C1A18] flex items-center justify-center font-serif text-[#C58B39] font-bold text-base tracking-wider group-hover:scale-105 transition-transform shadow-xs">
+                {companySettings.companyName.charAt(0) || 'M'}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="font-serif tracking-widest text-sm font-bold text-white uppercase group-hover:text-[#FAF8F5] transition-colors truncate max-w-[170px]" title={companySettings.companyName}>
+                {companySettings.companyName}
               </div>
               <div className="text-[10px] uppercase font-mono tracking-widest text-[#C58B39] flex items-center gap-1.5 mt-0.5">
                 <span>Media ERP</span>
                 <span className="text-neutral-600">·</span>
-                <span className="text-neutral-400">v2.6</span>
+                <span className="text-neutral-400">Live</span>
               </div>
             </div>
           </button>
@@ -369,15 +415,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               title="Click to manage Firebase Email Authentication and credentials"
             >
               <div className="w-7 h-7 rounded-full bg-[#242220] border border-[#C58B39]/40 flex items-center justify-center font-serif text-xs font-bold text-[#C58B39] shrink-0">
-                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'DS'}
+                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'A'}
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-neutral-200 truncate">
-                  {currentUser?.displayName || currentUser?.email || 'Devansh Saxena'}
+                  {currentUser?.displayName || currentUser?.email || 'Admin Workspace'}
                 </div>
-                <div className="text-[10px] text-emerald-400 flex items-center gap-1 truncate">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>{currentUser ? 'Firebase Auth Active' : 'Firebase Sync Ready'}</span>
+                <div className="text-[10px] text-emerald-400 flex items-center gap-1.5 truncate">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span>Realtime DB Connected</span>
                 </div>
               </div>
             </div>

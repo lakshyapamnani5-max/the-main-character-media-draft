@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Printer, Send, CheckCircle2, ShieldCheck, Share2, MessageCircle, UserCheck } from 'lucide-react';
+import { X, Download, Printer, Send, CheckCircle2, ShieldCheck, Share2, MessageCircle, UserCheck, FileText } from 'lucide-react';
 import { Quotation, QuoteStatus } from '../../types';
 import { PDFGeneratorService } from '../../services/pdfGenerator';
 import { StorageService } from '../../services/storage';
@@ -10,6 +10,7 @@ interface QuotePreviewModalProps {
   quote: Quotation | null;
   onUpdateStatus?: (quoteId: string, status: QuoteStatus) => void;
   onConvertToClient?: (quote: Quotation) => void;
+  onConvertToInvoice?: (quote: Quotation) => void;
 }
 
 export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
@@ -17,9 +18,12 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
   onClose,
   quote,
   onUpdateStatus,
-  onConvertToClient
+  onConvertToClient,
+  onConvertToInvoice
 }) => {
   const [copied, setCopied] = useState(false);
+  const company = StorageService.getCompanySettings();
+
   if (!isOpen || !quote) return null;
 
   const handleDownload = () => {
@@ -144,6 +148,24 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
               <span>Download PDF</span>
             </button>
 
+            <button
+              onClick={() => {
+                if (onConvertToInvoice) {
+                  onConvertToInvoice(quote);
+                } else {
+                  const inv = StorageService.createInvoiceFromQuote(quote);
+                  if (inv) {
+                    PDFGeneratorService.downloadInvoicePDF(inv);
+                  }
+                }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded transition-colors shadow-xs"
+              title="Generate formal Tax Invoice from this quotation"
+            >
+              <FileText className="w-3.5 h-3.5 text-white" />
+              <span>Make Invoice</span>
+            </button>
+
             {quote.status !== 'Converted' && (
               <button
                 onClick={handleConvertClient}
@@ -191,20 +213,38 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
             {/* Header Brand */}
             <div className="border-b border-[#E8E3D9] pb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="w-7 h-7 rounded border border-[#C58B39] bg-[#181818] text-[#C58B39] font-serif font-bold flex items-center justify-center text-sm">
-                    M
+                <div className="flex items-center gap-3 mb-2">
+                  {company.logoUrl ? (
+                    <img 
+                      src={company.logoUrl} 
+                      alt="Company Logo" 
+                      className="w-9 h-9 object-contain rounded border border-[#C58B39]/30 p-0.5 bg-white shadow-2xs"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded border border-[#C58B39] bg-[#181818] text-[#C58B39] font-serif font-bold flex items-center justify-center text-sm shadow-2xs">
+                      {company.companyName.charAt(0) || 'M'}
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-xs font-serif font-bold tracking-wider uppercase text-[#181818] block">
+                      {company.companyName}
+                    </span>
+                    <span className="text-[10px] text-[#8C6428] font-medium block">
+                      {company.tagline}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-[#C58B39]">
-                    The Main Character Media
-                  </span>
                 </div>
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#181818] tracking-tight">
                   Official Quotation
                 </h1>
                 <p className="text-xs text-neutral-600 mt-0.5">
-                  Luxury Wedding & Event Content Creation Proposal
+                  {[company.phone, company.email, company.address ? `${company.address}, ${company.city}` : ''].filter(Boolean).join(' · ')}
                 </p>
+                {company.gstin && (
+                  <p className="text-[10px] font-mono text-neutral-500 mt-0.5">
+                    GSTIN: {company.gstin}
+                  </p>
+                )}
               </div>
 
               <div className="text-left sm:text-right space-y-1">
@@ -329,9 +369,9 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
                     Direct Banking & UPI Transfer:
                   </div>
                   <div className="p-3 bg-[#FAF6EE] border border-[#E2D5BE] rounded text-xs text-neutral-800 font-mono space-y-0.5">
-                    <div>Bank: HDFC Bank · A/C: 50200088912344</div>
-                    <div>IFSC: HDFC0000045 · Bandra West</div>
-                    <div>UPI ID: <span className="font-bold text-[#8C6428]">tmcmedia@hdfcbank</span></div>
+                    <div>Bank: {company.bankName} · A/C: {company.accountName}</div>
+                    <div>A/C No: {company.accountNumber} · IFSC: {company.ifscCode}{company.branch ? ` · ${company.branch}` : ''}</div>
+                    <div>UPI ID: <span className="font-bold text-[#8C6428]">{company.upiId}</span></div>
                   </div>
                 </div>
               </div>
@@ -371,7 +411,7 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
                 </div>
 
                 <div className="pt-2 border-t border-[#E8E3D9] flex justify-between text-xs font-medium text-neutral-800">
-                  <span>Advance Due (To Confirm Booking):</span>
+                  <span>Advance Due ({quote.advancePercentage || company.defaultAdvancePercentage}%):</span>
                   <span className="font-mono tabular-nums text-neutral-900">
                     ₹{quote.advanceAmount.toLocaleString('en-IN')}
                   </span>
@@ -393,25 +433,39 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
                 <span>Commercial Terms & Cancellation Policy</span>
               </div>
               <div className="text-[11px] text-neutral-600 whitespace-pre-line leading-relaxed bg-[#FAF8F5] p-3.5 rounded border border-[#E8E3D9]">
-                {quote.terms}
+                {quote.terms || company.defaultTerms}
               </div>
             </div>
 
             {/* Signature Blocks */}
             <div className="pt-6 border-t border-[#E8E3D9] grid grid-cols-2 gap-8 text-xs text-neutral-600">
               <div>
-                <div className="h-12 border-b border-neutral-300 flex items-end pb-1 font-serif italic text-neutral-700">
-                  The Main Character Media
+                <div className="h-16 border-b border-neutral-300 flex items-end pb-1">
+                  {company.signatureUrl ? (
+                    <img 
+                      src={company.signatureUrl} 
+                      alt="Authorized Signature" 
+                      className="max-h-12 object-contain"
+                    />
+                  ) : (
+                    <span className="font-serif italic text-neutral-700">
+                      {company.signatoryName || company.companyName}
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 font-medium text-neutral-800">Authorized Signatory & Producer</div>
-                <div className="text-[11px] text-neutral-500">The Main Character Media</div>
+                <div className="mt-1 font-medium text-neutral-900">
+                  {company.signatoryName || 'Authorized Signatory'}
+                </div>
+                <div className="text-[11px] text-neutral-500">
+                  {company.signatoryTitle || 'Creative Producer & Founder'} · {company.companyName}
+                </div>
               </div>
 
               <div>
-                <div className="h-12 border-b border-neutral-300 flex items-end pb-1 font-serif italic text-neutral-700">
+                <div className="h-16 border-b border-neutral-300 flex items-end pb-1 font-serif italic text-neutral-700">
                   {quote.status === 'Accepted' || quote.status === 'Converted' ? quote.clientName : ''}
                 </div>
-                <div className="mt-1 font-medium text-neutral-800">Client Acceptance Signature</div>
+                <div className="mt-1 font-medium text-neutral-900">Client Acceptance Signature</div>
                 <div className="text-[11px] text-neutral-500">{quote.clientName}</div>
               </div>
             </div>

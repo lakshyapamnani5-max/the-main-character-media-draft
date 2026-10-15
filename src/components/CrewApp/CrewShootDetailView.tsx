@@ -16,10 +16,12 @@ import {
   Sparkles,
   Layers,
   MessageCircle,
-  PlayCircle
+  PlayCircle,
+  Smartphone
 } from 'lucide-react';
 import { EventShoot, CrewMember, POVItem, POVStatus, SubEvent, TimelineItem } from '../../types';
 import { StorageService, formatWhatsAppNumber } from '../../services/storage';
+import { CalendarExportModal } from '../Common/CalendarExportModal';
 
 interface CrewShootDetailViewProps {
   event: EventShoot;
@@ -36,6 +38,7 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
 }) => {
   const [activeSection, setActiveSection] = useState<'all' | 'povs' | 'timeline' | 'crew'>('all');
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const crewAssignment = (event.crewAssignments || []).find(a => a.crewId === activeCrew.id);
   const myRole = crewAssignment?.role || activeCrew.role;
@@ -177,13 +180,24 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={handleOpenMaps}
-              className="w-full py-2.5 px-3 bg-[#121212] hover:bg-[#252525] active:scale-[0.98] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-transform shadow-xs"
-            >
-              <ExternalLink className="w-3.5 h-3.5 text-[#C58B39]" />
-              <span>Open Maps & Directions</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleOpenMaps}
+                className="py-2.5 px-3 bg-[#121212] hover:bg-[#252525] active:scale-[0.98] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-transform shadow-xs"
+              >
+                <ExternalLink className="w-3.5 h-3.5 text-[#C58B39]" />
+                <span>Maps & Venue</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsExportModalOpen(true)}
+                className="py-2.5 px-3 bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#C58B39] text-[#8C6222] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all shadow-xs"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
+                <span>Add to Calendar</span>
+              </button>
+            </div>
           </div>
 
           {/* Your Assigned Role & Payout */}
@@ -440,6 +454,15 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Calendar Export Modal (iOS & Android) */}
+      <CalendarExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        event={event}
+        crewMember={activeCrew}
+        title="Sync Shoot to Phone Calendar"
+      />
     </div>
   );
 };

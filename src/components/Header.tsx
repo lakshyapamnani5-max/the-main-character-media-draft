@@ -24,7 +24,8 @@ export type NavModule =
   | 'clients' 
   | 'events'
   | 'crew'
-  | 'locations';
+  | 'locations'
+  | 'settings';
 
 interface HeaderProps {
   activeModule: NavModule;

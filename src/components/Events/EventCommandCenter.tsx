@@ -60,6 +60,7 @@ import { AssignCrewModal } from './AssignCrewModal';
 import { EventFileModal } from './EventFileModal';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
 import { WhatsAppReminderModal } from '../Reminders/WhatsAppReminderModal';
+import { CalendarExportModal } from '../Common/CalendarExportModal';
 
 export type CommandCenterTab = 
   | 'overview' 
@@ -115,6 +116,7 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
   const [isEventFileModalOpen, setIsEventFileModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isWhatsAppReminderOpen, setIsWhatsAppReminderOpen] = useState(false);
+  const [isCalendarExportOpen, setIsCalendarExportOpen] = useState(false);
 
   // Filters for Content / POVs tab
   const [povFilterSubEvent, setPovFilterSubEvent] = useState<string>('All');
@@ -508,6 +510,15 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
             >
               <MessageCircle className="w-3.5 h-3.5" />
               <span>Crew Reminder</span>
+            </button>
+
+            <button
+              onClick={() => setIsCalendarExportOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-200 bg-[#1F1E1B] hover:bg-[#2A2825] hover:text-white border border-[#3E3A33] rounded-lg transition-colors shadow-xs"
+              title="Export shoot to Apple Calendar (.ics) or Google Calendar (Android)"
+            >
+              <Calendar className="w-3.5 h-3.5 text-[#C58B39]" />
+              <span>Export Calendar</span>
             </button>
 
             <button
@@ -2263,6 +2274,13 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
         isOpen={isWhatsAppReminderOpen}
         onClose={() => setIsWhatsAppReminderOpen(false)}
         event={event}
+      />
+
+      <CalendarExportModal
+        isOpen={isCalendarExportOpen}
+        onClose={() => setIsCalendarExportOpen(false)}
+        shoot={event}
+        allShoots={[event]}
       />
     </div>
   );

@@ -148,9 +148,10 @@ testFirebaseConnection();
 export async function savePartnerToFirestore(partner: Partner): Promise<void> {
   const path = `partners/${partner.id}`;
   try {
-    await setDoc(doc(db, 'partners', partner.id), partner);
+    const cleanPartner = JSON.parse(JSON.stringify(partner));
+    await setDoc(doc(db, 'partners', partner.id), cleanPartner);
     if (rtdb) {
-      await set(ref(rtdb, `partners/${partner.id}`), partner);
+      await set(ref(rtdb, `partners/${partner.id}`), cleanPartner);
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -172,9 +173,10 @@ export async function deletePartnerFromFirestore(partnerId: string): Promise<voi
 export async function saveEventToFirestore(event: EventShoot): Promise<void> {
   const path = `events/${event.id}`;
   try {
-    await setDoc(doc(db, 'events', event.id), event);
+    const cleanEvent = JSON.parse(JSON.stringify(event));
+    await setDoc(doc(db, 'events', event.id), cleanEvent);
     if (rtdb) {
-      await set(ref(rtdb, `events/${event.id}`), event);
+      await set(ref(rtdb, `events/${event.id}`), cleanEvent);
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

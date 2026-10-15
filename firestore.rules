@@ -1,18 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Rules for all collections
-    match /{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-
     match /test/connection {
       allow read: if true;
+    }
+
+    match /partners/{partnerId} {
+      allow read, write: if true;
+    }
+
+    match /events/{eventId} {
+      allow read, write: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }

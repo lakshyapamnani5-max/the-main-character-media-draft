@@ -1450,14 +1450,39 @@ export class StorageService {
       const idx = events.findIndex(e => e.id === eventData.id);
       if (idx !== -1) {
         const existing = events[idx];
+        const existingCrewIds = new Set((existing.crewAssignments || []).map(a => a.crewId));
+        
+        const mergedAssignments = eventData.crewAssignments || existing.crewAssignments || [];
+        const mergedCrewMembers = eventData.crewMembers && eventData.crewMembers.length > 0
+          ? eventData.crewMembers
+          : mergedAssignments.map(a => a.crewName);
+
         const updated: EventShoot = {
           ...existing,
           ...eventData,
+          crewMembers: mergedCrewMembers,
+          crewAssignments: mergedAssignments,
+          crewPayout: mergedAssignments.length > 0 
+            ? mergedAssignments.reduce((sum, a) => sum + (a.payout || 0), 0)
+            : (eventData.crewPayout !== undefined ? Number(eventData.crewPayout) : existing.crewPayout),
           updatedAt: now
         };
         events[idx] = updated;
-        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
-        saveEventToFirestore(updated).catch(() => {});
+        this.persistEvents(events, updated);
+
+        // Notify any newly assigned crew members
+        mergedAssignments.forEach(asg => {
+          if (!existingCrewIds.has(asg.crewId)) {
+            this.addCrewNotification({
+              crewId: asg.crewId,
+              title: 'New Shoot Assignment 🎬',
+              message: `You've been assigned to "${updated.eventName}" on ${updated.startDate} at ${updated.venue || 'TBD'}. Call time: ${asg.callTime}.`,
+              type: 'shoot_assigned',
+              eventId: updated.id
+            });
+          }
+        });
+
         this.notifyListeners();
         return updated;
       }
@@ -1468,6 +1493,15 @@ export class StorageService {
     const packageTotal = Number(eventData.packageTotal) || 35000;
     const advancePaid = Number(eventData.advancePaid) || 0;
     const balanceDue = Math.max(0, packageTotal - advancePaid);
+
+    const initialAssignments = eventData.crewAssignments || [];
+    const initialCrewMembers = eventData.crewMembers && eventData.crewMembers.length > 0
+      ? eventData.crewMembers
+      : initialAssignments.map(a => a.crewName);
+
+    const initialCrewPayout = initialAssignments.length > 0
+      ? initialAssignments.reduce((sum, a) => sum + (a.payout || 0), 0)
+      : (Number(eventData.crewPayout) || 12000);
 
     const newEvent: EventShoot = {
       id: `evt-${Date.now()}`,
@@ -1489,9 +1523,9 @@ export class StorageService {
       status: eventData.status || 'Confirmed',
       notes: eventData.notes || '',
       consentUsageNotes: eventData.consentUsageNotes || 'Standard Social Media Usage',
-      leadCreator: eventData.leadCreator || '',
-      crewMembers: eventData.crewMembers || [],
-      crewAssignments: eventData.crewAssignments || [],
+      leadCreator: eventData.leadCreator || (initialCrewMembers[0] || ''),
+      crewMembers: initialCrewMembers,
+      crewAssignments: initialAssignments,
       subEvents: eventData.subEvents || [
         {
           id: `sub-${Date.now()}-1`,
@@ -1503,7 +1537,7 @@ export class StorageService {
           venue: eventData.venue || 'Main Venue',
           description: 'Ceremonial rituals and couple portraits.',
           status: 'Scheduled',
-          assignedCrewIds: [],
+          assignedCrewIds: initialAssignments.map(a => a.crewId),
           notes: '',
           createdAt: now,
           updatedAt: now
@@ -1516,7 +1550,7 @@ export class StorageService {
           time: '03:00 PM',
           title: 'Crew Call & Rig Setup',
           venue: eventData.venue || 'Main Venue',
-          assignedCrewIds: [],
+          assignedCrewIds: initialAssignments.map(a => a.crewId),
           priority: 'High',
           completed: false
         }
@@ -1545,12 +1579,12 @@ export class StorageService {
           id: `act-${Date.now()}`,
           eventId: `evt-${Date.now()}`,
           action: 'Event Created',
-          details: `Event created for ${eventData.clientName}.`,
+          details: `Event created for ${eventData.clientName}${initialAssignments.length > 0 ? ` with ${initialAssignments.length} crew deployed` : ''}.`,
           performedBy: 'Admin',
           timestamp: now
         }
       ],
-      crewPayout: Number(eventData.crewPayout) || 12000,
+      crewPayout: initialCrewPayout,
       packageTotal,
       advancePaid,
       balanceDue,
@@ -1564,6 +1598,18 @@ export class StorageService {
 
     events.unshift(newEvent);
     this.persistEvents(events, newEvent);
+
+    // Notify all assigned crew members immediately
+    initialAssignments.forEach(asg => {
+      this.addCrewNotification({
+        crewId: asg.crewId,
+        title: 'New Shoot Assignment 🎬',
+        message: `You've been assigned to "${newEvent.eventName}" on ${newEvent.startDate} at ${newEvent.venue}. Call time: ${asg.callTime}.`,
+        type: 'shoot_assigned',
+        eventId: newEvent.id
+      });
+    });
+
     return newEvent;
   }
 
@@ -1806,7 +1852,73 @@ export class StorageService {
 
     event.updatedAt = now;
     this.persistEvents(events, event);
+
+    this.addCrewNotification({
+      crewId: assignment.crewId,
+      title: 'New Shoot Assignment 🎬',
+      message: `You've been assigned to "${event.eventName}" on ${event.startDate || (event as any).shootDate} at ${event.venue || 'TBD'}. Call time: ${assignment.callTime}.`,
+      type: 'shoot_assigned',
+      eventId: event.id
+    });
+
     return newAssignment;
+  }
+
+  static assignMultipleCrewToEvent(
+    eventId: string,
+    assignments: Omit<EventCrewAssignment, 'id' | 'eventId' | 'createdAt'>[]
+  ): EventCrewAssignment[] {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event || assignments.length === 0) return [];
+
+    const now = new Date().toISOString();
+    if (!event.crewAssignments) event.crewAssignments = [];
+    if (!event.crewMembers) event.crewMembers = [];
+    if (!event.activityLog) event.activityLog = [];
+
+    const results: EventCrewAssignment[] = [];
+
+    for (const assignment of assignments) {
+      const newAssignment: EventCrewAssignment = {
+        id: `asg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        eventId,
+        ...assignment,
+        paymentStatus: assignment.paymentStatus || 'Unpaid',
+        createdAt: now
+      };
+
+      event.crewAssignments = event.crewAssignments.filter(a => a.crewId !== assignment.crewId);
+      event.crewAssignments.push(newAssignment);
+      results.push(newAssignment);
+
+      if (!event.crewMembers.includes(assignment.crewName)) {
+        event.crewMembers.push(assignment.crewName);
+      }
+
+      this.addCrewNotification({
+        crewId: assignment.crewId,
+        title: 'New Shoot Assignment 🎬',
+        message: `You've been assigned to "${event.eventName}" on ${event.startDate || (event as any).shootDate} at ${event.venue || 'TBD'}. Call time: ${assignment.callTime}.`,
+        type: 'shoot_assigned',
+        eventId: event.id
+      });
+    }
+
+    event.crewPayout = event.crewAssignments.reduce((acc, curr) => acc + (curr.payout || 0), 0);
+
+    event.activityLog.unshift({
+      id: `act-${Date.now()}`,
+      eventId,
+      action: 'Crew Assigned',
+      details: `Batch assigned ${assignments.map(a => `${a.crewName} (${a.role})`).join(', ')}.`,
+      performedBy: 'Admin',
+      timestamp: now
+    });
+
+    event.updatedAt = now;
+    this.persistEvents(events, event);
+    return results;
   }
 
   static updateCrewAssignmentPaymentStatus(
@@ -3021,7 +3133,9 @@ export class StorageService {
       estimatedProfit,
       newEnquiriesCount: newEnquiries.length,
       outstandingInvoicesCount: outstandingInvoices.length,
-      outstandingInvoicesAmount
+      outstandingInvoicesAmount,
+      crewCommissionsTotal: crewPayoutTotal,
+      agencyCommissionTotal: grossProfit
     };
   }
 

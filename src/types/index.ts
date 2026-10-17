@@ -591,4 +591,6 @@ export interface DashboardMetrics {
   newEnquiriesCount: number;
   outstandingInvoicesCount?: number;
   outstandingInvoicesAmount?: number;
+  crewCommissionsTotal?: number;
+  agencyCommissionTotal?: number;
 }

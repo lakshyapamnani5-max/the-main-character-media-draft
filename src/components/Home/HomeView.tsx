@@ -357,20 +357,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
 
-          {/* 5. Crew Payouts */}
+          {/* 5. Crew Commissions */}
           <div 
             onClick={() => onNavigate('money', 'payouts')}
             className="bg-white border border-[#E8E3D9] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-[#C58B39]/50 cursor-pointer transition-colors"
           >
             <div className="flex items-center justify-between text-neutral-500 text-xs">
-              <span className="font-medium">Crew Payouts</span>
-              <Users className="w-4 h-4 text-neutral-500" />
+              <span className="font-semibold text-neutral-800">Crew Commissions</span>
+              <Users className="w-4 h-4 text-[#C58B39]" />
             </div>
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-800 font-mono tabular-nums">
+              <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 font-mono tabular-nums">
                 ₹{metrics.crewPayoutTotal.toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-1">Committed creator compensation</div>
+              <div className="text-[11px] text-neutral-500 mt-1 flex items-center justify-between">
+                <span>Committed creator earnings</span>
+                <span className="text-emerald-700 font-medium font-mono text-[10px]">Margin: ₹{metrics.grossProfit.toLocaleString('en-IN')}</span>
+              </div>
             </div>
           </div>
 

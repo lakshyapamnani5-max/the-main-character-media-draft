@@ -35,6 +35,7 @@ import {
 import { StorageService } from '../../services/storage';
 import { EventModal } from '../Events/EventModal';
 import { EventCommandCenter } from '../Events/EventCommandCenter';
+import { AssignCrewModal } from '../Events/AssignCrewModal';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
 
 export type JobFilterTab = 
@@ -84,6 +85,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
   const [editingEvent, setEditingEvent] = useState<EventShoot | null>(null);
   const [activeCommandCenterEvent, setActiveCommandCenterEvent] = useState<EventShoot | null>(null);
   const [payingEvent, setPayingEvent] = useState<EventShoot | null>(null);
+  const [crewAssignTargetEvent, setCrewAssignTargetEvent] = useState<EventShoot | null>(null);
 
   // Planners state
   const [planners, setPlanners] = useState<PlannerVendor[]>(() => StorageService.getPlanners());
@@ -649,6 +651,15 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
                       <div className="flex items-center gap-2">
                         <button
+                          onClick={() => setCrewAssignTargetEvent(event)}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-neutral-800 bg-[#FAF8F5] hover:bg-[#F2EDE4] border border-[#DCD6C8] rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
+                          title="Quick Deploy Crew"
+                        >
+                          <Users className="w-3.5 h-3.5 text-[#C58B39]" />
+                          <span>{totalCrew > 0 ? `${totalCrew} Crew` : '+ Deploy Crew'}</span>
+                        </button>
+
+                        <button
                           onClick={() => onOpenSendReminder(event)}
                           className="px-2.5 py-1.5 text-xs font-semibold text-white bg-[#C58B39] hover:bg-[#B37B2E] rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
                         >
@@ -680,6 +691,25 @@ export const JobsView: React.FC<JobsViewProps> = ({
         onSave={onSaveEvent}
         initialData={editingEvent}
       />
+
+      {/* Quick Assign Crew Modal */}
+      {crewAssignTargetEvent && (
+        <AssignCrewModal
+          isOpen={true}
+          onClose={() => setCrewAssignTargetEvent(null)}
+          event={events.find(e => e.id === crewAssignTargetEvent.id) || crewAssignTargetEvent}
+          onAssignCrew={(asg) => {
+            StorageService.assignCrewToEvent(crewAssignTargetEvent.id, asg);
+            const fresh = StorageService.getEventById(crewAssignTargetEvent.id);
+            if (fresh) onSaveEvent(fresh);
+          }}
+          onAssignMultipleCrew={(assignments) => {
+            StorageService.assignMultipleCrewToEvent(crewAssignTargetEvent.id, assignments);
+            const fresh = StorageService.getEventById(crewAssignTargetEvent.id);
+            if (fresh) onSaveEvent(fresh);
+          }}
+        />
+      )}
 
       {/* Add Payment Modal */}
       {payingEvent && (

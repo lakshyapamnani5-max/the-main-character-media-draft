@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
-import { EventShoot, EventStatus, EventDeliverable, Client } from '../../types';
+import { X, Plus, Trash2, Users, AlertTriangle, Check, UserCheck, Clock, IndianRupee } from 'lucide-react';
+import { EventShoot, EventStatus, EventDeliverable, Client, CrewMember, CrewRole, EventCrewAssignment } from '../../types';
 import { StorageService } from '../../services/storage';
+
+interface EventCrewSelection {
+  crewId: string;
+  crewName: string;
+  role: CrewRole | string;
+  callTime: string;
+  wrapTime: string;
+  payout: number;
+  phone?: string;
+}
 
 interface EventModalProps {
   isOpen: boolean;
@@ -29,8 +39,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [venue, setVenue] = useState('');
   const [city, setCity] = useState('Mumbai');
   const [leadCreator, setLeadCreator] = useState('');
-  const [crewMembers, setCrewMembers] = useState<string[]>([]);
-  const [crewMemberInput, setCrewMemberInput] = useState('');
+  const [selectedCrew, setSelectedCrew] = useState<EventCrewSelection[]>([]);
   const [crewPayout, setCrewPayout] = useState<number | ''>(25000);
   const [packageTotal, setPackageTotal] = useState<number | ''>(75000);
   const [advancePaid, setAdvancePaid] = useState<number | ''>(35000);
@@ -42,7 +51,7 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [notes, setNotes] = useState('');
 
   const clients = StorageService.getClients();
-  const crewRoster = StorageService.getCrewRoster();
+  const crewRoster = StorageService.getCrewRoster().filter(c => c.status === 'Active');
 
   useEffect(() => {
     if (initialData) {
@@ -59,7 +68,35 @@ export const EventModal: React.FC<EventModalProps> = ({
       setVenue(initialData.venue);
       setCity(initialData.locationCity || initialData.city || 'Mumbai');
       setLeadCreator(initialData.leadCreator || 'Devansh Saxena');
-      setCrewMembers(initialData.crewMembers || []);
+
+      // Populate selected crew from existing assignments or crew members
+      if (initialData.crewAssignments && initialData.crewAssignments.length > 0) {
+        setSelectedCrew(initialData.crewAssignments.map(a => ({
+          crewId: a.crewId,
+          crewName: a.crewName,
+          role: a.role,
+          callTime: a.callTime || '08:00 AM',
+          wrapTime: a.wrapTime || '11:00 PM',
+          payout: a.payout !== undefined ? a.payout : 6000,
+          phone: a.phone
+        })));
+      } else if (initialData.crewMembers && initialData.crewMembers.length > 0) {
+        setSelectedCrew(initialData.crewMembers.map(name => {
+          const member = crewRoster.find(c => c.name.toLowerCase() === name.toLowerCase());
+          return {
+            crewId: member?.id || `crew-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            crewName: member?.name || name,
+            role: member?.role || 'Content Creator',
+            callTime: '08:00 AM',
+            wrapTime: '11:00 PM',
+            payout: member?.defaultPayout || 6000,
+            phone: member?.phone
+          };
+        }));
+      } else {
+        setSelectedCrew([]);
+      }
+
       setCrewPayout(initialData.crewPayout);
       setPackageTotal(initialData.packageTotal);
       setAdvancePaid(initialData.advancePaid);
@@ -84,7 +121,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setVenue('');
       setCity('Mumbai');
       setLeadCreator('');
-      setCrewMembers([]);
+      setSelectedCrew([]);
       setCrewPayout(25000);
       setPackageTotal(75000);
       setAdvancePaid(35000);
@@ -100,6 +137,36 @@ export const EventModal: React.FC<EventModalProps> = ({
     }
   }, [initialData, isOpen]);
 
+  const toggleCrewMember = (member: CrewMember) => {
+    const exists = selectedCrew.some(c => c.crewId === member.id);
+    if (exists) {
+      setSelectedCrew(selectedCrew.filter(c => c.crewId !== member.id));
+    } else {
+      const startTime = shootTime?.split('-')[0]?.trim() || '08:00 AM';
+      const endTime = shootTime?.split('-')[1]?.trim() || '11:00 PM';
+      setSelectedCrew([
+        ...selectedCrew,
+        {
+          crewId: member.id,
+          crewName: member.name,
+          role: member.role || 'Content Creator',
+          callTime: startTime,
+          wrapTime: endTime,
+          payout: member.defaultPayout || 6000,
+          phone: member.phone
+        }
+      ]);
+    }
+  };
+
+  const updateCrewField = (crewId: string, field: keyof EventCrewSelection, value: any) => {
+    setSelectedCrew(selectedCrew.map(c => c.crewId === crewId ? { ...c, [field]: value } : c));
+  };
+
+  const removeCrew = (crewId: string) => {
+    setSelectedCrew(selectedCrew.filter(c => c.crewId !== crewId));
+  };
+
   if (!isOpen) return null;
 
   const handleSelectClient = (id: string) => {
@@ -113,17 +180,6 @@ export const EventModal: React.FC<EventModalProps> = ({
         setEventName(`${cli.name.split('&')[0].trim()} Wedding Shoot`);
       }
     }
-  };
-
-  const handleAddCrew = () => {
-    if (crewMemberInput.trim() && !crewMembers.includes(crewMemberInput.trim())) {
-      setCrewMembers([...crewMembers, crewMemberInput.trim()]);
-      setCrewMemberInput('');
-    }
-  };
-
-  const handleRemoveCrew = (index: number) => {
-    setCrewMembers(crewMembers.filter((_, i) => i !== index));
   };
 
   const handleAddDeliverable = () => {
@@ -222,6 +278,25 @@ export const EventModal: React.FC<EventModalProps> = ({
       }
     ] : undefined;
 
+    const finalCrewAssignments: EventCrewAssignment[] = selectedCrew.map((c, idx) => ({
+      id: `asg-${Date.now()}-${idx}-${c.crewId}`,
+      eventId: initialData?.id || '',
+      crewId: c.crewId,
+      crewName: c.crewName,
+      role: c.role,
+      callTime: c.callTime,
+      wrapTime: c.wrapTime,
+      payout: Number(c.payout) || 0,
+      phone: c.phone || '',
+      assignedSubEventIds: [],
+      assignedPOVIds: [],
+      paymentStatus: 'Unpaid',
+      createdAt: new Date().toISOString()
+    }));
+
+    const finalCrewMembers = selectedCrew.map(c => c.crewName);
+    const totalCrewPayoutCalc = selectedCrew.reduce((sum, c) => sum + (Number(c.payout) || 0), 0);
+
     onSave({
       id: initialData?.id,
       category,
@@ -240,9 +315,10 @@ export const EventModal: React.FC<EventModalProps> = ({
       venue: venue.trim() || 'TBD Venue',
       locationCity: city.trim(),
       city: city.trim(),
-      leadCreator,
-      crewMembers,
-      crewPayout: Number(crewPayout) || 0,
+      leadCreator: selectedCrew[0]?.crewName || leadCreator || 'Devansh Saxena',
+      crewMembers: finalCrewMembers,
+      crewAssignments: finalCrewAssignments,
+      crewPayout: totalCrewPayoutCalc > 0 ? totalCrewPayoutCalc : (Number(crewPayout) || 0),
       packageTotal: total,
       advancePaid: adv,
       balanceDue,
@@ -491,7 +567,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                   type="number"
                   required
                   min="0"
-                  step="1000"
+                  step="any"
                   value={packageTotal}
                   onChange={(e) => setPackageTotal(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="75000"
@@ -504,7 +580,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  step="1000"
+                  step="any"
                   value={advancePaid}
                   onChange={(e) => setAdvancePaid(e.target.value === '' ? '' : Number(e.target.value))}
                   placeholder="35000"
@@ -522,6 +598,155 @@ export const EventModal: React.FC<EventModalProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Crew Deployment Section (Multiple Crew) */}
+          <div className="p-4 bg-[#FAF8F5] border border-[#E8E3D9] rounded-xl space-y-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#C58B39]" />
+                <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C58B39]">
+                  Deploy Crew (Multiple Creators)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#181818] text-white">
+                  {selectedCrew.length} Assigned
+                </span>
+              </div>
+              <div className="text-xs font-mono font-bold text-neutral-800">
+                Total Crew Payout: <span className="text-[#C58B39]">₹{selectedCrew.reduce((s, c) => s + (Number(c.payout) || 0), 0).toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {/* Quick 1-Tap Crew Roster Chips */}
+            <div>
+              <div className="text-[10px] text-neutral-500 font-medium mb-1.5 uppercase tracking-wider">
+                Tap crew to deploy or remove:
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {crewRoster.map(member => {
+                  const isSelected = selectedCrew.some(c => c.crewId === member.id);
+                  const conflict = StorageService.checkCrewConflict(
+                    member.id,
+                    startDate,
+                    initialData?.id
+                  );
+
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => toggleCrewMember(member)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        isSelected
+                          ? 'bg-[#181818] text-white border-neutral-900 shadow-2xs'
+                          : 'bg-white text-neutral-700 border-[#DCD6C8] hover:border-[#C58B39]'
+                      }`}
+                    >
+                      {isSelected ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                      )}
+                      <span>{member.name}</span>
+                      <span className={`text-[10px] px-1 py-0.2 rounded ${isSelected ? 'bg-neutral-800 text-neutral-300' : 'bg-neutral-100 text-neutral-500'}`}>
+                        {member.role}
+                      </span>
+                      {conflict.hasConflict && (
+                        <span className="text-amber-500 text-[10px]" title="Busy on another shoot on this date">⚠️</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected Crew Details List */}
+            {selectedCrew.length > 0 ? (
+              <div className="space-y-2 pt-2 border-t border-[#E8E3D9]">
+                <div className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider">
+                  Assigned Roles, Call Times & Agreed Payouts:
+                </div>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {selectedCrew.map((c) => (
+                    <div
+                      key={c.crewId}
+                      className="bg-white border border-[#E8E3D9] rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-[140px]">
+                        <div className="w-7 h-7 rounded-full bg-[#181818] text-[#C58B39] font-bold flex items-center justify-center text-[10px]">
+                          {c.crewName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-neutral-900 leading-tight">{c.crewName}</div>
+                          {c.phone && <div className="text-[10px] text-neutral-400 font-mono">{c.phone}</div>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Role */}
+                        <div>
+                          <span className="text-[9px] text-neutral-400 block">Role</span>
+                          <select
+                            value={c.role}
+                            onChange={(e) => updateCrewField(c.crewId, 'role', e.target.value)}
+                            className="px-2 py-1 border border-[#DCD6C8] rounded bg-white text-xs text-neutral-800"
+                          >
+                            <option value="Content Creator">Content Creator</option>
+                            <option value="Cinematographer">Cinematographer</option>
+                            <option value="Photographer">Photographer</option>
+                            <option value="Videographer">Videographer</option>
+                            <option value="Drone Operator">Drone Operator</option>
+                            <option value="Editor">Editor</option>
+                            <option value="Assistant">Assistant</option>
+                            <option value="Social Media Manager">Social Media Manager</option>
+                          </select>
+                        </div>
+
+                        {/* Call Time */}
+                        <div className="w-24">
+                          <span className="text-[9px] text-neutral-400 block">Call Time</span>
+                          <input
+                            type="text"
+                            value={c.callTime}
+                            onChange={(e) => updateCrewField(c.crewId, 'callTime', e.target.value)}
+                            placeholder="08:00 AM"
+                            className="w-full px-2 py-1 border border-[#DCD6C8] rounded text-xs font-mono text-neutral-900"
+                          />
+                        </div>
+
+                        {/* Payout */}
+                        <div className="w-24">
+                          <span className="text-[9px] text-neutral-400 block">Payout (₹)</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={c.payout}
+                            onChange={(e) => updateCrewField(c.crewId, 'payout', e.target.value === '' ? '' : Number(e.target.value))}
+                            placeholder="6000"
+                            className="w-full px-2 py-1 border border-[#DCD6C8] rounded text-xs font-mono font-bold text-neutral-900"
+                          />
+                        </div>
+
+                        {/* Remove */}
+                        <button
+                          type="button"
+                          onClick={() => removeCrew(c.crewId)}
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 rounded hover:bg-neutral-100 transition-colors mt-3"
+                          title="Remove crew"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 bg-white border border-dashed border-[#DCD6C8] rounded-lg text-center text-xs text-neutral-400">
+                Click any crew members above to deploy them to this shoot. They will automatically see this shoot in their Crew App.
+              </div>
+            )}
           </div>
 
           {/* Client Requirements */}

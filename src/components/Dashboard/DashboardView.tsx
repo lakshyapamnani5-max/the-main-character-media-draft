@@ -208,17 +208,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Card 7: Crew Payout */}
-          <div className="bg-white border border-[#E8E3D9] rounded-lg p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+          {/* Card 7: Crew Commissions */}
+          <div className="bg-white border border-[#E8E3D9] rounded-lg p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-[#C58B39]/50 transition-colors">
             <div className="flex items-center justify-between text-neutral-500">
-              <span className="text-xs font-medium">Crew Payout</span>
-              <Users className="w-4 h-4 text-neutral-400" />
+              <span className="text-xs font-semibold text-neutral-800">Crew Commissions</span>
+              <Users className="w-4 h-4 text-[#C58B39]" />
             </div>
             <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-700 font-mono tabular-nums">
+              <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 font-mono tabular-nums">
                 ₹{metrics.crewPayoutTotal.toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-1">Committed creator & drone fees</div>
+              <div className="text-[11px] text-neutral-500 mt-1 flex items-center justify-between">
+                <span>Committed creator payouts</span>
+                <span className="text-emerald-700 font-medium font-mono text-[10px]">Retained Margin: ₹{metrics.grossProfit.toLocaleString('en-IN')}</span>
+              </div>
             </div>
           </div>
 

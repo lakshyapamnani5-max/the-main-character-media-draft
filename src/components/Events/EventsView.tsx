@@ -19,8 +19,10 @@ import {
   Camera
 } from 'lucide-react';
 import { EventShoot, EventStatus, Client, PaymentRecord, Quotation } from '../../types';
+import { StorageService } from '../../services/storage';
 import { EventModal } from './EventModal';
 import { EventCommandCenter } from './EventCommandCenter';
+import { AssignCrewModal } from './AssignCrewModal';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
 
 interface EventsViewProps {
@@ -52,6 +54,7 @@ export const EventsView: React.FC<EventsViewProps> = ({
   const [editingEvent, setEditingEvent] = useState<EventShoot | null>(null);
   const [activeCommandCenterEvent, setActiveCommandCenterEvent] = useState<EventShoot | null>(null);
   const [payingEvent, setPayingEvent] = useState<EventShoot | null>(null);
+  const [crewAssignTargetEvent, setCrewAssignTargetEvent] = useState<EventShoot | null>(null);
 
   const statuses: ('All' | EventStatus)[] = [
     'All',
@@ -284,13 +287,24 @@ export const EventsView: React.FC<EventsViewProps> = ({
 
               {/* Actions */}
               <div className="pt-3 border-t border-[#F0ECE1] flex items-center justify-between">
-                <button
-                  onClick={() => setActiveCommandCenterEvent(event)}
-                  className="px-3 py-1.5 bg-[#181818] hover:bg-[#282828] text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs transition-colors"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#C58B39]" />
-                  <span>Open Command Center</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveCommandCenterEvent(event)}
+                    className="px-3 py-1.5 bg-[#181818] hover:bg-[#282828] text-white text-xs font-semibold rounded flex items-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#C58B39]" />
+                    <span>Open Command Center</span>
+                  </button>
+
+                  <button
+                    onClick={() => setCrewAssignTargetEvent(event)}
+                    className="px-2.5 py-1.5 bg-[#FAF8F5] hover:bg-[#F2EDE4] border border-[#DCD6C8] text-neutral-800 text-xs font-semibold rounded flex items-center gap-1.5 transition-colors shadow-2xs"
+                    title="Quick Crew Deployment"
+                  >
+                    <Users className="w-3.5 h-3.5 text-[#C58B39]" />
+                    <span>{crewCount > 0 ? `${crewCount} Crew` : '+ Assign Crew'}</span>
+                  </button>
+                </div>
 
                 <div className="flex items-center gap-1.5">
                   <button
@@ -330,6 +344,25 @@ export const EventsView: React.FC<EventsViewProps> = ({
         onSave={onSaveEvent}
         initialData={editingEvent}
       />
+
+      {/* Quick Assign Crew Modal */}
+      {crewAssignTargetEvent && (
+        <AssignCrewModal
+          isOpen={true}
+          onClose={() => setCrewAssignTargetEvent(null)}
+          event={events.find(e => e.id === crewAssignTargetEvent.id) || crewAssignTargetEvent}
+          onAssignCrew={(asg) => {
+            StorageService.assignCrewToEvent(crewAssignTargetEvent.id, asg);
+            const fresh = StorageService.getEventById(crewAssignTargetEvent.id);
+            if (fresh) onSaveEvent(fresh);
+          }}
+          onAssignMultipleCrew={(assignments) => {
+            StorageService.assignMultipleCrewToEvent(crewAssignTargetEvent.id, assignments);
+            const fresh = StorageService.getEventById(crewAssignTargetEvent.id);
+            if (fresh) onSaveEvent(fresh);
+          }}
+        />
+      )}
 
       {/* Complete Event Command Center Workspace Modal */}
       {activeCommandCenterEvent && (

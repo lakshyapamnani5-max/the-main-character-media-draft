@@ -77,8 +77,8 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({
             <input
               type="number"
               required
-              min="1"
-              step="500"
+              min="0.01"
+              step="any"
               value={amount}
               onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
               placeholder="e.g. 25000"

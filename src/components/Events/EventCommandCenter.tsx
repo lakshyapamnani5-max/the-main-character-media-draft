@@ -245,6 +245,13 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
     if (refreshed) onSaveEvent(refreshed);
   };
 
+  const handleAssignMultipleCrew = (assignments: Omit<EventCrewAssignment, 'id' | 'eventId' | 'createdAt'>[]) => {
+    StorageService.assignMultipleCrewToEvent(event.id, assignments);
+    setEditingCrewAssignment(null);
+    const refreshed = StorageService.getEventById(event.id);
+    if (refreshed) onSaveEvent(refreshed);
+  };
+
   const handleSaveFile = (fileData: Omit<EventFile, 'id' | 'eventId' | 'uploadedAt'>) => {
     StorageService.addEventFile(event.id, fileData);
     const refreshed = StorageService.getEventById(event.id);
@@ -2244,6 +2251,7 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
         }}
         event={event}
         onAssignCrew={handleAssignCrew}
+        onAssignMultipleCrew={handleAssignMultipleCrew}
         initialAssignment={editingCrewAssignment}
       />
 

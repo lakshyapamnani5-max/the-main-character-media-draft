@@ -73,7 +73,17 @@ import { AddPaymentModal } from './components/Clients/AddPaymentModal';
 import { CompanySettingsView } from './components/Settings/CompanySettingsView';
 
 export default function App() {
-  const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => StorageService.getAppViewMode());
+  const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (path.includes('/crew') || hash.includes('crew') || search.includes('crew')) {
+        return 'crew';
+      }
+    }
+    return StorageService.getAppViewMode();
+  });
   const [activeCrewId, setActiveCrewId] = useState<string>(() => StorageService.getActiveCrewMemberId());
 
   // Navigation state (Default to 'home')
@@ -370,12 +380,46 @@ export default function App() {
     }
     setAppViewMode('crew');
     StorageService.setAppViewMode('crew');
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/crew')) {
+      try {
+        window.history.pushState(null, '', '/crew');
+      } catch {
+        window.location.hash = '/crew';
+      }
+    }
   };
 
   const handleSwitchToAdminMode = () => {
     setAppViewMode('admin');
     StorageService.setAppViewMode('admin');
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/crew')) {
+      try {
+        window.history.pushState(null, '', '/');
+      } catch {
+        window.location.hash = '';
+      }
+    }
   };
+
+  useEffect(() => {
+    const handleUrlNav = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
+      if (path.includes('/crew') || hash.includes('crew') || search.includes('crew')) {
+        setAppViewMode('crew');
+      } else {
+        setAppViewMode('admin');
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlNav);
+    window.addEventListener('hashchange', handleUrlNav);
+    return () => {
+      window.removeEventListener('popstate', handleUrlNav);
+      window.removeEventListener('hashchange', handleUrlNav);
+    };
+  }, []);
 
   // Handlers for WhatsApp Reminders
   const handleOpenReminderForEvent = (event: EventShoot) => {

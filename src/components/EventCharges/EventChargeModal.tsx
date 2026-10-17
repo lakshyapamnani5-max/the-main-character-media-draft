@@ -172,7 +172,7 @@ export const EventChargeModal: React.FC<EventChargeModalProps> = ({
                 type="number"
                 required
                 min="0"
-                step="500"
+                step="any"
                 value={price}
                 onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="25000"

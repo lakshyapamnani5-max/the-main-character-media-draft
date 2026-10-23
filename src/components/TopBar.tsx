@@ -125,23 +125,24 @@ export const TopBar: React.FC<TopBarProps> = ({
   const breadcrumb = getBreadcrumb();
 
   // Global search filtering
-  const searchResults: SearchResultItem[] = searchQuery.trim() === '' ? [] : [
-    ...enquiries
-      .filter(e => e.clientName.toLowerCase().includes(searchQuery.toLowerCase()) || e.eventName.toLowerCase().includes(searchQuery.toLowerCase()))
+  const queryClean = (searchQuery || '').trim().toLowerCase();
+  const searchResults: SearchResultItem[] = queryClean === '' ? [] : [
+    ...(enquiries || [])
+      .filter(e => e && ((e.clientName || '').toLowerCase().includes(queryClean) || (e.eventName || '').toLowerCase().includes(queryClean)))
       .slice(0, 3)
-      .map(e => ({ type: 'Enquiry', id: e.id, title: e.clientName, sub: `${e.eventName} · Stage: ${e.pipelineStage}`, target: 'enquiries' as NavModule })),
-    ...quotations
-      .filter(q => q.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase()) || q.clientName.toLowerCase().includes(searchQuery.toLowerCase()))
+      .map(e => ({ type: 'Enquiry', id: e.id, title: e.clientName || 'Enquiry', sub: `${e.eventName || ''} · Stage: ${e.pipelineStage || 'New'}`, target: 'enquiries' as NavModule })),
+    ...(quotations || [])
+      .filter(q => q && ((q.quoteNumber || '').toLowerCase().includes(queryClean) || (q.clientName || '').toLowerCase().includes(queryClean)))
       .slice(0, 3)
-      .map(q => ({ type: 'Quote', id: q.id, title: q.quoteNumber, sub: `${q.clientName} · ₹${q.grandTotal.toLocaleString('en-IN')}`, target: 'quotations' as NavModule, quoteObj: q })),
-    ...clients
-      .filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || (c.phone && c.phone.includes(searchQuery)))
+      .map(q => ({ type: 'Quote', id: q.id, title: q.quoteNumber || 'Quote', sub: `${q.clientName || ''} · ₹${(q.grandTotal || 0).toLocaleString('en-IN')}`, target: 'quotations' as NavModule, quoteObj: q })),
+    ...(clients || [])
+      .filter(c => c && ((c.name || '').toLowerCase().includes(queryClean) || ((c.phone || '').includes(queryClean))))
       .slice(0, 3)
-      .map(c => ({ type: 'Client', id: c.id, title: c.name, sub: c.phone || c.email || 'Client Profile', target: 'clients' as NavModule })),
-    ...events
-      .filter(ev => ev.eventName.toLowerCase().includes(searchQuery.toLowerCase()) || ev.clientName.toLowerCase().includes(searchQuery.toLowerCase()) || ev.venue.toLowerCase().includes(searchQuery.toLowerCase()))
+      .map(c => ({ type: 'Client', id: c.id, title: c.name || 'Client', sub: c.phone || c.email || 'Client Profile', target: 'clients' as NavModule })),
+    ...(events || [])
+      .filter(ev => ev && ((ev.eventName || '').toLowerCase().includes(queryClean) || (ev.clientName || '').toLowerCase().includes(queryClean) || (ev.venue || '').toLowerCase().includes(queryClean)))
       .slice(0, 3)
-      .map(ev => ({ type: 'Shoot', id: ev.id, title: ev.eventName, sub: `${ev.venue} · ${ev.startDate || ev.shootDate || 'Scheduled'}`, target: 'events' as NavModule }))
+      .map(ev => ({ type: 'Shoot', id: ev.id, title: ev.eventName || 'Shoot', sub: `${ev.venue || ''} · ${ev.startDate || ev.shootDate || 'Scheduled'}`, target: 'events' as NavModule }))
   ];
 
   return (

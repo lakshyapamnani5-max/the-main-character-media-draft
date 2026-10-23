@@ -119,16 +119,21 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
     onRefreshData();
   };
 
-  const filteredPartners = partners.filter(p => 
-    p.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (p.contactPerson && p.contactPerson.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.city && p.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (p.role && p.role.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredPartners = (partners || []).filter(p => {
+    if (!p) return false;
+    const compName = (p.companyName || p.name || '').toLowerCase();
+    const contact = (p.contactPerson || '').toLowerCase();
+    const city = (p.city || '').toLowerCase();
+    const role = (p.role || '').toLowerCase();
+    const q = (searchQuery || '').trim().toLowerCase();
+    if (!q) return true;
+    return compName.includes(q) || contact.includes(q) || city.includes(q) || role.includes(q);
+  });
 
   // Helper to get partner events
   const getPartnerEvents = (partnerId: string) => {
-    return events.filter(e => 
+    if (!partnerId) return [];
+    return (events || []).filter(e => 
       e.partnerId === partnerId || 
       (e.notes && e.notes.toLowerCase().includes(partnerId.toLowerCase()))
     );
@@ -165,7 +170,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         <div className="bg-white border border-[#E8E3D9] p-4 rounded-xl shadow-xs">
           <span className="text-xs text-neutral-500 font-medium">Active Partner Agencies</span>
           <div className="font-serif text-2xl font-bold text-neutral-900 font-mono mt-1">
-            {partners.length} Companies
+            {(partners || []).length} Companies
           </div>
           <div className="text-[11px] text-neutral-500 mt-1">Outsourcing production & video shoots</div>
         </div>
@@ -173,7 +178,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         <div className="bg-white border border-[#E8E3D9] p-4 rounded-xl shadow-xs">
           <span className="text-xs text-neutral-500 font-medium">Outsourced Shoots Booked</span>
           <div className="font-serif text-2xl font-bold text-[#C58B39] font-mono mt-1">
-            {events.filter(e => e.partnerId).length} Shoots
+            {(events || []).filter(e => e.partnerId).length} Shoots
           </div>
           <div className="text-[11px] text-neutral-500 mt-1">Synced with Weddings/Jobs schedule</div>
         </div>
@@ -181,7 +186,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         <div className="bg-white border border-[#E8E3D9] p-4 rounded-xl shadow-xs">
           <span className="text-xs text-neutral-500 font-medium">Outsourced Production Value</span>
           <div className="font-serif text-2xl font-bold text-emerald-700 font-mono mt-1">
-            ₹{events.filter(e => e.partnerId).reduce((sum, e) => sum + (e.packageTotal || 0), 0).toLocaleString('en-IN')}
+            ₹{(events || []).filter(e => e.partnerId).reduce((sum, e) => sum + (e.packageTotal || 0), 0).toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-emerald-600 mt-1">Gross outsourced contract volume</div>
         </div>
@@ -200,7 +205,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
           />
         </div>
         <div className="text-xs text-neutral-500 font-mono">
-          Showing {filteredPartners.length} of {partners.length}
+          Showing {filteredPartners.length} of {(partners || []).length}
         </div>
       </div>
 
@@ -224,6 +229,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
           filteredPartners.map((partner) => {
             const partnerEvents = getPartnerEvents(partner.id);
             const isSelected = selectedPartnerId === partner.id;
+            const displayName = partner.companyName || partner.name || 'Partner Company';
+            const initialLetter = displayName.charAt(0).toUpperCase() || 'P';
 
             return (
               <div 
@@ -239,13 +246,13 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-xl bg-[#1F1E1C] border border-[#C58B39] text-[#C58B39] flex items-center justify-center font-serif text-xl font-bold shrink-0 shadow-2xs">
-                      {partner.companyName.charAt(0).toUpperCase()}
+                      {initialLetter}
                     </div>
 
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-serif text-lg sm:text-xl font-bold text-neutral-900 tracking-tight">
-                          {partner.companyName}
+                          {displayName}
                         </h3>
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FAF8F5] text-neutral-700 border border-[#E8E3D9] font-semibold uppercase">
                           {partner.role || 'Event Company'}

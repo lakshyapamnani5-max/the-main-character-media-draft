@@ -1,0 +1,832 @@
+# TMCM Management System — Production-Ready Improvements
+
+Act as a senior full-stack developer and database architect. Inspect the existing TMCM application, understand its current architecture, identify the root causes of existing issues, and implement the following improvements without breaking existing functionality or unnecessarily redesigning the entire application.
+
+**Important:** Do not just provide recommendations or sample code. Make the actual changes in the existing codebase, connect the UI to the database, test the workflows, and fix any related bugs.
+
+---
+
+## 1. Authentication and Role-Based Access Control
+
+Implement a secure login system for two roles: Admin and Crew.
+
+### Admin Credentials
+
+Use the following credentials for the initial admin account:
+
+* Email: `admin@tmcm.com`
+* Password: `admin123`
+* Role: `admin`
+
+Create or seed this account securely using the application's existing authentication system.
+
+**Security requirements:**
+
+* Do not hardcode admin credentials into frontend components or expose them in client-side JavaScript.
+* Store passwords securely using the existing authentication provider.
+* If using Firebase Authentication, create the account through a trusted administrative process and assign the admin role using a secure custom claim or another server-verified authorization mechanism.
+* Never rely on a frontend role value alone to authorize administrative operations.
+* Do not recreate the admin account on every application launch.
+* If the account already exists, handle initialization without creating duplicate users.
+* Require a valid authenticated session before allowing access to protected pages.
+
+### Login Flow
+
+Create a clean, professional login page that matches the existing TMCM application's design system.
+
+The login page must include:
+
+* Email input.
+* Password input.
+* Show/hide password toggle.
+* Login button with loading state.
+* Proper validation and error messages.
+* Responsive layout for desktop, tablet, and mobile.
+* Session persistence using the existing authentication provider.
+* Logout functionality.
+
+After successful login, redirect users according to their verified roles.
+
+**Admin login:**
+
+* Redirect to the Admin Dashboard.
+* Allow access to all authorized administrative modules.
+
+**Crew login:**
+
+* Redirect directly to the Crew Dashboard.
+* Never show the Admin Dashboard, administrative navigation, or restricted management pages.
+
+### Crew Account Management
+
+Allow the admin to create, manage, activate, deactivate, and remove crew accounts through the existing user-management workflow.
+
+Crew members must authenticate using their own accounts.
+
+Do not allow crew members to register themselves as administrators or modify their own roles.
+
+### Strict Access Isolation
+
+Enforce role-based permissions throughout the application, not just in the UI.
+
+Admin-only areas include:
+
+* Admin dashboard.
+* Client management.
+* Partner management.
+* Event creation and management.
+* Crew management.
+* Financial reports.
+* Payment management.
+* Quotations.
+* Administrative settings.
+
+Crew members may access only the modules explicitly permitted to their role, including their assigned events, relevant event information, and their own payout information.
+
+Implement:
+
+* Protected routes.
+* Role-aware navigation.
+* Backend or database-level authorization.
+* Session validation.
+* Unauthorized-access handling.
+
+If a crew member manually enters an admin URL, redirect them to their Crew Dashboard or an unauthorized page.
+
+If a crew member attempts to access restricted database records directly, the operation must be rejected by the authorization layer.
+
+**Hiding an admin button is not sufficient security.**
+
+---
+
+## 2. Crew Payout Management
+
+Review the complete existing crew payout workflow and fix its UI, calculations, database updates, and transaction history.
+
+### Payout Interface
+
+Within the Crew Payouts section, display the relevant payout details, including:
+
+* Crew member name.
+* Assigned event.
+* Agreed payout amount.
+* Previously paid amount.
+* Remaining balance.
+* Current payout status.
+* Payout history.
+
+Add an editable amount input when recording a payment.
+
+The amount field must support paying:
+
+* The full remaining amount.
+* A partial amount.
+* An amount greater than the remaining balance, subject to validation and explicit authorization.
+
+### Payment Amount Behavior
+
+When an admin records a payout, allow them to enter the actual amount being paid rather than automatically forcing the entire outstanding amount.
+
+Examples:
+
+**Example A — Partial payment**
+
+* Total agreed payout: ₹5,000.
+* Previously paid: ₹0.
+* Current payment: ₹2,000.
+* Remaining balance: ₹3,000.
+* Status: Partially Paid.
+
+**Example B — Multiple payments**
+
+* Total agreed payout: ₹5,000.
+* Previously paid: ₹2,000.
+* Current payment: ₹1,500.
+* Total paid: ₹3,500.
+* Remaining balance: ₹1,500.
+* Status: Partially Paid.
+
+**Example C — Full settlement**
+
+* Total agreed payout: ₹5,000.
+* Previously paid: ₹3,500.
+* Current payment: ₹1,500.
+* Total paid: ₹5,000.
+* Remaining balance: ₹0.
+* Status: Paid.
+
+### Paying More Than the Agreed Amount
+
+If the entered payment exceeds the remaining balance:
+
+* Display a clear warning.
+* Show the agreed payout, previous payments, entered payment, and resulting overpayment.
+* Require explicit confirmation and an appropriate administrative permission before proceeding.
+* Record the excess amount separately in the financial calculations.
+* Do not silently mark the payout as fully settled without showing the overpayment.
+
+If the amount exceeds the remaining balance, distinguish between the agreed payout and the actual total disbursed.
+
+### Paying Less Than the Agreed Amount
+
+If the admin enters an amount below the remaining balance:
+
+* Allow the transaction.
+* Update the amount paid.
+* Recalculate the remaining balance.
+* Mark the payout as Partially Paid.
+
+### Payout Validation
+
+* Reject negative amounts.
+* Reject zero-value payments unless the system explicitly supports non-monetary adjustments.
+* Prevent invalid or non-numeric values.
+* Prevent duplicate transactions caused by repeated clicks or network retries.
+* Use server-side validation and atomic database operations where supported.
+* Record the administrator who recorded the payment.
+* Record the payment date and time.
+* Include an optional transaction reference and notes.
+* Preserve a complete payout history.
+
+Use a consistent monetary representation, such as integer paise for INR, to avoid floating-point calculation errors.
+
+### Payout Statuses
+
+Use consistent statuses:
+
+* Unpaid.
+* Partially Paid.
+* Paid.
+* Overpaid, when the total amount disbursed exceeds the agreed amount.
+
+Ensure all dashboard totals, individual payout records, and financial reports use the same calculation rules.
+
+---
+
+## 3. Fix Partner Event Creation and Display
+
+There is an existing bug in the Partners section: after adding an event, the event does not appear.
+
+Investigate and fix the underlying cause instead of applying a superficial UI workaround.
+
+### Debugging Checklist
+
+Inspect:
+
+1. The event creation form and its validation.
+2. The submit handler.
+3. The database write operation.
+4. The database collection or table being written to.
+5. The database query used to retrieve partner events.
+6. Partner IDs and event relationships.
+7. Authentication and database permissions.
+8. Event status filters.
+9. State management and UI refresh behavior.
+10. Error handling and asynchronous operations.
+
+### Required Behavior
+
+When an authorized user adds an event to a partner:
+
+* Validate all required fields.
+* Save the event successfully to the database.
+* Associate it with the correct partner.
+* Retrieve the saved record or use the confirmed database result to update the UI.
+* Display the new event immediately without requiring a manual page refresh.
+* Ensure the event remains visible after reloading the application.
+* Prevent duplicate event creation caused by repeated submissions.
+* Display a success message only after the database write succeeds.
+* Display meaningful errors if the operation fails.
+
+Ensure that editing or deleting a partner event updates the UI and database consistently.
+
+Test the workflow with multiple partners and multiple events per partner.
+
+Do not display mock events or temporary local-only records as though they were saved successfully.
+
+---
+
+## 4. Complete Database Reset — Remove Existing Users and Payment Data
+
+**This is an explicitly requested destructive reset.** Clear the existing application's user records and payment-related data so the application can start with a clean database.
+
+Before making changes:
+
+1. Identify the database provider and inspect the existing schema.
+2. Map all collections or tables associated with users, crew members, clients, events, payouts, transactions, and financial records.
+3. Identify foreign-key relationships, document references, authentication accounts, and other dependencies.
+4. Confirm which records must be deleted and which records must be preserved.
+5. Create a backup or export of the current data before deletion.
+6. Verify that the operation targets the intended TMCM development or production environment.
+
+### Required Reset
+
+Remove:
+
+* Existing application user records.
+* Existing crew accounts and user profiles.
+* Existing payment transactions.
+* Existing crew payout records.
+* Existing payment histories.
+* Existing payment-related test data.
+
+Remove corresponding authentication accounts for ordinary application users if required by the reset, while preserving the ability to initialize the new administrator.
+
+**Do not blindly delete every collection or table.**
+
+Preserve application structure and configuration, including:
+
+* Database schema.
+* Security rules.
+* Authentication configuration.
+* Application settings.
+* Required reference data.
+* Database indexes.
+* Storage configuration.
+* Application code.
+* Other business data that is not included in the requested reset.
+
+Unless a broader deletion is explicitly configured, preserve partner and event business records while cleaning up user and payment data.
+
+Because payment and payout records may reference events, partners, or crew members, handle deletion dependencies in the correct order.
+
+If the application uses Firebase, remember that deleting a Firestore or Realtime Database user record does not automatically delete the corresponding Firebase Authentication account.
+
+Handle authentication cleanup separately using a trusted administrative process.
+
+### After Reset
+
+Verify that:
+
+* Old user accounts can no longer authenticate if they were intended to be removed.
+* Old payment records are no longer present.
+* Old crew payout histories are cleared.
+* The initial admin account can authenticate.
+* New crew accounts can be created.
+* All database permissions remain enforced.
+* No orphaned payment references remain.
+* Existing preserved business data remains intact.
+
+**Important:** Never perform the reset automatically every time the application starts. Implement it as a controlled, one-time administrative or deployment operation.
+
+If the target environment or intended deletion scope is ambiguous, stop before destructive operations and request confirmation.
+
+---
+
+## 5. Audit and Fix the Complete Payment Flow
+
+Perform an end-to-end audit of every payment-related workflow.
+
+Do not limit the investigation to the Crew Payouts page.
+
+### Audit the Following
+
+* Client payment recording.
+* Event payment tracking.
+* Crew payout creation.
+* Partial payouts.
+* Full payouts.
+* Overpayments.
+* Outstanding balances.
+* Payment status transitions.
+* Transaction history.
+* Financial summaries.
+* Dashboard totals.
+* Event-level payment summaries.
+* Client-level outstanding balances.
+* Crew-level payout balances.
+* Editing and deleting payment records, if supported.
+* Payment persistence after reloading.
+* Error handling for failed writes.
+* Repeated submissions and concurrent updates.
+
+### Financial Calculation Rules
+
+For each financial record, clearly distinguish:
+
+**Client side**
+
+* Total agreed event amount.
+* Amount received from the client.
+* Outstanding client balance.
+
+**Crew side**
+
+* Total agreed crew payout.
+* Total actually disbursed.
+* Outstanding crew payout.
+* Any overpayment.
+
+Do not confuse client revenue with crew expenses.
+
+For example:
+
+Event contract value: ₹20,000.
+
+Client payments:
+
+* First payment: ₹8,000.
+* Second payment: ₹7,000.
+* Total received: ₹15,000.
+* Client balance: ₹5,000.
+
+Crew payouts:
+
+* First payout: ₹3,000.
+* Second payout: ₹2,000.
+* Total disbursed: ₹5,000.
+* Remaining crew payout: Calculated from the agreed crew amount.
+
+Ensure all calculations are derived from persisted records or consistently maintained database totals.
+
+### Transaction Integrity
+
+* Use transactions or atomic updates where supported.
+* Prevent duplicate payments.
+* Validate amounts on the trusted backend or database layer.
+* Handle failed writes without displaying false success messages.
+* Keep payment history consistent with the current balance.
+* Avoid negative balances unless the business rules explicitly permit them.
+* Require authorization for financial adjustments.
+* Log sensitive financial changes for auditability.
+
+If external payment gateways are integrated, verify payment status using trusted server-side verification rather than accepting client-submitted success flags.
+
+Do not invent successful gateway transactions or mark payments as received without valid evidence.
+
+### Required Payment Testing
+
+Test:
+
+1. A new unpaid record.
+2. A full payment.
+3. A partial payment.
+4. Multiple partial payments.
+5. An overpayment.
+6. An invalid negative amount.
+7. A zero amount.
+8. A repeated submission.
+9. A failed database write.
+10. An unauthorized payment attempt.
+11. A page reload after payment.
+12. Recalculation of dashboard totals after payment.
+
+Fix every issue found and document any remaining limitations.
+
+---
+
+## 6. Add a Quotations Module
+
+Create a dedicated **Quotations** tab in the main admin navigation.
+
+The module should let administrators create, save, manage, and convert quotations into clients without entering the same information repeatedly.
+
+### Quotations Dashboard
+
+Display:
+
+* Quotation number.
+* Client or prospect name.
+* Company name, if applicable.
+* Contact number.
+* Email address.
+* Event name.
+* Event date.
+* Quotation total.
+* Creation date.
+* Expiry date.
+* Status.
+* Available actions.
+
+Support search, filtering, and sorting.
+
+### Quotation Statuses
+
+Use:
+
+* Draft.
+* Sent.
+* Accepted.
+* Rejected.
+* Expired.
+* Converted to Client.
+
+Use consistent status transitions and ensure converted quotations cannot accidentally create duplicate clients.
+
+### Create Quotation
+
+Build a professional quotation form with the following sections.
+
+#### A. Client or Prospect Details
+
+* Full name.
+* Company or brand name.
+* Phone number.
+* Email address.
+* Billing address.
+* GSTIN, if applicable.
+* Other relevant contact details.
+
+#### B. Event Details
+
+* Event name.
+* Event type.
+* Event date.
+* Event location.
+* Event duration.
+* Expected number of attendees, if relevant.
+* Event description.
+* Special requirements.
+
+#### C. Services and Line Items
+
+Allow multiple line items with:
+
+* Service name.
+* Description.
+* Quantity.
+* Unit.
+* Rate.
+* Discount, if applicable.
+* Tax rate, if applicable.
+* Line total.
+
+Allow the admin to add, edit, remove, and reorder items.
+
+Provide a service catalogue or reusable service templates if they fit the existing architecture.
+
+#### D. Financial Summary
+
+Automatically calculate:
+
+* Subtotal.
+* Item-level discounts.
+* Overall discount.
+* Applicable GST.
+* Other explicitly configured charges.
+* Grand total.
+* Optional advance payment requirement.
+* Payment terms.
+* Remaining amount, when applicable.
+
+Ensure calculations are consistent and avoid applying GST twice.
+
+Support appropriate GST configurations, including CGST/SGST or IGST when applicable. Do not assume that every quotation is taxable in the same way; make the configuration explicit.
+
+Display monetary values in INR by default.
+
+#### E. Additional Information
+
+* Quotation issue date.
+* Valid-until date.
+* Terms and conditions.
+* Notes.
+* Payment terms.
+* Prepared-by information.
+
+### Save and Edit Quotations
+
+Implement complete CRUD functionality:
+
+* Create a quotation.
+* Save as draft.
+* View quotation details.
+* Edit a draft.
+* Update eligible quotation statuses.
+* Duplicate a quotation.
+* Search and filter quotations.
+* Delete drafts with appropriate confirmation.
+* Preserve finalized quotation history according to the application's retention rules.
+
+Generate unique, human-readable quotation numbers, such as:
+
+`TMCM-QTN-2026-0001`
+
+Do not generate quotation numbers using an unreliable frontend-only counter.
+
+Ensure numbering remains unique when multiple users create quotations concurrently.
+
+Persist all quotation details in the database so they remain available after logout, refresh, or login from another device.
+
+### Quotation Preview and Export
+
+Create a clean, professional quotation preview with:
+
+* TMCM branding and logo.
+* Business contact information.
+* Quotation number and dates.
+* Client details.
+* Event details.
+* Itemized services.
+* Tax and discount breakdown.
+* Grand total.
+* Payment terms.
+* Terms and conditions.
+* Authorized signatory section, if required.
+
+Provide a print-friendly layout and PDF export.
+
+The generated document should be suitable for sending directly to a client.
+
+Avoid unnecessary UI elements in the printed quotation.
+
+---
+
+## 7. Convert a Quotation into a Client
+
+Add a prominent **Convert to Client** button to eligible quotations.
+
+This must be a real data operation, not just a navigation button.
+
+### Conversion Workflow
+
+When the admin selects Convert to Client:
+
+1. Fetch the complete saved quotation from the database.
+2. Validate that the quotation contains the required client information.
+3. Check for an existing client using an appropriate matching strategy.
+4. If a matching client exists, ask the admin whether to associate the quotation with that client or cancel the conversion.
+5. Otherwise, create the client record using the quotation's saved details.
+6. Transfer all relevant client contact information.
+7. Transfer the event name, date, location, requirements, and description into the appropriate client or event records.
+8. Transfer all service line items and pricing details into the appropriate event or project records.
+9. Preserve the original quotation number and a reference to the original quotation.
+10. Associate the quotation with the newly created client.
+11. Update the quotation status to Converted to Client.
+12. Show a success notification.
+13. Offer a button to open the newly created client profile.
+
+### Fetch All Relevant Details
+
+The conversion must use the actual persisted quotation data.
+
+It must not create an empty client profile containing only the client's name.
+
+Transfer all applicable information, including:
+
+* Contact details.
+* Business details.
+* Billing details.
+* Event details.
+* Service selections.
+* Quantities.
+* Agreed prices.
+* Discounts.
+* Tax configuration.
+* Final quoted amount.
+* Terms and conditions.
+* Notes.
+* Payment terms.
+* Quotation reference.
+
+Map these fields to the existing client and event schema rather than creating unnecessary duplicate fields.
+
+If the existing client structure separates clients, events, and transactions, create the appropriate linked records.
+
+**Do not automatically mark the quotation amount as paid.** Converting a quotation creates a business record, not a payment transaction.
+
+### Conversion Safety
+
+* Prevent duplicate client creation on repeated clicks.
+* Make the operation idempotent.
+* Use a database transaction or another reliable consistency mechanism where supported.
+* Validate all required fields.
+* Handle failures without leaving incomplete client or event records.
+* Preserve the original quotation.
+* Clearly distinguish the quoted amount from amounts actually received.
+
+After conversion, the client profile should show the associated event and its relevant quotation details.
+
+The quotation should remain accessible from the client profile.
+
+---
+
+## 8. UI and User Experience
+
+Keep the existing application's branding and design language unless an existing component needs improvement to support the new functionality.
+
+Aim for a professional, premium management dashboard.
+
+### General Requirements
+
+* Consistent spacing and typography.
+* Responsive layouts.
+* Reusable form components.
+* Accessible input labels.
+* Clear status badges.
+* Confirmation dialogs for destructive operations.
+* Loading indicators.
+* Empty states.
+* Success and error notifications.
+* Consistent date and currency formatting.
+* Proper form validation.
+* Searchable data tables where appropriate.
+
+### Navigation
+
+**Admin navigation:**
+
+* Dashboard.
+* Clients.
+* Partners.
+* Events.
+* Crew.
+* Crew Payouts.
+* Payments or Finance.
+* Quotations.
+* Reports.
+* Settings.
+
+Adapt the labels to the application's existing modules and avoid unnecessary duplicates.
+
+**Crew navigation:**
+
+* Crew Dashboard.
+* My Events.
+* My Payouts.
+* Profile.
+* Logout.
+
+Crew members must never see administrative navigation items.
+
+Only include information and actions that crew members are authorized to access.
+
+---
+
+## 9. Database Architecture and Data Integrity
+
+Before implementing the features, inspect the existing database schema and reuse it wherever practical.
+
+Do not create a second authentication system or duplicate collections for data that already exists.
+
+Maintain clear relationships between:
+
+* Users.
+* Roles.
+* Clients.
+* Partners.
+* Events.
+* Crew assignments.
+* Quotations.
+* Quotation line items.
+* Client payments.
+* Crew payouts.
+* Payment transactions.
+
+Every relevant record should have:
+
+* A stable unique identifier.
+* Creation timestamp.
+* Updated timestamp where applicable.
+* Appropriate relationship references.
+* Ownership or tenant scope where relevant.
+* Validated financial values.
+
+Use the database's native transaction and security capabilities where supported.
+
+If using Firebase:
+
+* Inspect Firebase Authentication.
+* Inspect Firestore or Realtime Database usage.
+* Inspect security rules and indexes.
+* Review existing data paths.
+* Keep privileged operations in trusted server-side code or secure administrative processes.
+* Do not expose service-account credentials in the frontend.
+* Ensure database rules enforce the same role restrictions as the UI.
+* Ensure users cannot access another crew member's restricted financial records.
+
+Do not assume Firebase is being used without inspecting the actual project.
+
+---
+
+## 10. Testing and Acceptance Criteria
+
+After implementing the changes, run the application and verify each workflow.
+
+### Authentication
+
+* Admin logs in with `admin@tmcm.com` and `admin123`.
+* Admin lands on the Admin Dashboard.
+* Crew logs in with their own credentials.
+* Crew lands on the Crew Dashboard.
+* Crew cannot access admin routes.
+* Crew cannot perform admin operations through direct database requests.
+* Invalid credentials are rejected.
+* Logout invalidates the local authenticated session appropriately.
+* Refreshing the page preserves or restores the correct authorized session.
+
+### Partner Events
+
+* Add an event to a partner.
+* Verify it appears immediately.
+* Reload the page and verify persistence.
+* Verify the event is associated with the correct partner.
+* Verify editing and deleting work correctly.
+
+### Crew Payouts
+
+* Record a partial payout.
+* Record another partial payout.
+* Settle a payout fully.
+* Test an authorized overpayment.
+* Verify balances and statuses.
+* Verify transaction history.
+* Verify repeated submissions do not create duplicate payments.
+
+### Database Reset
+
+* Verify old user records are removed.
+* Verify the intended old authentication accounts are removed.
+* Verify payment and payout histories are cleared.
+* Verify the admin account works.
+* Verify preserved partners, events, and other intended business data remain available.
+
+### Quotations
+
+* Create and save a quotation.
+* Edit a draft.
+* Reload the application and verify persistence.
+* Verify the financial calculations.
+* Preview and export a quotation.
+* Convert a quotation into a client.
+* Verify all applicable details are transferred.
+* Verify the client and event relationships.
+* Verify the original quotation remains accessible.
+* Attempt conversion again and confirm that duplicate records are not created.
+
+### Regression Testing
+
+Verify that existing application functionality still works and that the new modules do not break current workflows.
+
+Do not claim that a test passed unless it was actually executed and its result was verified.
+
+---
+
+## 11. Final Deliverables
+
+After completing the work, provide a concise implementation report containing:
+
+1. Features implemented.
+2. Files and modules modified.
+3. Authentication and authorization changes.
+4. Database changes and reset results.
+5. Payment calculation fixes.
+6. Partner event bug root cause and resolution.
+7. Quotations workflow and conversion behavior.
+8. Tests executed and their results.
+9. Any required environment variables or deployment steps.
+10. Any remaining issues or limitations.
+
+### Final Instructions
+
+* Inspect the existing codebase before editing.
+* Preserve working functionality.
+* Implement complete end-to-end workflows.
+* Do not use mock data in place of database operations.
+* Do not leave unfinished buttons or placeholder functionality.
+* Do not bypass authentication or security rules to make the UI work.
+* Do not delete data outside the explicitly approved reset scope.
+* Do not mark quotations as paid simply because they were converted into clients.
+* Do not report success without verifying the implementation.
+
+**The goal is a reliable, secure, fully connected TMCM management system—not just a visual redesign.**

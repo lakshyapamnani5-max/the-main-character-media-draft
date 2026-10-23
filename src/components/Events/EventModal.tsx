@@ -40,9 +40,9 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [city, setCity] = useState('Mumbai');
   const [leadCreator, setLeadCreator] = useState('');
   const [selectedCrew, setSelectedCrew] = useState<EventCrewSelection[]>([]);
-  const [crewPayout, setCrewPayout] = useState<number | ''>(25000);
-  const [packageTotal, setPackageTotal] = useState<number | ''>(75000);
-  const [advancePaid, setAdvancePaid] = useState<number | ''>(35000);
+  const [crewPayout, setCrewPayout] = useState<number | ''>('');
+  const [packageTotal, setPackageTotal] = useState<number | ''>('');
+  const [advancePaid, setAdvancePaid] = useState<number | ''>('');
   const [paymentDueDate, setPaymentDueDate] = useState('');
   const [status, setStatus] = useState<EventStatus>('Confirmed');
   const [clientRequirements, setClientRequirements] = useState('');
@@ -67,7 +67,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       setShootTime(initialData.shootTime || '14:00 - 22:00');
       setVenue(initialData.venue);
       setCity(initialData.locationCity || initialData.city || 'Mumbai');
-      setLeadCreator(initialData.leadCreator || 'Devansh Saxena');
+      setLeadCreator(initialData.leadCreator || '');
 
       // Populate selected crew from existing assignments or crew members
       if (initialData.crewAssignments && initialData.crewAssignments.length > 0) {
@@ -122,9 +122,9 @@ export const EventModal: React.FC<EventModalProps> = ({
       setCity('Mumbai');
       setLeadCreator('');
       setSelectedCrew([]);
-      setCrewPayout(25000);
-      setPackageTotal(75000);
-      setAdvancePaid(35000);
+      setCrewPayout('');
+      setPackageTotal('');
+      setAdvancePaid('');
       setPaymentDueDate(defaultEnd);
       setStatus('Confirmed');
       setClientRequirements('');
@@ -315,7 +315,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       venue: venue.trim() || 'TBD Venue',
       locationCity: city.trim(),
       city: city.trim(),
-      leadCreator: selectedCrew[0]?.crewName || leadCreator || 'Devansh Saxena',
+      leadCreator: selectedCrew[0]?.crewName || leadCreator || 'Admin',
       crewMembers: finalCrewMembers,
       crewAssignments: finalCrewAssignments,
       crewPayout: totalCrewPayoutCalc > 0 ? totalCrewPayoutCalc : (Number(crewPayout) || 0),

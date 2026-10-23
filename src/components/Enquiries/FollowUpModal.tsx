@@ -19,7 +19,7 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
   const [nextDate, setNextDate] = useState(
     new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [createdBy, setCreatedBy] = useState('Aarav Malhotra');
+  const [createdBy, setCreatedBy] = useState('Admin');
 
   if (!isOpen || !enquiry) return null;
 
@@ -116,9 +116,9 @@ export const FollowUpModal: React.FC<FollowUpModalProps> = ({
                   onChange={(e) => setCreatedBy(e.target.value)}
                   className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded text-neutral-900 bg-white"
                 >
-                  <option value="Aarav Malhotra">Aarav Malhotra</option>
-                  <option value="Sara Khan">Sara Khan</option>
-                  <option value="Devansh Saxena">Devansh Saxena</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Sales Team">Sales Team</option>
+                  <option value="Founder / Producer">Founder / Producer</option>
                 </select>
               </div>
             </div>

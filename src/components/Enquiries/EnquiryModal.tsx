@@ -27,14 +27,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   const [selectedChargeId, setSelectedChargeId] = useState('');
   const [date, setDate] = useState('');
   const [venue, setVenue] = useState('');
-  const [budget, setBudget] = useState<number | ''>(50000);
+  const [budget, setBudget] = useState<number | ''>('');
   const [requirements, setRequirements] = useState('');
   const [servicesInput, setServicesInput] = useState('');
   const [servicesRequired, setServicesRequired] = useState<string[]>([]);
   const [leadSource, setLeadSource] = useState('Instagram');
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
-  const [salesperson, setSalesperson] = useState('Aarav Malhotra');
+  const [salesperson, setSalesperson] = useState('Admin');
   const [pipelineStage, setPipelineStage] = useState<PipelineStage>('New');
 
   useEffect(() => {
@@ -64,13 +64,13 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       setEventType('Wedding');
       setDate('');
       setVenue('');
-      setBudget(50000);
+      setBudget('');
       setRequirements('');
-      setServicesRequired(['Wedding Day', 'Reels Coverage']);
+      setServicesRequired([]);
       setLeadSource('Instagram');
       setNotes('');
       setFollowUpDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-      setSalesperson('Aarav Malhotra');
+      setSalesperson('Admin');
       setPipelineStage('New');
     }
   }, [initialData, isOpen]);
@@ -404,9 +404,9 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                 onChange={(e) => setSalesperson(e.target.value)}
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 bg-white focus:outline-none focus:border-[#C58B39]"
               >
-                <option value="Aarav Malhotra">Aarav Malhotra</option>
-                <option value="Sara Khan">Sara Khan</option>
-                <option value="Devansh Saxena">Devansh Saxena</option>
+                <option value="Admin">Admin</option>
+                <option value="Sales Team">Sales Team</option>
+                <option value="Founder / Producer">Founder / Producer</option>
               </select>
             </div>
           </div>

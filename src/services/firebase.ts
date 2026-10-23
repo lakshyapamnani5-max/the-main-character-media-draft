@@ -11,7 +11,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 
-export { onAuthStateChanged, type FirebaseUser };
+export { onAuthStateChanged, signOut, type FirebaseUser };
 import { 
   getFirestore, 
   doc, 

@@ -90,7 +90,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
     amount: '',
     date: new Date().toISOString().split('T')[0],
     eventId: '',
-    paidBy: 'Devansh Saxena',
+    paidBy: 'Admin',
     paymentMode: 'UPI',
     notes: ''
   });
@@ -186,7 +186,7 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
       amount: '',
       date: new Date().toISOString().split('T')[0],
       eventId: '',
-      paidBy: 'Devansh Saxena',
+      paidBy: 'Admin',
       paymentMode: 'UPI',
       notes: ''
     });

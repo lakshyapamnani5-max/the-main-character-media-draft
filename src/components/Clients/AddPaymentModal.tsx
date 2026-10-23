@@ -17,7 +17,7 @@ export const AddPaymentModal: React.FC<AddPaymentModalProps> = ({
   events = [],
   onRecordPayment
 }) => {
-  const [amount, setAmount] = useState<number | ''>(20000);
+  const [amount, setAmount] = useState<number | ''>('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMode, setPaymentMode] = useState<PaymentRecord['paymentMode']>('UPI');
   const [referenceNumber, setReferenceNumber] = useState('');

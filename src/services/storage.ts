@@ -29,6 +29,15 @@ import {
   InvoiceStatus,
   CompanySettings
 } from '../types';
+
+export interface UserSession {
+  role: 'admin' | 'crew';
+  name: string;
+  email?: string;
+  phone?: string;
+  crewId?: string;
+  authenticatedAt: string;
+}
 import {
   savePartnerToFirestore,
   deletePartnerFromFirestore,
@@ -88,6 +97,7 @@ const STORAGE_KEYS = {
   PARTNERS: 'tmc_partners_v1',
   INVOICES: 'tmc_invoices_v1',
   COMPANY_SETTINGS: 'tmc_company_settings_v1',
+  AUTH_USER_SESSION: 'tmc_auth_user_session_v1',
 };
 
 const DEFAULT_EVENT_CHARGES: EventCharge[] = [
@@ -349,7 +359,7 @@ const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   upiId: 'tmcmedia@hdfcbank',
   upiQrUrl: '',
   signatureUrl: '',
-  signatoryName: 'Devansh Saxena',
+  signatoryName: 'Authorized Signatory',
   signatoryTitle: 'Creative Producer & Founder',
   defaultAdvancePercentage: 50,
   defaultValidityDays: 15,
@@ -429,9 +439,9 @@ export class StorageService {
     // Connect and initialize Firebase Realtime Database live sync
     RealtimeSyncService.initialize();
 
-    // Completely wipe all mock/dummy records (events, 40000 payments, crew payouts, clients, etc.)
-    const mockDataPurgedV5 = localStorage.getItem('tmc_purge_all_mock_data_v5');
-    if (!mockDataPurgedV5) {
+    // Completely wipe all mock/dummy records (events, payments, crew payouts, clients, etc.)
+    const mockDataPurgedV13 = localStorage.getItem('tmc_purge_all_mock_data_v13');
+    if (!mockDataPurgedV13) {
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
@@ -443,7 +453,7 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify([]));
-      localStorage.setItem('tmc_purge_all_mock_data_v5', 'true');
+      localStorage.setItem('tmc_purge_all_mock_data_v13', 'true');
     }
 
     if (!localStorage.getItem(STORAGE_KEYS.EVENT_CHARGES)) {
@@ -483,7 +493,7 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_CREW_ID)) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_CREW_ID, 'cr-aman');
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_CREW_ID, '');
     }
     if (!localStorage.getItem(STORAGE_KEYS.APP_VIEW_MODE)) {
       localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, 'admin');
@@ -656,7 +666,15 @@ export class StorageService {
     this.initialize();
     try {
       const data = localStorage.getItem(STORAGE_KEYS.EVENTS);
-      return data ? JSON.parse(data) : DEFAULT_EVENTS;
+      const events: EventShoot[] = data ? JSON.parse(data) : DEFAULT_EVENTS;
+      return events.filter(e => 
+        e.clientName !== 'hello' && 
+        e.clientName !== 'Preeti & Karan' && 
+        e.clientName !== 'lakshya' &&
+        e.eventName !== 'wedding' &&
+        e.eventName !== 'Wedding & Reception' &&
+        e.eventName !== 'kanak and vishal'
+      );
     } catch {
       return DEFAULT_EVENTS;
     }
@@ -1424,7 +1442,7 @@ export class StorageService {
       leadSource: enquiry.leadSource || 'Instagram',
       notes: enquiry.notes || '',
       followUpDate: enquiry.followUpDate || '',
-      salesperson: enquiry.salesperson || 'Aarav Malhotra',
+      salesperson: enquiry.salesperson || 'Admin',
       pipelineStage: enquiry.pipelineStage || 'New',
       followUps: enquiry.followUps || [],
       archived: enquiry.archived || false,
@@ -1497,12 +1515,12 @@ export class StorageService {
         venue: enquiry.venue || 'TBD Venue',
         locationCity: 'Mumbai',
         status: 'Confirmed',
-        leadCreator: enquiry.salesperson || 'Devansh Saxena',
-        crewMembers: ['Devansh Saxena', 'Tara Sen'],
-        crewPayout: Math.round((enquiry.budget || 35000) * 0.35),
-        packageTotal: enquiry.budget || 35000,
+        leadCreator: enquiry.salesperson || 'Admin',
+        crewMembers: [],
+        crewPayout: 0,
+        packageTotal: enquiry.budget || 0,
         advancePaid: 0,
-        balanceDue: enquiry.budget || 35000,
+        balanceDue: enquiry.budget || 0,
         notes: `Converted from lead CRM. Services required: ${enquiry.servicesRequired.join(', ')}`
       });
     }
@@ -1745,7 +1763,14 @@ export class StorageService {
     this.initialize();
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-      return data ? JSON.parse(data) : DEFAULT_PAYMENTS;
+      const list: PaymentRecord[] = data ? JSON.parse(data) : DEFAULT_PAYMENTS;
+      return list.filter(p => 
+        (p as any).clientName !== 'hello' && 
+        (p as any).clientName !== 'Preeti & Karan' &&
+        (p as any).clientName !== 'lakshya' &&
+        p.id !== 'pay-1792229918201' &&
+        p.id !== 'pay-1792229938880'
+      );
     } catch {
       return DEFAULT_PAYMENTS;
     }
@@ -1823,7 +1848,7 @@ export class StorageService {
       date: expenseData.date || now.split('T')[0],
       eventId: expenseData.eventId,
       eventName: expenseData.eventName,
-      paidBy: expenseData.paidBy || 'Devansh Saxena',
+      paidBy: expenseData.paidBy || 'Admin',
       paymentMode: expenseData.paymentMode || 'UPI',
       notes: expenseData.notes || '',
       createdAt: now
@@ -2499,7 +2524,7 @@ export class StorageService {
   // --- ACTIVE CREW MEMBER & VIEW MODE ---
   static getActiveCrewMemberId(): string {
     this.initialize();
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_CREW_ID) || 'cr-aman';
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_CREW_ID) || '';
   }
 
   static setActiveCrewMemberId(id: string): void {
@@ -2537,5 +2562,27 @@ export class StorageService {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('tmc_company_settings_updated', { detail: settings }));
     }
+  }
+
+  // --- USER AUTHENTICATION & ROLE SESSION ---
+  static getUserSession(): UserSession | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.AUTH_USER_SESSION);
+      return data ? JSON.parse(data) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static setUserSession(session: UserSession | null): void {
+    if (typeof window === 'undefined') return;
+    if (session) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_USER_SESSION, JSON.stringify(session));
+      localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, session.role);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_USER_SESSION);
+    }
+    this.notifyListeners();
   }
 }

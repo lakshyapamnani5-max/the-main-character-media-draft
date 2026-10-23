@@ -13,7 +13,8 @@ import {
   SlidersHorizontal,
   LogOut,
   Building2,
-  Lock
+  Lock,
+  Instagram
 } from 'lucide-react';
 import { CrewMember, EventShoot } from '../../types';
 import { StorageService } from '../../services/storage';
@@ -24,7 +25,7 @@ interface CrewProfileTabProps {
   allCrew: CrewMember[];
   allShoots: EventShoot[];
   onSelectCrewPersona: (crewId: string) => void;
-  onSwitchToAdmin?: () => void;
+  onSignOut?: () => void;
 }
 
 export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
@@ -32,7 +33,7 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
   allCrew,
   allShoots,
   onSelectCrewPersona,
-  onSwitchToAdmin
+  onSignOut
 }) => {
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
 
@@ -154,6 +155,44 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
           <div>
             <strong>WhatsApp Contact:</strong> <span className="font-mono text-neutral-900">{activeCrew.phone || 'Not configured'}</span>
           </div>
+        </div>
+      </div>
+
+      {/* Crew Portal Sign Out */}
+      {onSignOut && (
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="w-full py-3 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 font-semibold rounded-2xl text-xs flex items-center justify-center gap-2 transition-colors shadow-xs"
+        >
+          <LogOut className="w-4 h-4 text-rose-600" />
+          <span>Sign Out of Crew Terminal</span>
+        </button>
+      )}
+
+      {/* Developer Attribution */}
+      <div className="pt-3 pb-2 text-center text-[10px] text-neutral-400 font-mono space-y-1 border-t border-[#E8E3D9]/60">
+        <div>Made by <strong className="text-neutral-700 font-semibold">DRONA Tech Solutions</strong></div>
+        <div className="flex items-center justify-center gap-3 text-[10px]">
+          <a
+            href="https://instagram.com/_.drona._"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[#C58B39] hover:underline"
+            title="Instagram: _.drona._"
+          >
+            <Instagram className="w-3 h-3" />
+            <span>_.drona._</span>
+          </a>
+          <span>·</span>
+          <a
+            href="tel:7620366390"
+            className="inline-flex items-center gap-1 text-neutral-600 hover:underline"
+            title="Call DRONA Tech Solutions"
+          >
+            <Phone className="w-3 h-3 text-[#C58B39]" />
+            <span>7620366390</span>
+          </a>
         </div>
       </div>
     </div>

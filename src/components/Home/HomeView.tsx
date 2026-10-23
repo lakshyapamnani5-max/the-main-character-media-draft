@@ -818,26 +818,32 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
 
           <div className="space-y-3">
-            {recentPayments.map(pmt => (
-              <div key={pmt.id} className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E3D9] text-xs flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-bold text-neutral-900 text-sm">{pmt.referenceNumber || 'Advance Deposit'}</div>
-                  <div className="text-neutral-500 text-[11px] truncate">
-                    {pmt.date} · via <span className="font-medium text-neutral-700">{pmt.paymentMode}</span>
-                    {pmt.notes && ` · ${pmt.notes}`}
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="font-mono font-bold text-emerald-700 text-sm">
-                    +₹{pmt.amount.toLocaleString('en-IN')}
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">
-                    Received
-                  </span>
-                </div>
+            {recentPayments.length === 0 ? (
+              <div className="p-8 text-center bg-[#FAF8F5] border border-dashed border-[#E8E3D9] rounded-xl text-neutral-400 text-xs font-mono">
+                No client payment transactions recorded yet.
               </div>
-            ))}
+            ) : (
+              recentPayments.map(pmt => (
+                <div key={pmt.id} className="p-3 rounded-xl bg-[#FAF8F5] border border-[#E8E3D9] text-xs flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-neutral-900 text-sm">{pmt.referenceNumber || 'Advance Deposit'}</div>
+                    <div className="text-neutral-500 text-[11px] truncate">
+                      {pmt.date} · via <span className="font-medium text-neutral-700">{pmt.paymentMode}</span>
+                      {pmt.notes && ` · ${pmt.notes}`}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <div className="font-mono font-bold text-emerald-700 text-sm">
+                      +₹{pmt.amount.toLocaleString('en-IN')}
+                    </div>
+                    <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">
+                      Received
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

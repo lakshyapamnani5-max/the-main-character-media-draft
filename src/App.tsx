@@ -9,7 +9,7 @@ import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MobileBottomNav } from './components/Navigation/MobileBottomNav';
 import { NotificationDrawer } from './components/Navigation/NotificationDrawer';
-import { ShieldCheck, Smartphone } from 'lucide-react';
+import { ShieldCheck, Smartphone, Instagram, Phone } from 'lucide-react';
 
 // Production ERP Views
 import { HomeView } from './components/Home/HomeView';
@@ -21,6 +21,7 @@ import { PartnersView } from './components/Partners/PartnersView';
 import { PartnerCalendarModal } from './components/Partners/PartnerCalendarModal';
 import { AddPartnerEventModal } from './components/Partners/AddPartnerEventModal';
 import { AuthModal } from './components/Auth/AuthModal';
+import { AuthPage } from './components/Auth/AuthPage';
 import { CrewManagementView } from './components/Crew/CrewManagementView';
 import { EventChargesView } from './components/EventCharges/EventChargesView';
 import { InvoiceModal } from './components/Invoices/InvoiceModal';
@@ -49,10 +50,11 @@ import {
   Partner,
   Invoice
 } from './types';
-import { StorageService } from './services/storage';
+import { StorageService, UserSession } from './services/storage';
 import { 
   auth, 
   onAuthStateChanged, 
+  signOut,
   FirebaseUser, 
   subscribeToFirestorePartners, 
   subscribeToFirestoreEvents,
@@ -73,7 +75,10 @@ import { AddPaymentModal } from './components/Clients/AddPaymentModal';
 import { CompanySettingsView } from './components/Settings/CompanySettingsView';
 
 export default function App() {
+  const [userSession, setUserSession] = useState<UserSession | null>(() => StorageService.getUserSession());
   const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => {
+    const session = StorageService.getUserSession();
+    if (session?.role === 'crew') return 'crew';
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -82,7 +87,7 @@ export default function App() {
         return 'crew';
       }
     }
-    return StorageService.getAppViewMode();
+    return session?.role || StorageService.getAppViewMode();
   });
   const [activeCrewId, setActiveCrewId] = useState<string>(() => StorageService.getActiveCrewMemberId());
 
@@ -120,6 +125,24 @@ export default function App() {
   // Firebase Auth State & Modal
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+
+  // Collapsible Sidebar State
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tmc_sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const handleToggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('tmc_sidebar_collapsed', String(next));
+      }
+      return next;
+    });
+  };
 
   // Global Action Modals
   const [isNewEnquiryOpen, setIsNewEnquiryOpen] = useState(false);
@@ -372,11 +395,42 @@ export default function App() {
     refreshAllData();
   };
 
-  // Handlers for View Mode Switching
-  const handleSwitchToCrewMode = (crewId?: string) => {
-    if (crewId) {
-      setActiveCrewId(crewId);
-      StorageService.setActiveCrewMemberId(crewId);
+  // Session & Login Handlers
+  const handleLoginSuccess = (session: UserSession) => {
+    StorageService.setUserSession(session);
+    setUserSession(session);
+    setAppViewMode(session.role);
+    if (session.role === 'crew') {
+      if (session.crewId) {
+        setActiveCrewId(session.crewId);
+        StorageService.setActiveCrewMemberId(session.crewId);
+      }
+    }
+    refreshAllData();
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('Sign out:', e);
+    }
+    StorageService.setUserSession(null);
+    setUserSession(null);
+    setCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState(null, '', '/');
+      } catch {
+        window.location.hash = '';
+      }
+    }
+  };
+
+  const handleSwitchToCrewMode = (targetCrewId?: string) => {
+    if (targetCrewId) {
+      setActiveCrewId(targetCrewId);
+      StorageService.setActiveCrewMemberId(targetCrewId);
     }
     setAppViewMode('crew');
     StorageService.setAppViewMode('crew');
@@ -390,6 +444,10 @@ export default function App() {
   };
 
   const handleSwitchToAdminMode = () => {
+    if (userSession?.role === 'crew') {
+      // Crew members strictly cannot switch to Admin mode
+      return;
+    }
     setAppViewMode('admin');
     StorageService.setAppViewMode('admin');
     if (typeof window !== 'undefined' && window.location.pathname.includes('/crew')) {
@@ -403,6 +461,10 @@ export default function App() {
 
   useEffect(() => {
     const handleUrlNav = () => {
+      if (userSession?.role === 'crew') {
+        setAppViewMode('crew');
+        return;
+      }
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
       const search = window.location.search.toLowerCase();
@@ -419,7 +481,7 @@ export default function App() {
       window.removeEventListener('popstate', handleUrlNav);
       window.removeEventListener('hashchange', handleUrlNav);
     };
-  }, []);
+  }, [userSession]);
 
   // Handlers for WhatsApp Reminders
   const handleOpenReminderForEvent = (event: EventShoot) => {
@@ -427,45 +489,20 @@ export default function App() {
     setIsWhatsAppReminderOpen(true);
   };
 
-  // If in Mobile-First Crew App View Mode
-  if (appViewMode === 'crew') {
+  // If user is not authenticated, show the Dedicated AuthPage
+  if (!userSession && !currentUser) {
+    return (
+      <AuthPage
+        onLoginSuccess={handleLoginSuccess}
+        crewRoster={crew}
+      />
+    );
+  }
+
+  // If in Mobile-First Crew App View Mode or if role is crew
+  if (appViewMode === 'crew' || userSession?.role === 'crew') {
     return (
       <div className="min-h-screen bg-[#FAF8F5]">
-        {/* Top Admin / Crew Mode Switcher (Visible ONLY for Admin session) */}
-        <div className="bg-[#101010] border-b border-[#242424] text-white px-4 py-2 sticky top-0 z-50 shadow-md">
-          <div className="max-w-md mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-mono text-neutral-300 font-semibold text-[11px]">Admin Mode</span>
-              <span className="text-neutral-600">·</span>
-              <span className="text-neutral-400 text-[11px] truncate max-w-[130px]">
-                {crew.find(c => c.id === activeCrewId)?.name || 'Crew Persona'}
-              </span>
-            </div>
-
-            {/* Segmented Toggle back to Admin */}
-            <div className="bg-black/60 p-0.5 border border-white/10 rounded-lg flex items-center shadow-xs">
-              <button
-                type="button"
-                onClick={handleSwitchToAdminMode}
-                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold bg-[#C58B39] text-[#121212] hover:bg-[#d89b43] transition-colors"
-                title="Switch back to Admin ERP"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </button>
-              <button
-                type="button"
-                disabled
-                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold text-white/90 bg-white/10 cursor-default"
-              >
-                <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
-                <span>Crew</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
         <CrewAppLayout
           events={events}
           crewRoster={crew}
@@ -474,8 +511,8 @@ export default function App() {
             setActiveCrewId(id);
             StorageService.setActiveCrewMemberId(id);
           }}
-          onSwitchToAdmin={handleSwitchToAdminMode}
           onRefreshData={refreshAllData}
+          onSignOut={handleSignOut}
         />
       </div>
     );
@@ -518,15 +555,15 @@ export default function App() {
         onSwitchToCrewApp={() => handleSwitchToCrewMode()}
         onOpenReminderSettings={() => setIsReminderSettingsOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
-        onClearDummyData={() => {
-          StorageService.clearAllDummyData();
-          refreshAllData();
-        }}
+        onSignOut={handleSignOut}
+        userSession={userSession}
         currentUser={currentUser}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
       />
 
-      {/* Main ERP Viewport Area (offset by sidebar width on desktop) */}
-      <div className="md:pl-72 flex flex-col min-h-screen">
+      {/* Main ERP Viewport Area (offset dynamically by collapsible sidebar width) */}
+      <div className={`${isSidebarCollapsed ? 'md:pl-20' : 'md:pl-72'} flex flex-col min-h-screen transition-all duration-300 ease-in-out`}>
         
         {/* Top ERP Action Header */}
         <TopBar
@@ -557,7 +594,9 @@ export default function App() {
           onSwitchToCrewApp={() => handleSwitchToCrewMode()}
           appViewMode={appViewMode}
           onToggleAppViewMode={(mode) => mode === 'admin' ? handleSwitchToAdminMode() : handleSwitchToCrewMode()}
-          isAdmin={true}
+          isAdmin={userSession?.role !== 'crew'}
+          onSignOut={handleSignOut}
+          userSession={userSession}
         />
 
         {/* Content Container */}
@@ -757,9 +796,9 @@ export default function App() {
 
         </main>
 
-        {/* Clean Minimal ERP Footer */}
-        <footer className="mt-auto border-t border-[#E8E3D9] bg-white text-xs text-neutral-500 py-4 no-print hidden md:block">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px]">
+        {/* Clean Minimal ERP Footer with DRONA Tech Solutions Attribution */}
+        <footer className="mt-auto border-t border-[#E8E3D9] bg-white text-xs text-neutral-500 py-3.5 no-print hidden md:block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 text-[11px]">
             <div className="flex items-center gap-2">
               <span className="font-serif font-bold text-neutral-800 tracking-wider">
                 THE MAIN CHARACTER MEDIA
@@ -768,15 +807,28 @@ export default function App() {
               <span className="font-mono text-neutral-400">Production Management ERP</span>
             </div>
 
-            <div className="flex items-center gap-4 text-neutral-400 font-mono">
-              <button
-                onClick={() => handleSwitchToCrewMode()}
-                className="hover:text-[#C58B39] transition-colors"
+            <div className="flex flex-wrap items-center gap-3 text-neutral-500 font-mono text-[11px]">
+              <span>Made by <strong className="text-neutral-800 font-semibold">DRONA Tech Solutions</strong></span>
+              <span className="text-neutral-300">·</span>
+              <a 
+                href="https://instagram.com/_.drona._" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-flex items-center gap-1 text-[#C58B39] hover:underline transition-colors"
+                title="Follow on Instagram"
               >
-                Launch Crew PWA
-              </button>
-              <span>·</span>
-              <span>Storage: LocalStorage Only (Backend-Ready Schema)</span>
+                <Instagram className="w-3.5 h-3.5" />
+                <span>_.drona._</span>
+              </a>
+              <span className="text-neutral-300">·</span>
+              <a 
+                href="tel:7620366390" 
+                className="inline-flex items-center gap-1 text-neutral-700 hover:text-neutral-900 hover:underline transition-colors"
+                title="Call DRONA Tech Solutions"
+              >
+                <Phone className="w-3 h-3 text-[#C58B39]" />
+                <span>7620366390</span>
+              </a>
             </div>
           </div>
         </footer>

@@ -615,7 +615,7 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({ onSett
                       value={settings.signatoryName}
                       onChange={(e) => setSettings({ ...settings, signatoryName: e.target.value })}
                       className="w-full px-3 py-2 border border-[#DCD6C8] rounded text-neutral-900 focus:outline-none focus:border-[#C58B39]"
-                      placeholder="e.g. Devansh Saxena"
+                      placeholder="e.g. Authorized Signatory"
                     />
                   </div>
 

@@ -13,7 +13,8 @@ import {
   UserCheck,
   Smartphone,
   Bell,
-  ShieldCheck
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 import { NavModule } from './Header';
 import { Enquiry, Quotation, Client, EventShoot, DashboardMetrics, CrewNotification } from '../types';
@@ -39,6 +40,8 @@ interface TopBarProps {
   appViewMode?: 'admin' | 'crew';
   onToggleAppViewMode?: (mode: 'admin' | 'crew') => void;
   isAdmin?: boolean;
+  onSignOut?: () => void;
+  userSession?: any;
 }
 
 interface SearchResultItem {
@@ -69,7 +72,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onSwitchToCrewApp,
   appViewMode = 'admin',
   onToggleAppViewMode,
-  isAdmin = true
+  isAdmin = true,
+  onSignOut,
+  userSession
 }) => {
   const [quickActionOpen, setQuickActionOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -238,37 +243,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* PWA In-App Install Button */}
             <PWAInstallButton variant="compact" />
 
-            {/* Top Admin / Crew Mode Toggle (Only for Admin) */}
-            {isAdmin && (
-              <div className="bg-[#FAF8F5] p-0.5 border border-[#DCD6C8] rounded-lg flex items-center shadow-2xs">
-                <button
-                  type="button"
-                  onClick={() => onToggleAppViewMode && onToggleAppViewMode('admin')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                    appViewMode !== 'crew'
-                      ? 'bg-[#181818] text-white shadow-2xs'
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`}
-                  title="Admin ERP Workspace"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#C58B39]" />
-                  <span>Admin</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onToggleAppViewMode ? onToggleAppViewMode('crew') : onSwitchToCrewApp && onSwitchToCrewApp()}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold transition-all ${
-                    appViewMode === 'crew'
-                      ? 'bg-[#181818] text-white shadow-2xs'
-                      : 'text-neutral-600 hover:text-neutral-900'
-                  }`}
-                  title="Switch to Crew Mobile View"
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-[#C58B39]" />
-                  <span>Crew</span>
-                </button>
-              </div>
-            )}
+
 
             {/* Season pill */}
             <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 bg-[#FAF8F5] border border-[#E8E3D9] rounded text-[11px] text-neutral-600">
@@ -289,6 +264,18 @@ export const TopBar: React.FC<TopBarProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Top Sign Out Button */}
+            {onSignOut && (
+              <button
+                onClick={onSignOut}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-neutral-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200"
+                title="Sign Out to Login Page"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="font-mono text-[11px]">Sign Out</span>
+              </button>
+            )}
 
             {/* Quick Action Dropdown */}
             <div className="relative">

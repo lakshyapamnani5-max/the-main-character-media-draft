@@ -31,8 +31,8 @@ interface CrewAppLayoutProps {
   crewRoster: CrewMember[];
   activeCrewId: string;
   onChangeCrewPersona: (crewId: string) => void;
-  onSwitchToAdmin?: () => void;
   onRefreshData: () => void;
+  onSignOut?: () => void;
 }
 
 export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
@@ -40,8 +40,8 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
   crewRoster,
   activeCrewId,
   onChangeCrewPersona,
-  onSwitchToAdmin,
-  onRefreshData
+  onRefreshData,
+  onSignOut
 }) => {
   const [activeTab, setActiveTab] = useState<CrewNavTab>('home');
   const [selectedEventDetail, setSelectedEventDetail] = useState<EventShoot | null>(null);
@@ -109,13 +109,8 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
             <div className="font-serif tracking-widest text-xs font-bold text-white uppercase">
               The Main Character
             </div>
-            <div className="flex items-center gap-1.5 text-[9px] uppercase font-mono tracking-widest text-[#C58B39]">
-              <span>Crew Portal</span>
-              <span className="text-neutral-600">·</span>
-              <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Realtime DB</span>
-              </span>
+            <div className="text-[10px] uppercase font-mono tracking-widest text-[#C58B39]">
+              Crew Portal
             </div>
           </div>
         </div>
@@ -194,7 +189,7 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
               onChangeCrewPersona(id);
               onRefreshData();
             }}
-            onSwitchToAdmin={onSwitchToAdmin}
+            onSignOut={onSignOut}
           />
         )}
       </main>

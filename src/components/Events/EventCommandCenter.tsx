@@ -129,7 +129,7 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
     title: '',
     category: 'Travel & Cab' as Expense['category'],
     amount: '' as number | '',
-    paidBy: 'Devansh Saxena',
+    paidBy: 'Admin',
     paymentMode: 'UPI' as Expense['paymentMode'],
     notes: ''
   });
@@ -320,7 +320,7 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
       title: '',
       category: 'Travel & Cab',
       amount: '',
-      paidBy: 'Devansh Saxena',
+      paidBy: 'Admin',
       paymentMode: 'UPI',
       notes: ''
     });
@@ -1947,7 +1947,7 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
                             </span>
                           </td>
                           <td className="py-3 px-3 font-mono text-neutral-600">{exp.date}</td>
-                          <td className="py-3 px-3 text-neutral-600">{exp.paidBy || 'Devansh'}</td>
+                          <td className="py-3 px-3 text-neutral-600">{exp.paidBy || 'Admin'}</td>
                           <td className="py-3 px-3 text-right font-mono font-bold text-neutral-900">
                             ₹{exp.amount.toLocaleString('en-IN')}
                           </td>

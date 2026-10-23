@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Download, Printer, Check, ShieldCheck } from 'lucide-react';
 import { EventCharge } from '../../types';
 import { PDFGeneratorService } from '../../services/pdfGenerator';
+import { StorageService } from '../../services/storage';
 
 interface RateCardPreviewModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const RateCardPreviewModal: React.FC<RateCardPreviewModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const settings = StorageService.getCompanySettings();
   const activeCharges = charges.filter(c => c.status === 'Active');
   const categories = Array.from(new Set(activeCharges.map(c => c.category)));
 
@@ -198,10 +200,10 @@ export const RateCardPreviewModal: React.FC<RateCardPreviewModalProps> = ({
                   Official Banking Details:
                 </span>
                 <div className="font-mono text-[11px] space-y-0.5">
-                  <div>Account Name: <span className="font-semibold">The Main Character Media</span></div>
-                  <div>Bank: <span className="font-semibold">HDFC Bank Ltd.</span> · Current A/C: <span className="font-semibold">50200088912344</span></div>
-                  <div>IFSC Code: <span className="font-semibold">HDFC0000045</span> · Branch: Bandra West, Mumbai</div>
-                  <div>UPI VPA: <span className="font-semibold text-[#8C6428]">tmcmedia@hdfcbank</span></div>
+                  <div>Account Name: <span className="font-semibold">{settings.accountName || settings.companyName}</span></div>
+                  <div>Bank: <span className="font-semibold">{settings.bankName || 'HDFC Bank Ltd.'}</span> · Current A/C: <span className="font-semibold">{settings.accountNumber || '50200088912344'}</span></div>
+                  <div>IFSC Code: <span className="font-semibold">{settings.ifscCode || 'HDFC0000045'}</span> · Branch: {settings.branch || 'Bandra West, Mumbai'}</div>
+                  {settings.upiId && <div>UPI VPA: <span className="font-semibold text-[#8C6428]">{settings.upiId}</span></div>}
                 </div>
               </div>
             </div>
@@ -209,9 +211,11 @@ export const RateCardPreviewModal: React.FC<RateCardPreviewModalProps> = ({
             {/* Document Signature Sign-off */}
             <div className="pt-6 border-t border-[#E8E3D9] flex justify-between items-end text-xs text-neutral-500">
               <div>
-                <div className="font-serif font-bold text-neutral-800 text-sm">Devansh Saxena</div>
-                <div>Founder & Creative Producer</div>
-                <div className="text-[11px]">The Main Character Media</div>
+                <div className="font-serif font-bold text-neutral-800 text-sm">
+                  {settings.signatoryName || 'Authorized Signatory'}
+                </div>
+                <div>{settings.signatoryTitle || 'Founder & Creative Producer'}</div>
+                <div className="text-[11px]">{settings.companyName || 'The Main Character Media'}</div>
               </div>
               <div className="text-right text-[10px]">
                 Valid for all 2026-2027 Celebrations

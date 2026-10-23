@@ -19,7 +19,7 @@ export const EventFileModal: React.FC<EventFileModalProps> = ({
   const [category, setCategory] = useState<EventFileCategory>('Contract');
   const [fileType, setFileType] = useState('PDF Document');
   const [fileSize, setFileSize] = useState('1.2 MB');
-  const [uploadedBy, setUploadedBy] = useState('Devansh Saxena');
+  const [uploadedBy, setUploadedBy] = useState('Admin');
   const [notes, setNotes] = useState('');
 
   if (!isOpen) return null;
@@ -115,7 +115,7 @@ export const EventFileModal: React.FC<EventFileModalProps> = ({
                 type="text"
                 value={uploadedBy}
                 onChange={(e) => setUploadedBy(e.target.value)}
-                placeholder="Devansh Saxena"
+                placeholder="Admin"
                 className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded"
               />
             </div>

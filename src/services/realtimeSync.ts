@@ -139,6 +139,13 @@ class RealtimeSyncManager {
         this.notifyStatus();
 
         if (val === null || val === undefined) {
+          if (col !== 'companySettings') {
+            const currentLocal = localStorage.getItem(storageKey);
+            if (currentLocal && currentLocal !== '[]') {
+              localStorage.setItem(storageKey, '[]');
+              window.dispatchEvent(new CustomEvent('tmc_storage_updated', { detail: { collection: col } }));
+            }
+          }
           return;
         }
 
@@ -202,28 +209,21 @@ class RealtimeSyncManager {
             const items = Array.isArray(remoteVal) 
               ? remoteVal.filter(Boolean) 
               : Object.values(remoteVal).filter(Boolean);
-            if (items.length > 0) {
-              localStorage.setItem(storageKey, JSON.stringify(items));
-            }
+            localStorage.setItem(storageKey, JSON.stringify(items));
           }
-        } else if (localRaw) {
-          // Remote is empty, seed from local
-          try {
-            const parsed = JSON.parse(localRaw);
-            if (col === 'companySettings') {
+        } else {
+          // Remote is empty/null
+          if (col === 'companySettings' && localRaw) {
+            try {
+              const parsed = JSON.parse(localRaw);
               if (parsed && typeof parsed === 'object') {
                 await set(colRef, parsed);
               }
-            } else if (Array.isArray(parsed) && parsed.length > 0) {
-              const dict: Record<string, any> = {};
-              parsed.forEach((item: any, idx: number) => {
-                const key = item.id || `item_${idx}`;
-                dict[key] = item;
-              });
-              await set(colRef, dict);
+            } catch {
+              // ignore
             }
-          } catch {
-            // ignore JSON parse error on bad local
+          } else {
+            localStorage.setItem(storageKey, JSON.stringify([]));
           }
         }
       } catch (err) {

@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp, deleteApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
 import { 
   getAuth, 
   GoogleAuthProvider, 
@@ -24,38 +25,35 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
-import firebaseConfig from '../../firebase-applet-config.json';
 import { Partner, EventShoot, CrewMember } from '../types';
 
-// Custom credentials storage key
-const CUSTOM_FIREBASE_CONFIG_KEY = 'tmc_custom_firebase_credentials';
+// Firebase configuration - hardcoded for this project
+const firebaseConfig = {
+  apiKey: "AIzaSyAJLeSBouxcmurOadMMIxTtHBTzqPN4t50",
+  authDomain: "tmcm-336db.firebaseapp.com",
+  databaseURL: "https://tmcm-336db-default-rtdb.firebaseio.com",
+  projectId: "tmcm-336db",
+  storageBucket: "tmcm-336db.firebasestorage.app",
+  messagingSenderId: "229938548679",
+  appId: "1:229938548679:web:b576d002ee06a391a513e2",
+  measurementId: "G-T7K2FEB1V1"
+};
 
 export function getEffectiveFirebaseConfig() {
-  try {
-    const custom = localStorage.getItem(CUSTOM_FIREBASE_CONFIG_KEY);
-    if (custom) {
-      const parsed = JSON.parse(custom);
-      if (parsed && parsed.apiKey) {
-        return { ...firebaseConfig, ...parsed };
-      }
-    }
-  } catch {
-    // fallback
-  }
   return firebaseConfig;
 }
 
-export function saveCustomFirebaseCredentials(customConfig: Record<string, string>) {
-  localStorage.setItem(CUSTOM_FIREBASE_CONFIG_KEY, JSON.stringify(customConfig));
-  window.location.reload();
+export function saveCustomFirebaseCredentials(_customConfig: Record<string, string>) {
+  // No-op: custom credentials disabled, config is hardcoded
+  console.warn('Custom Firebase credentials are disabled. Config is hardcoded.');
 }
 
 export function clearCustomFirebaseCredentials() {
-  localStorage.removeItem(CUSTOM_FIREBASE_CONFIG_KEY);
-  window.location.reload();
+  // No-op: custom credentials disabled, config is hardcoded
+  console.warn('Custom Firebase credentials are disabled. Config is hardcoded.');
 }
 
-const activeConfig = getEffectiveFirebaseConfig();
+const activeConfig = firebaseConfig;
 
 // Initialize Firebase App
 const app = getApps().length > 0 ? getApp() : initializeApp(activeConfig);
@@ -82,6 +80,16 @@ export const rtdb = (() => {
     }
   }
 })();
+
+export const database = rtdb;
+export const analytics = typeof window !== 'undefined' ? (() => {
+  try {
+    return getAnalytics(app);
+  } catch {
+    return null;
+  }
+})() : null;
+export { app };
 
 // Error Handling conforming to firebase-integration-rpc skill
 export enum OperationType {
@@ -143,90 +151,108 @@ export async function testFirebaseConnection() {
 }
 testFirebaseConnection();
 
-// --- FIRESTORE PARTNERS & EVENTS SYNC HELPERS ---
+// --- REALTIME DATABASE & FIRESTORE PARTNERS, EVENTS & CREW HELPERS ---
 
 export async function savePartnerToFirestore(partner: Partner): Promise<void> {
-  const path = `partners/${partner.id}`;
   try {
     const cleanPartner = JSON.parse(JSON.stringify(partner));
-    await setDoc(doc(db, 'partners', partner.id), cleanPartner);
     if (rtdb) {
       await set(ref(rtdb, `partners/${partner.id}`), cleanPartner);
     }
+    try {
+      await setDoc(doc(db, 'partners', partner.id), cleanPartner);
+    } catch {
+      // non-blocking
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Error saving partner to RTDB:', error);
   }
 }
 
 export async function deletePartnerFromFirestore(partnerId: string): Promise<void> {
-  const path = `partners/${partnerId}`;
   try {
-    await deleteDoc(doc(db, 'partners', partnerId));
     if (rtdb) {
       await remove(ref(rtdb, `partners/${partnerId}`));
     }
+    try {
+      await deleteDoc(doc(db, 'partners', partnerId));
+    } catch {
+      // non-blocking
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    console.warn('Error deleting partner from RTDB:', error);
   }
 }
 
 export async function saveEventToFirestore(event: EventShoot): Promise<void> {
-  const path = `events/${event.id}`;
   try {
     const cleanEvent = JSON.parse(JSON.stringify(event));
-    await setDoc(doc(db, 'events', event.id), cleanEvent);
     if (rtdb) {
       await set(ref(rtdb, `events/${event.id}`), cleanEvent);
     }
+    try {
+      await setDoc(doc(db, 'events', event.id), cleanEvent);
+    } catch {
+      // non-blocking
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Error saving event to RTDB:', error);
   }
 }
 
 export async function deleteEventFromFirestore(eventId: string): Promise<void> {
-  const path = `events/${eventId}`;
   try {
-    await deleteDoc(doc(db, 'events', eventId));
     if (rtdb) {
       await remove(ref(rtdb, `events/${eventId}`));
     }
+    try {
+      await deleteDoc(doc(db, 'events', eventId));
+    } catch {
+      // non-blocking
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    console.warn('Error deleting event from RTDB:', error);
   }
 }
 
 export function subscribeToFirestorePartners(onUpdate: (partners: Partner[]) => void): Unsubscribe {
-  const path = 'partners';
-  return onSnapshot(
-    collection(db, path),
-    (snapshot) => {
-      const partners: Partner[] = [];
-      snapshot.forEach((doc) => {
-        partners.push(doc.data() as Partner);
-      });
-      onUpdate(partners);
-    },
-    (error) => {
-      console.warn('Partners listener notice (sign in to sync live with Cloud Firestore):', error.message);
-    }
-  );
+  if (!rtdb) return () => {};
+  try {
+    const partnersRef = ref(rtdb, 'partners');
+    return onValue(partnersRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const partners: Partner[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val).filter(Boolean);
+        onUpdate(partners);
+      } else {
+        onUpdate([]);
+      }
+    }, (error) => {
+      console.warn('Partners RTDB listener error:', error.message);
+    });
+  } catch {
+    return () => {};
+  }
 }
 
 export function subscribeToFirestoreEvents(onUpdate: (events: EventShoot[]) => void): Unsubscribe {
-  const path = 'events';
-  return onSnapshot(
-    collection(db, path),
-    (snapshot) => {
-      const events: EventShoot[] = [];
-      snapshot.forEach((doc) => {
-        events.push(doc.data() as EventShoot);
-      });
-      onUpdate(events);
-    },
-    (error) => {
-      console.warn('Events listener notice (sign in to sync live with Cloud Firestore):', error.message);
-    }
-  );
+  if (!rtdb) return () => {};
+  try {
+    const eventsRef = ref(rtdb, 'events');
+    return onValue(eventsRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const events: EventShoot[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val).filter(Boolean);
+        onUpdate(events);
+      } else {
+        onUpdate([]);
+      }
+    }, (error) => {
+      console.warn('Events RTDB listener error:', error.message);
+    });
+  } catch {
+    return () => {};
+  }
 }
 
 // --- FIRESTORE CREW ROSTER & FIREBASE AUTH HELPERS ---
@@ -283,44 +309,54 @@ export async function createCrewFirebaseAuthUser(
 }
 
 export async function saveCrewToFirestore(crewMember: CrewMember): Promise<void> {
-  const path = `crew/${crewMember.id}`;
   try {
-    await setDoc(doc(db, 'crew', crewMember.id), crewMember);
+    const cleanCrew = JSON.parse(JSON.stringify(crewMember));
     if (rtdb) {
-      await set(ref(rtdb, `crew/${crewMember.id}`), crewMember);
+      await set(ref(rtdb, `crew/${crewMember.id}`), cleanCrew);
+    }
+    try {
+      await setDoc(doc(db, 'crew', crewMember.id), cleanCrew);
+    } catch {
+      // non-blocking
     }
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, path);
+    console.warn('Error saving crew to RTDB:', error);
   }
 }
 
 export async function deleteCrewFromFirestore(crewMemberId: string): Promise<void> {
-  const path = `crew/${crewMemberId}`;
   try {
-    await deleteDoc(doc(db, 'crew', crewMemberId));
     if (rtdb) {
       await remove(ref(rtdb, `crew/${crewMemberId}`));
     }
+    try {
+      await deleteDoc(doc(db, 'crew', crewMemberId));
+    } catch {
+      // non-blocking
+    }
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, path);
+    console.warn('Error deleting crew from RTDB:', error);
   }
 }
 
 export function subscribeToFirestoreCrew(onUpdate: (crew: CrewMember[]) => void): Unsubscribe {
-  const path = 'crew';
-  return onSnapshot(
-    collection(db, path),
-    (snapshot) => {
-      const crewList: CrewMember[] = [];
-      snapshot.forEach((doc) => {
-        crewList.push(doc.data() as CrewMember);
-      });
-      onUpdate(crewList);
-    },
-    (error) => {
-      console.warn('Crew listener notice (sign in to sync live with Cloud Firestore):', error.message);
-    }
-  );
+  if (!rtdb) return () => {};
+  try {
+    const crewRef = ref(rtdb, 'crew');
+    return onValue(crewRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const crewList: CrewMember[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val).filter(Boolean);
+        onUpdate(crewList);
+      } else {
+        onUpdate([]);
+      }
+    }, (error) => {
+      console.warn('Crew RTDB listener error:', error.message);
+    });
+  } catch {
+    return () => {};
+  }
 }
 
 export function subscribeToRealtimeCrew(onUpdate: (crew: CrewMember[]) => void): (() => void) | null {

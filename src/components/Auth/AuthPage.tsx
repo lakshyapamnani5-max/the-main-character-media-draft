@@ -5,27 +5,11 @@ import {
   Mail, 
   Lock, 
   LogIn, 
-  User, 
-  Sparkles, 
-  CheckCircle2, 
   AlertCircle,
-  KeyRound,
-  Database,
-  ChevronDown,
-  ChevronUp,
   Phone,
+  CheckCircle2,
   Instagram
 } from 'lucide-react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  updateProfile 
-} from 'firebase/auth';
-import { 
-  auth, 
-  getEffectiveFirebaseConfig, 
-  saveCustomFirebaseCredentials 
-} from '../../services/firebase';
 import { UserSession } from '../../services/storage';
 import { CrewMember } from '../../types';
 
@@ -36,29 +20,18 @@ interface AuthPageProps {
 
 export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }) => {
   const [roleMode, setRoleMode] = useState<'admin' | 'crew'>('admin');
-  const [isSignUp, setIsSignUp] = useState(false);
   
-  // Official Admin Credentials pre-filled by default
-  const [email, setEmail] = useState('admin@tmcm.com');
-  const [password, setPassword] = useState('admin123');
-  const [displayName, setDisplayName] = useState('');
+  // Admin login
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Crew Login State
-  const [selectedCrewId, setSelectedCrewId] = useState(crewRoster[0]?.id || '');
-  const [crewNameInput, setCrewNameInput] = useState('');
+  // Crew Login State - Phone based
   const [crewPhoneInput, setCrewPhoneInput] = useState('');
 
-  // Custom Firebase Credentials Drawer
-  const [showCredentialsForm, setShowCredentialsForm] = useState(false);
-  const currentConfig = getEffectiveFirebaseConfig();
-  const [customApiKey, setCustomApiKey] = useState(currentConfig.apiKey || '');
-  const [customDatabaseUrl, setCustomDatabaseUrl] = useState((currentConfig as any).databaseURL || '');
-  const [customProjectId, setCustomProjectId] = useState(currentConfig.projectId || '');
-
-  // Admin Email/Password Sign-in
+  // Admin Sign-in (hardcoded single admin: admin@tmcm / admin123)
   const handleAdminAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -67,105 +40,69 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // Direct official credentials match
-    if (cleanEmail === 'admin@tmcm.com' && password === 'admin123') {
-      setSuccessMessage('Credentials verified. Entering Production ERP...');
-      setTimeout(() => {
-        onLoginSuccess({
-          role: 'admin',
-          name: 'Executive Producer',
-          email: 'admin@tmcm.com',
-          authenticatedAt: new Date().toISOString()
-        });
-      }, 400);
-      setLoading(false);
-      return;
+    if (cleanEmail === 'admin@tmcm' || cleanEmail === 'admin@tmcm.com') {
+      if (password === 'admin123') {
+        setSuccessMessage('Credentials verified. Entering Production ERP...');
+        setTimeout(() => {
+          onLoginSuccess({
+            role: 'admin',
+            name: 'Executive Producer',
+            email: 'admin@tmcm.com',
+            authenticatedAt: new Date().toISOString()
+          });
+        }, 400);
+        setLoading(false);
+        return;
+      }
     }
 
-    try {
-      if (isSignUp) {
-        const cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
-        const name = displayName.trim() || cleanEmail.split('@')[0];
-        if (displayName.trim()) {
-          await updateProfile(cred.user, { displayName: name });
-        }
-        setSuccessMessage('Account registered and verified successfully.');
-        setTimeout(() => {
-          onLoginSuccess({
-            role: 'admin',
-            name,
-            email: cred.user.email || cleanEmail,
-            authenticatedAt: new Date().toISOString()
-          });
-        }, 500);
-      } else {
-        const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
-        const name = cred.user.displayName || cleanEmail.split('@')[0] || 'Admin';
-        setSuccessMessage('Welcome back! Loading Production Workspace...');
-        setTimeout(() => {
-          onLoginSuccess({
-            role: 'admin',
-            name,
-            email: cred.user.email || cleanEmail,
-            authenticatedAt: new Date().toISOString()
-          });
-        }, 500);
-      }
-    } catch (err: any) {
-      console.error('Firebase Auth Error:', err);
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setError('Invalid credentials. Official Admin access is admin@tmcm.com with password admin123.');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered. Please sign in instead.');
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password should be at least 6 characters long.');
-      } else {
-        setError(err.message || 'Authentication error. Use official credentials admin@tmcm.com / admin123.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    setError('Invalid credentials. Use admin@tmcm with password admin123.');
+    setLoading(false);
   };
 
-  // Crew Login Handler
+  // Crew Login Handler - Phone number matching
   const handleCrewLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    let member = crewRoster.find(c => c.id === selectedCrewId);
-    let memberName = member?.name;
-    let memberId = member?.id;
+    setError(null);
+    setSuccessMessage(null);
 
-    if (!member && crewNameInput.trim()) {
-      memberName = crewNameInput.trim();
-      memberId = `crew-${Date.now()}`;
-    }
-
-    if (!memberName) {
-      setError('Please select or enter your name to proceed.');
+    const inputDigits = crewPhoneInput.replace(/\D/g, '');
+    if (!inputDigits || inputDigits.length < 10) {
+      setError('Please enter a valid 10-digit mobile number.');
       return;
     }
 
-    setSuccessMessage(`Welcome, ${memberName}! Loading your shoot schedule...`);
+    // Normalize to last 10 digits for matching
+    const last10 = inputDigits.slice(-10);
+
+    // Find crew member by phone number
+    const member = crewRoster.find(c => {
+      if (!c.phone) return false;
+      const crewDigits = c.phone.replace(/\D/g, '');
+      const crewLast10 = crewDigits.slice(-10);
+      return crewLast10 === last10;
+    });
+
+    if (!member) {
+      setError('No crew member found with this phone number. Please contact your admin.');
+      return;
+    }
+
+    if (member.status === 'Inactive') {
+      setError('Your account is currently inactive. Please contact your admin.');
+      return;
+    }
+
+    setSuccessMessage(`Welcome, ${member.name}! Loading your shoot schedule...`);
     setTimeout(() => {
       onLoginSuccess({
         role: 'crew',
-        name: memberName!,
-        crewId: memberId,
-        phone: member?.phone || crewPhoneInput.trim() || undefined,
+        name: member.name,
+        crewId: member.id,
+        phone: member.phone,
         authenticatedAt: new Date().toISOString()
       });
     }, 400);
-  };
-
-  // Custom Firebase credentials save
-  const handleSaveCredentials = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveCustomFirebaseCredentials({
-      apiKey: customApiKey.trim(),
-      projectId: customProjectId.trim(),
-      databaseURL: customDatabaseUrl.trim(),
-    });
-    setSuccessMessage('Firebase configuration updated and saved.');
-    setTimeout(() => setSuccessMessage(null), 3000);
   };
 
   return (
@@ -266,63 +203,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
           {/* ADMIN AUTH FORM */}
           {roleMode === 'admin' && (
             <div className="space-y-4">
-              
-              {/* Official Credential Notice Banner */}
-              <div className="p-3 bg-[#1B1916] border border-[#C58B39]/40 rounded-xl flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-mono text-[#D89B48] uppercase tracking-wider font-semibold">
-                    Executive Admin Credentials
-                  </div>
-                  <div className="text-xs text-neutral-300 font-mono mt-0.5">
-                    <span className="text-white font-semibold">admin@tmcm.com</span> · <span className="text-neutral-400">admin123</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmail('admin@tmcm.com');
-                    setPassword('admin123');
-                    setError(null);
-                  }}
-                  className="px-2 py-1 bg-[#C58B39]/20 hover:bg-[#C58B39]/30 border border-[#C58B39]/40 text-[#D89B48] rounded text-[10px] font-mono font-medium transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-
               <form onSubmit={handleAdminAuth} className="space-y-3.5">
-                {isSignUp && (
-                  <div>
-                    <label className="block text-[11px] font-medium text-neutral-300 mb-1">
-                      Full Name *
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Creative Producer"
-                        className="w-full pl-9 pr-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39] transition-colors"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <div>
                   <label className="block text-[11px] font-medium text-neutral-300 mb-1">
-                    Admin Email *
+                    Admin Username *
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@tmcm.com"
-                      className="w-full pl-9 pr-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39] transition-colors"
+                      placeholder="admin@tmcm"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-sm text-white focus:outline-none focus:border-[#C58B39] transition-colors"
                     />
                   </div>
                 </div>
@@ -338,8 +232,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full pl-9 pr-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39] transition-colors"
+                      placeholder="••••••••"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-sm text-white focus:outline-none focus:border-[#C58B39] transition-colors"
                     />
                   </div>
                 </div>
@@ -350,24 +244,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
                   className="w-full py-2.5 bg-[#C58B39] hover:bg-[#B37B2E] active:scale-[0.99] disabled:opacity-50 text-[#121212] rounded-xl text-xs font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 mt-3 cursor-pointer"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>{loading ? 'Authenticating...' : isSignUp ? 'Create Admin Account' : 'Sign In as Admin'}</span>
+                  <span>{loading ? 'Authenticating...' : 'Sign In as Admin'}</span>
                 </button>
               </form>
-
-              {/* Toggle Sign Up / Sign In */}
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  className="text-xs text-neutral-400 hover:text-[#C58B39] underline transition-colors"
-                >
-                  {isSignUp ? 'Already have an admin account? Sign In' : 'Register New Administrator Account'}
-                </button>
-              </div>
             </div>
           )}
 
-          {/* CREW AUTH FORM */}
+          {/* CREW AUTH FORM - Phone Number Login */}
           {roleMode === 'crew' && (
             <form onSubmit={handleCrewLogin} className="space-y-4">
               <div className="p-3 bg-[#1C1A18] border border-[#C58B39]/30 rounded-xl text-xs text-neutral-300 space-y-1">
@@ -376,63 +259,29 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
                   <span>Mobile-First Crew Terminal</span>
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-relaxed">
-                  Access your upcoming wedding shoots, call times, location GPS, and payout records.
+                  Enter the mobile number registered by your admin to access your shoot schedule, call times, and payout records.
                 </p>
               </div>
 
-              {crewRoster.length > 0 ? (
-                <div>
-                  <label className="block text-[11px] font-medium text-neutral-300 mb-1">
-                    Select Your Profile
-                  </label>
-                  <select
-                    value={selectedCrewId}
-                    onChange={(e) => setSelectedCrewId(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39]"
-                  >
-                    {crewRoster.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.role})
-                      </option>
-                    ))}
-                  </select>
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-300 mb-1">
+                  Registered Mobile Number *
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    required
+                    value={crewPhoneInput}
+                    onChange={(e) => setCrewPhoneInput(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-sm text-white focus:outline-none focus:border-[#C58B39] transition-colors"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-medium text-neutral-300 mb-1">
-                      Your Full Name *
-                    </label>
-                    <div className="relative">
-                      <User className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="text"
-                        required
-                        value={crewNameInput}
-                        onChange={(e) => setCrewNameInput(e.target.value)}
-                        placeholder="e.g. Sahil Patel"
-                        className="w-full pl-9 pr-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-neutral-300 mb-1">
-                      Mobile Number (WhatsApp)
-                    </label>
-                    <div className="relative">
-                      <Phone className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="tel"
-                        value={crewPhoneInput}
-                        onChange={(e) => setCrewPhoneInput(e.target.value)}
-                        placeholder="+91 98765 43210"
-                        className="w-full pl-9 pr-3 py-2 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-xs text-white focus:outline-none focus:border-[#C58B39]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+                <p className="text-[10px] text-neutral-500 mt-1.5 ml-1">
+                  Use the same number your admin registered while adding you to the crew roster.
+                </p>
+              </div>
 
               <button
                 type="submit"
@@ -443,62 +292,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
               </button>
             </form>
           )}
-
-          {/* Expandable Firebase Sync Config */}
-          <div className="mt-6 pt-4 border-t border-[#262626]">
-            <button
-              type="button"
-              onClick={() => setShowCredentialsForm(!showCredentialsForm)}
-              className="w-full flex items-center justify-between text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors"
-            >
-              <div className="flex items-center gap-1.5">
-                <Database className="w-3.5 h-3.5 text-[#C58B39]" />
-                <span>Firebase Realtime Database Settings</span>
-              </div>
-              {showCredentialsForm ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-
-            {showCredentialsForm && (
-              <form onSubmit={handleSaveCredentials} className="mt-3 space-y-2.5 text-xs text-neutral-300">
-                <div>
-                  <label className="block text-[10px] font-mono text-neutral-400">Firebase API Key</label>
-                  <input
-                    type="text"
-                    value={customApiKey}
-                    onChange={(e) => setCustomApiKey(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="w-full px-2.5 py-1.5 bg-[#181818] border border-[#282828] rounded text-white font-mono text-[11px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono text-neutral-400">Project ID</label>
-                  <input
-                    type="text"
-                    value={customProjectId}
-                    onChange={(e) => setCustomProjectId(e.target.value)}
-                    placeholder="tmcm-336db"
-                    className="w-full px-2.5 py-1.5 bg-[#181818] border border-[#282828] rounded text-white font-mono text-[11px]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-mono text-neutral-400">Realtime Database URL</label>
-                  <input
-                    type="text"
-                    value={customDatabaseUrl}
-                    onChange={(e) => setCustomDatabaseUrl(e.target.value)}
-                    placeholder="https://tmcm-336db-default-rtdb.firebaseio.com"
-                    className="w-full px-2.5 py-1.5 bg-[#181818] border border-[#282828] rounded text-white font-mono text-[11px]"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-1.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded text-[11px] font-medium transition-colors"
-                >
-                  Save & Reconnect
-                </button>
-              </form>
-            )}
-          </div>
 
         </div>
       </main>

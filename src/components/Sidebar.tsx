@@ -37,6 +37,7 @@ interface SidebarProps {
   onOpenNewQuote: () => void;
   onOpenNewEvent: () => void;
   onDownloadRateCard: () => void;
+  onSwitchToCrewApp?: () => void;
   onOpenReminderSettings?: () => void;
   onOpenAuthModal?: () => void;
   onSignOut?: () => void;

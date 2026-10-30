@@ -198,28 +198,27 @@ export default function App() {
       setCurrentUser(user);
     });
 
-    // Firebase Firestore Realtime Live Sync for Partners
+    // Firebase Realtime Live Sync for Partners
     const unsubscribePartners = subscribeToFirestorePartners((firestorePartners) => {
-      if (firestorePartners && firestorePartners.length > 0) {
-        localStorage.setItem('tmc_partners_v1', JSON.stringify(firestorePartners));
-        setPartners(firestorePartners);
-      }
+      const list = firestorePartners || [];
+      localStorage.setItem('tmc_partners_v1', JSON.stringify(list));
+      setPartners(list);
     });
 
-    // Firebase Firestore Realtime Live Sync for Events
+    // Firebase Realtime Live Sync for Events
     const unsubscribeEvents = subscribeToFirestoreEvents((firestoreEvents) => {
-      if (firestoreEvents && firestoreEvents.length > 0) {
-        localStorage.setItem('tmc_events_v2', JSON.stringify(firestoreEvents));
-        setEvents(firestoreEvents);
-      }
+      const list = firestoreEvents || [];
+      localStorage.setItem('tmc_events_v2', JSON.stringify(list));
+      setEvents(list);
+      setMetrics(StorageService.getDashboardMetrics());
     });
 
-    // Firebase Firestore & Realtime Database Live Sync for Crew Roster
+    // Firebase Realtime Live Sync for Crew Roster
     const handleIncomingCrew = (liveCrew: CrewMember[]) => {
-      if (liveCrew && liveCrew.length > 0) {
-        localStorage.setItem('tmc_crew_roster_v2', JSON.stringify(liveCrew));
-        setCrew(liveCrew);
-      }
+      const list = liveCrew || [];
+      localStorage.setItem('tmc_crew_roster_v2', JSON.stringify(list));
+      setCrew(list);
+      setMetrics(StorageService.getDashboardMetrics());
     };
 
     const unsubscribeCrewFirestore = subscribeToFirestoreCrew(handleIncomingCrew);
@@ -594,7 +593,7 @@ export default function App() {
           onSwitchToCrewApp={() => handleSwitchToCrewMode()}
           appViewMode={appViewMode}
           onToggleAppViewMode={(mode) => mode === 'admin' ? handleSwitchToAdminMode() : handleSwitchToCrewMode()}
-          isAdmin={userSession?.role !== 'crew'}
+          isAdmin={userSession?.role === 'admin'}
           onSignOut={handleSignOut}
           userSession={userSession}
         />

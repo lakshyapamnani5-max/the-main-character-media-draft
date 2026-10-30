@@ -100,237 +100,11 @@ const STORAGE_KEYS = {
   AUTH_USER_SESSION: 'tmc_auth_user_session_v1',
 };
 
-const DEFAULT_EVENT_CHARGES: EventCharge[] = [
-  {
-    id: 'chg-wedding-day',
-    name: 'Wedding',
-    category: 'Wedding Day',
-    description: 'Comprehensive royal wedding day storytelling capturing all sacred moments and unfiltered joy.',
-    price: 50000,
-    duration: '8 Hours',
-    crewRequirement: '2 Content Creators',
-    includedServices: [
-      'Bride POV',
-      'Groom POV',
-      'Couple POV',
-      'Rituals & Mandap',
-      'Family',
-      'Guests',
-      'Decor & Venue',
-      '5 Edited Reels'
-    ],
-    optionalAddOns: [
-      'Drone coverage',
-      'Same day edit',
-      'Extra hour coverage'
-    ],
-    notes: 'Shot exclusively on flagship iPhone 16 Pro Max 4K ProRes with premium mobile stabilization and wireless lavalier audio.',
-    status: 'Active',
-    createdAt: '2026-01-10T10:00:00.000Z',
-    updatedAt: '2026-01-10T10:00:00.000Z'
-  },
-  {
-    id: 'chg-haldi',
-    name: 'Haldi Ceremony',
-    category: 'Pre-Wedding Rituals',
-    description: 'Vibrant, sun-drenched coverage of yellow turmeric rituals, water splashes, and candid family laughter.',
-    price: 8000,
-    duration: '4 Hours',
-    crewRequirement: '1 Content Creator',
-    includedServices: [
-      'Floral Shower Moments',
-      'Turmeric Application',
-      'Unfiltered Candids',
-      'Decor & Setup',
-      '2 Curated 9:16 Reels',
-      'All Raw Uncut Clips'
-    ],
-    optionalAddOns: ['Extra Creator', 'Slow-Mo Water Canon Edit'],
-    notes: 'Waterproof protective gear used during heavy water & phoolon ki holi celebrations.',
-    status: 'Active',
-    createdAt: '2026-01-11T11:00:00.000Z',
-    updatedAt: '2026-01-11T11:00:00.000Z'
-  },
-  {
-    id: 'chg-mehendi',
-    name: 'Mehendi Soirée',
-    category: 'Pre-Wedding Rituals',
-    description: 'Intimate Henna artistry, bridal details, folk singing, and candid interactions with besties.',
-    price: 10000,
-    duration: '5 Hours',
-    crewRequirement: '1 Content Creator',
-    includedServices: [
-      'Bridal Henna Details',
-      'Close-up Jewelry & Outfit',
-      'Bridesmaids Moments',
-      'Folk Dance & Sing-along',
-      '2 Aesthetic Reels',
-      'Raw AirDrop Delivery'
-    ],
-    optionalAddOns: ['Extra Hour', 'Drone Shots of Venue Lawn'],
-    notes: 'Includes macro detail shots of personalized hidden bridal initials in mehendi.',
-    status: 'Active',
-    createdAt: '2026-01-12T12:00:00.000Z',
-    updatedAt: '2026-01-12T12:00:00.000Z'
-  },
-  {
-    id: 'chg-sangeet',
-    name: 'Sangeet Gala',
-    category: 'Pre-Wedding Rituals',
-    description: 'High energy dance performances, stage lighting, DJ party madness, and backstage banter.',
-    price: 18000,
-    duration: '6 Hours',
-    crewRequirement: '2 Content Creators',
-    includedServices: [
-      'Stage Dance POV',
-      'Backstage Rehearsals',
-      'Glamour Outfit Reveals',
-      'DJ Floor Energy',
-      '3 High-Beat Reels',
-      'Crowd Reaction Snippets'
-    ],
-    optionalAddOns: ['Same Night Viral Reel Drop', 'Guest Micro-Interviews'],
-    notes: 'Equipped with low-light stabilized lenses and wireless mics for crisp audio during speeches.',
-    status: 'Active',
-    createdAt: '2026-01-13T13:00:00.000Z',
-    updatedAt: '2026-01-13T13:00:00.000Z'
-  },
-  {
-    id: 'chg-reception',
-    name: 'Reception Evening',
-    category: 'Wedding Day',
-    description: 'Glamorous evening celebration, grand royal entrance, champagne toasts, and family portraits.',
-    price: 20000,
-    duration: '6 Hours',
-    crewRequirement: '2 Content Creators',
-    includedServices: [
-      'Grand Stage Entrance',
-      'Couple Portraits & Stage Speeches',
-      'Family & VIP Greetings',
-      'Cake Cutting & Toast',
-      '3 Polished Reels',
-      'Full Raw Footage Drive'
-    ],
-    optionalAddOns: ['Drone Entrance Track', 'Next-Morning Instagram Delivery'],
-    notes: 'Tailored for luxury ballroom and palace lighting conditions.',
-    status: 'Active',
-    createdAt: '2026-01-14T14:00:00.000Z',
-    updatedAt: '2026-01-14T14:00:00.000Z'
-  },
-  {
-    id: 'chg-engagement',
-    name: 'Engagement & Roka',
-    category: 'Pre-Wedding Rituals',
-    description: 'Romantic ring exchange ceremony, warm family blessings, and intimate couple editorial.',
-    price: 12000,
-    duration: '5 Hours',
-    crewRequirement: '1 Content Creator',
-    includedServices: [
-      'Ring Exchange POV',
-      'Couple Editorial Session',
-      'Family Congratulations',
-      'Decor & Ambient Setting',
-      '2 Elegant Reels',
-      'Raw Footage Library'
-    ],
-    optionalAddOns: ['Second Creator', 'Drone Ring Reveal'],
-    notes: 'Focus on emotive expressions and jewelry detail shots.',
-    status: 'Active',
-    createdAt: '2026-01-15T15:00:00.000Z',
-    updatedAt: '2026-01-15T15:00:00.000Z'
-  },
-  {
-    id: 'chg-drone',
-    name: 'Aerial Drone Coverage',
-    category: 'Add-ons & Gear',
-    description: 'High-definition 4K aerial shots of wedding palaces, baraat processions, and outdoor setups.',
-    price: 5000,
-    duration: '4 Hours',
-    crewRequirement: '1 Certified Drone Pilot',
-    includedServices: [
-      'Palace & Venue Bird’s Eye',
-      'Grand Baraat Procession from Above',
-      'Outdoor Mandap Establishing Views'
-    ],
-    optionalAddOns: ['Sunset Twilight Orbit'],
-    notes: 'Subject to DGCA airspace permissions and clear weather.',
-    status: 'Active',
-    createdAt: '2026-01-17T17:00:00.000Z',
-    updatedAt: '2026-01-17T17:00:00.000Z'
-  },
-  {
-    id: 'chg-same-day-edit',
-    name: 'Same Day Reel Edit',
-    category: 'Add-ons & Gear',
-    description: 'Ultra-fast on-site editing delivered within 3-4 hours for immediate viral social sharing.',
-    price: 4500,
-    duration: 'On-site Turnaround',
-    crewRequirement: '1 Dedicated Mobile Editor',
-    includedServices: [
-      'Instant Ingest & Color Grade',
-      'Trending Audio Synced Cut',
-      'Delivered Ready to Post by Reception'
-    ],
-    optionalAddOns: [],
-    notes: 'Guaranteed delivery before midnight of shoot day for maximum reach.',
-    status: 'Active',
-    createdAt: '2026-01-20T20:00:00.000Z',
-    updatedAt: '2026-01-20T20:00:00.000Z'
-  }
-];
+const DEFAULT_EVENT_CHARGES: EventCharge[] = [];
 
 const DEFAULT_CREW_ROSTER: CrewMember[] = [];
 
-const DEFAULT_LOCATIONS: LocationVenue[] = [
-  {
-    id: 'loc-001',
-    venue: 'Taj Lake Palace',
-    address: 'Pichola, P.O. Box No. 5',
-    city: 'Udaipur, Rajasthan',
-    googleMapsLink: 'https://maps.google.com/?q=Taj+Lake+Palace+Udaipur',
-    contactPerson: 'Mr. Vikram Rathore (Banquet Manager)',
-    phone: '+91 294 242 8800',
-    parking: 'Jetty parking at Rameshwar Ghat with boat valet',
-    accessInstructions: 'Crew must board Jetty boat at Rameshwar Ghat by 08:30 AM with equipment flight cases.',
-    notes: 'Drone flights require prior palace security gate pass.'
-  },
-  {
-    id: 'loc-002',
-    venue: 'ITC Grand Bharat',
-    address: 'P.O. Hasanpur, Tauru, Mewat',
-    city: 'Manesar, Gurugram, Delhi NCR',
-    googleMapsLink: 'https://maps.google.com/?q=ITC+Grand+Bharat+Manesar',
-    contactPerson: 'Ms. Shalini Gupta (Events Head)',
-    phone: '+91 1267 285 500',
-    parking: 'Dedicated production vendor parking at Gate 3',
-    accessInstructions: 'Vendor loading dock at Service Basement 2. Elevators direct to Ballroom foyer.',
-    notes: 'Golf cart access available for sprawling lawn shoots.'
-  },
-  {
-    id: 'loc-003',
-    venue: 'The Tamara Coorg',
-    address: 'Kabbinakad Estate, Yevakapadi',
-    city: 'Coorg, Karnataka',
-    googleMapsLink: 'https://maps.google.com/?q=The+Tamara+Coorg',
-    contactPerson: 'Rajesh Muthappa',
-    phone: '+91 8272 260 000',
-    parking: 'Main resort entrance parking',
-    accessInstructions: '4x4 resort buggies transfer crew to plantation cottages.',
-    notes: 'Eco-sensitive zone: low noise levels after 10 PM.'
-  },
-  {
-    id: 'loc-004',
-    venue: 'Fairmont Jaipur',
-    address: '2, Riico, Kukas',
-    city: 'Jaipur, Rajasthan',
-    googleMapsLink: 'https://maps.google.com/?q=Fairmont+Jaipur',
-    contactPerson: 'Aditya Mathur',
-    phone: '+91 141 665 5400',
-    parking: 'Ample palace forecourt and valet parking',
-    accessInstructions: 'Grand central courtyard for royal Baraat shoots.',
-    notes: 'Magnificent rooftop sunset vistas for couple editorial.'
-  }
-];
+const DEFAULT_LOCATIONS: LocationVenue[] = [];
 
 const DEFAULT_CLIENTS: Client[] = [];
 
@@ -440,8 +214,8 @@ export class StorageService {
     RealtimeSyncService.initialize();
 
     // Completely wipe all mock/dummy records (events, payments, crew payouts, clients, etc.)
-    const mockDataPurgedV13 = localStorage.getItem('tmc_purge_all_mock_data_v13');
-    if (!mockDataPurgedV13) {
+    const mockDataPurgedV20 = localStorage.getItem('tmc_purge_all_mock_data_v20');
+    if (!mockDataPurgedV20) {
       localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
@@ -453,7 +227,9 @@ export class StorageService {
       localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify([]));
-      localStorage.setItem('tmc_purge_all_mock_data_v13', 'true');
+      localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify([]));
+      localStorage.setItem('tmc_purge_all_mock_data_v20', 'true');
     }
 
     if (!localStorage.getItem(STORAGE_KEYS.EVENT_CHARGES)) {
@@ -667,14 +443,7 @@ export class StorageService {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.EVENTS);
       const events: EventShoot[] = data ? JSON.parse(data) : DEFAULT_EVENTS;
-      return events.filter(e => 
-        e.clientName !== 'hello' && 
-        e.clientName !== 'Preeti & Karan' && 
-        e.clientName !== 'lakshya' &&
-        e.eventName !== 'wedding' &&
-        e.eventName !== 'Wedding & Reception' &&
-        e.eventName !== 'kanak and vishal'
-      );
+      return events;
     } catch {
       return DEFAULT_EVENTS;
     }
@@ -1764,13 +1533,7 @@ export class StorageService {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
       const list: PaymentRecord[] = data ? JSON.parse(data) : DEFAULT_PAYMENTS;
-      return list.filter(p => 
-        (p as any).clientName !== 'hello' && 
-        (p as any).clientName !== 'Preeti & Karan' &&
-        (p as any).clientName !== 'lakshya' &&
-        p.id !== 'pay-1792229918201' &&
-        p.id !== 'pay-1792229938880'
-      );
+      return list;
     } catch {
       return DEFAULT_PAYMENTS;
     }
@@ -2003,6 +1766,8 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.PLANNERS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.CREW_ROSTER, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify([]));
+    localStorage.setItem(STORAGE_KEYS.EVENT_CHARGES, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
     this.notifyListeners();
   }

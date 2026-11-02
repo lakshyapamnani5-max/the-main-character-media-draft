@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { CompanySettings } from '../../types';
 import { StorageService } from '../../services/storage';
+import { QRCodeDisplay } from '../Common/QRCodeDisplay';
 
 interface CompanySettingsViewProps {
   onSettingsSaved?: (settings: CompanySettings) => void;
@@ -345,6 +346,53 @@ export const CompanySettingsView: React.FC<CompanySettingsViewProps> = ({ onSett
                       placeholder="www.themaincharactermedia.com"
                     />
                   </div>
+                </div>
+
+                {/* Crew Profile QR Code Generator (Instagram / Linktree / Social Portfolio) */}
+                <div className="p-4 bg-gradient-to-r from-amber-50/70 via-white to-[#FAF8F5] border border-amber-200/80 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-neutral-900 flex items-center gap-2">
+                      <QrCode className="w-4 h-4 text-[#C58B39]" />
+                      <span>Crew Profile QR Code Generator (Instagram / Linktree / Portfolio Link)</span>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-900 text-white font-bold">
+                      Reflects in Crew App
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-neutral-600">
+                    Enter your Instagram profile URL, Linktree, or portfolio link below. This will dynamically generate a high-definition QR code in every crew member's phone profile terminal so guests and clients can scan and view your work instantly on set.
+                  </p>
+                  <div>
+                    <label className="block font-medium text-neutral-700 mb-1">
+                      QR Destination Link (Instagram / Linktree / Portfolio URL)
+                    </label>
+                    <input
+                      type="url"
+                      value={settings.crewQrLink || ''}
+                      onChange={(e) => setSettings({ ...settings, crewQrLink: e.target.value })}
+                      className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono text-xs focus:outline-none focus:border-[#C58B39] bg-white"
+                      placeholder="e.g. https://instagram.com/themaincharactermedia or https://linktr.ee/tmcmedia"
+                    />
+                  </div>
+                  {settings.crewQrLink && (
+                    <div className="pt-2 flex flex-col sm:flex-row items-center gap-4 bg-white p-3.5 rounded-xl border border-[#E8E3D9]">
+                      <QRCodeDisplay
+                        value={settings.crewQrLink}
+                        title="Admin Live QR Preview"
+                        subtitle="Appears in Crew Terminal profile"
+                        size={120}
+                      />
+                      <div className="text-xs text-neutral-600 space-y-1.5 flex-1 text-center sm:text-left">
+                        <div className="font-bold text-neutral-900">Live QR Code Generated</div>
+                        <p className="text-[11px] text-neutral-500">
+                          This QR is now dynamically linked to your Crew App. Whenever any crew member on the team opens their Profile tab, this exact QR code will be presented for guest scanning.
+                        </p>
+                        <div className="text-[11px] font-mono text-[#C58B39] font-medium truncate max-w-sm">
+                          Target: {settings.crewQrLink}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-2 border-t border-[#F0ECE1] space-y-4 text-xs">

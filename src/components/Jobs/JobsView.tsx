@@ -21,7 +21,10 @@ import {
   Star,
   ExternalLink,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Trash2,
+  X,
+  Building2
 } from 'lucide-react';
 import { 
   EventShoot, 
@@ -30,7 +33,8 @@ import {
   Quotation, 
   Enquiry, 
   PlannerVendor, 
-  EventStatus 
+  EventStatus,
+  CrewMember
 } from '../../types';
 import { StorageService } from '../../services/storage';
 import { EventModal } from '../Events/EventModal';
@@ -60,6 +64,7 @@ interface JobsViewProps {
   onSelectQuoteForPreview?: (quote: Quotation) => void;
   onOpenSendReminder?: (event: EventShoot) => void;
   onQuickQuoteForEnquiry?: (enquiry: Enquiry) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 export const JobsView: React.FC<JobsViewProps> = ({
@@ -74,11 +79,13 @@ export const JobsView: React.FC<JobsViewProps> = ({
   onRecordPayment,
   onSelectQuoteForPreview = () => {},
   onOpenSendReminder = () => {},
-  onQuickQuoteForEnquiry = () => {}
+  onQuickQuoteForEnquiry = () => {},
+  onDeleteEvent
 }) => {
   const [activeTab, setActiveTab] = useState<JobFilterTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [activeAddCrewEventId, setActiveAddCrewEventId] = useState<string | null>(null);
 
   // Modals
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -86,6 +93,34 @@ export const JobsView: React.FC<JobsViewProps> = ({
   const [activeCommandCenterEvent, setActiveCommandCenterEvent] = useState<EventShoot | null>(null);
   const [payingEvent, setPayingEvent] = useState<EventShoot | null>(null);
   const [crewAssignTargetEvent, setCrewAssignTargetEvent] = useState<EventShoot | null>(null);
+
+  const crewRoster = StorageService.getCrewRoster().filter(c => c.status === 'Active');
+
+  const handleDeleteEvent = (eventId: string, eventName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${eventName}"? This will remove the shoot from weddings, calendar, partner views, and crew phone portals.`)) {
+      StorageService.deleteEvent(eventId);
+      if (onDeleteEvent) onDeleteEvent(eventId);
+    }
+  };
+
+  const handleRemoveCrew = (eventId: string, crewIdOrName: string) => {
+    StorageService.removeCrewFromEvent(eventId, crewIdOrName);
+    const fresh = StorageService.getEventById(eventId);
+    if (fresh) onSaveEvent(fresh);
+  };
+
+  const handleAddCrew = (eventId: string, member: CrewMember) => {
+    StorageService.addCrewToEvent(eventId, member);
+    setActiveAddCrewEventId(null);
+    const fresh = StorageService.getEventById(eventId);
+    if (fresh) onSaveEvent(fresh);
+  };
+
+  const handleDeleteSubEvent = (eventId: string, subId: string) => {
+    StorageService.deleteSubEvent(eventId, subId);
+    const fresh = StorageService.getEventById(eventId);
+    if (fresh) onSaveEvent(fresh);
+  };
 
   // Planners state
   const [planners, setPlanners] = useState<PlannerVendor[]>(() => StorageService.getPlanners());
@@ -547,11 +582,30 @@ export const JobsView: React.FC<JobsViewProps> = ({
                         <div className="text-xs text-neutral-600 mt-0.5">
                           Client: <strong className="text-neutral-800">{event.clientName}</strong>
                         </div>
+
+                        {(event.partnerName || event.partnerId) && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-semibold font-mono">
+                              <Building2 className="w-3 h-3 text-[#C58B39]" />
+                              <span>Partner: {event.partnerName || 'Event Partner'}</span>
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FAF8F5] border border-[#E8E3D9] text-neutral-800 font-semibold uppercase shrink-0">
-                        {event.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FAF8F5] border border-[#E8E3D9] text-neutral-800 font-semibold uppercase shrink-0">
+                          {event.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(event.id, event.eventName)}
+                          className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          title="Delete Shoot"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="text-xs text-neutral-600 flex items-center gap-1.5 truncate">
@@ -581,8 +635,96 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Event Charges Breakdown Cards as required by brief:
-                        e.g., WEDDING — ₹45,000 | Haldi — ₹8,000 | Sangeet — ₹12,000 | Wedding Day — ₹20,000 | Drone — ₹5,000 */}
+                    {/* Card-Level Crew Management: Direct Remove & Add */}
+                    <div className="p-2.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-neutral-800 flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-[#C58B39]" />
+                          <span>Crew Roster ({totalCrew})</span>
+                        </span>
+                        
+                        {/* Direct Add Crew Dropdown on Card */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveAddCrewEventId(activeAddCrewEventId === event.id ? null : event.id);
+                            }}
+                            className="text-[11px] font-semibold text-[#C58B39] hover:text-[#8C6428] flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100/70 border border-amber-200 transition-colors"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>+ Add Crew</span>
+                          </button>
+                          
+                          {activeAddCrewEventId === event.id && (
+                            <div 
+                              className="absolute right-0 top-full mt-1 w-56 bg-white border border-[#E8E3D9] rounded-xl shadow-xl z-30 p-2 space-y-1 max-h-56 overflow-y-auto"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="text-[10px] font-mono font-bold text-neutral-400 px-2 py-1 uppercase">
+                                Available Active Crew
+                              </div>
+                              {crewRoster.filter(c => !(event.crewAssignments || []).some(a => a.crewId === c.id)).length === 0 ? (
+                                <div className="text-[11px] text-neutral-400 p-2 text-center">
+                                  All active crew are assigned
+                                </div>
+                              ) : (
+                                crewRoster.filter(c => !(event.crewAssignments || []).some(a => a.crewId === c.id)).map(c => (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => handleAddCrew(event.id, c)}
+                                    className="w-full text-left p-1.5 hover:bg-[#FAF8F5] rounded-lg flex items-center justify-between text-xs transition-colors"
+                                  >
+                                    <div className="truncate">
+                                      <div className="font-semibold text-neutral-900 truncate">{c.name}</div>
+                                      <div className="text-[10px] text-[#C58B39]">{c.role}</div>
+                                    </div>
+                                    <span className="text-[10px] font-mono text-neutral-500">
+                                      ₹{c.defaultPayout.toLocaleString('en-IN')}
+                                    </span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Crew Pills with instant Remove (×) Button */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {((event.crewAssignments && event.crewAssignments.length > 0)
+                          ? event.crewAssignments
+                          : (event.crewMembers || []).map(name => ({ crewId: name, crewName: name, role: 'Content Creator' }))
+                        ).map((asg) => (
+                          <span
+                            key={asg.crewId}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-[#E8E3D9] text-[11px] text-neutral-800 font-medium group shadow-2xs"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>{asg.crewName}</span>
+                            <span className="text-neutral-400 text-[10px]">({asg.role})</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveCrew(event.id, asg.crewId);
+                              }}
+                              title={`Remove ${asg.crewName} from this shoot`}
+                              className="ml-0.5 text-neutral-400 hover:text-rose-600 rounded p-0.5 hover:bg-rose-50 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        {totalCrew === 0 && (
+                          <span className="text-[11px] text-neutral-400 italic">No crew assigned yet. Click "+ Add Crew" to deploy.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Event Charges & Sub-Events Breakdown with instant Remove (×) & Edit */}
                     <div className="p-2.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg space-y-1.5">
                       <div className="flex items-center justify-between text-[11px]">
                         <span className="font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1 font-mono">
@@ -590,9 +732,22 @@ export const JobsView: React.FC<JobsViewProps> = ({
                           <span className="text-neutral-400">·</span>
                           <span className="text-[#C58B39]">₹{event.packageTotal.toLocaleString('en-IN')}</span>
                         </span>
-                        <span className="text-[10px] text-neutral-500 font-mono">
-                          {(event.subEvents?.length || 0) + (event.addOns?.length || 0)} charges
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-neutral-500 font-mono">
+                            {(event.subEvents?.length || 0) + (event.addOns?.length || 0)} charges
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingEvent(event);
+                              setIsEventModalOpen(true);
+                            }}
+                            className="text-[10px] text-[#C58B39] font-semibold hover:underline"
+                            title="Edit ceremonies and charges"
+                          >
+                            Edit
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -600,18 +755,29 @@ export const JobsView: React.FC<JobsViewProps> = ({
                           event.subEvents.map((sub) => (
                             <div
                               key={sub.id}
-                              className="px-2 py-1 bg-white border border-[#E8E3D9] rounded text-[11px] flex items-center gap-1.5 shadow-2xs"
+                              className="px-2 py-1 bg-white border border-[#E8E3D9] rounded text-[11px] flex items-center gap-1.5 shadow-2xs group hover:border-[#C58B39]/60 transition-colors"
                             >
                               <span className="font-medium text-neutral-800">{sub.name}</span>
                               <span className="text-neutral-400">―</span>
                               <span className="font-mono font-bold text-neutral-900">
                                 ₹{(sub.eventCharge || Math.round(event.packageTotal / event.subEvents.length)).toLocaleString('en-IN')}
                               </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSubEvent(event.id, sub.id);
+                                }}
+                                className="text-neutral-400 hover:text-rose-600 rounded p-0.5 hover:bg-rose-50 transition-colors ml-0.5"
+                                title={`Remove ${sub.name}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
                             </div>
                           ))
                         ) : (
-                          <div className="px-2 py-1 bg-white border border-[#E8E3D9] rounded text-[11px] flex items-center gap-1.5 shadow-2xs">
-                            <span className="font-medium text-neutral-800">Main Event Day</span>
+                          <div className="px-2 py-1 bg-white border border-[#E8E3D9] rounded text-[11px] flex items-center gap-1.5 shadow-2xs text-neutral-500">
+                            <span className="font-medium text-neutral-700">Single Main Event Day</span>
                             <span className="text-neutral-400">―</span>
                             <span className="font-mono font-bold text-neutral-900">
                               ₹{event.packageTotal.toLocaleString('en-IN')}
@@ -651,12 +817,14 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => setCrewAssignTargetEvent(event)}
-                          className="px-2.5 py-1.5 text-xs font-semibold text-neutral-800 bg-[#FAF8F5] hover:bg-[#F2EDE4] border border-[#DCD6C8] rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
-                          title="Quick Deploy Crew"
+                          onClick={() => {
+                            setEditingEvent(event);
+                            setIsEventModalOpen(true);
+                          }}
+                          className="px-2.5 py-1.5 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 border border-[#DCD6C8] rounded-lg transition-colors shadow-2xs"
+                          title="Edit Job Details"
                         >
-                          <Users className="w-3.5 h-3.5 text-[#C58B39]" />
-                          <span>{totalCrew > 0 ? `${totalCrew} Crew` : '+ Deploy Crew'}</span>
+                          Edit
                         </button>
 
                         <button
@@ -673,6 +841,15 @@ export const JobsView: React.FC<JobsViewProps> = ({
                         >
                           <span>Command Center</span>
                           <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEvent(event.id, event.eventName)}
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-colors"
+                          title="Delete Shoot"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>

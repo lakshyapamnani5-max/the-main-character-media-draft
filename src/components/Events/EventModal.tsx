@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Users, AlertTriangle, Check, UserCheck, Clock, IndianRupee } from 'lucide-react';
-import { EventShoot, EventStatus, EventDeliverable, Client, CrewMember, CrewRole, EventCrewAssignment } from '../../types';
+import { EventShoot, EventStatus, EventDeliverable, Client, CrewMember, CrewRole, EventCrewAssignment, Partner, SubEvent } from '../../types';
 import { StorageService } from '../../services/storage';
 
 interface EventCrewSelection {
@@ -27,6 +27,8 @@ export const EventModal: React.FC<EventModalProps> = ({
   initialData
 }) => {
   const [category, setCategory] = useState<'Wedding' | 'Event Planner' | 'Other Shoot'>('Wedding');
+  const [partnerId, setPartnerId] = useState('');
+  const [partnerName, setPartnerName] = useState('');
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
@@ -49,13 +51,19 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [deliverables, setDeliverables] = useState<EventDeliverable[]>([]);
   const [newDeliverableTitle, setNewDeliverableTitle] = useState('');
   const [notes, setNotes] = useState('');
+  const [subEvents, setSubEvents] = useState<SubEvent[]>([]);
+  const [customFunctionName, setCustomFunctionName] = useState('');
+  const [customFunctionCharge, setCustomFunctionCharge] = useState<number | ''>('');
 
   const clients = StorageService.getClients();
+  const partners = StorageService.getPartners();
   const crewRoster = StorageService.getCrewRoster().filter(c => c.status === 'Active');
 
   useEffect(() => {
     if (initialData) {
       setCategory(initialData.category || 'Wedding');
+      setPartnerId(initialData.partnerId || '');
+      setPartnerName(initialData.partnerName || '');
       setClientId(initialData.clientId);
       setClientName(initialData.clientName);
       setClientPhone(initialData.clientContact?.phone || '');
@@ -105,10 +113,13 @@ export const EventModal: React.FC<EventModalProps> = ({
       setClientRequirements(initialData.clientRequirements || '');
       setDeliverables(initialData.deliverables || []);
       setNotes(initialData.notes || '');
+      setSubEvents(initialData.subEvents ? [...initialData.subEvents] : []);
     } else {
       const defaultStart = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const defaultEnd = new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       setCategory('Wedding');
+      setPartnerId('');
+      setPartnerName('');
       setClientId('');
       setClientName('');
       setClientPhone('');
@@ -134,6 +145,7 @@ export const EventModal: React.FC<EventModalProps> = ({
         { id: `del-3`, title: 'Ceremonial Master Cut Reel (9:16)', completed: false }
       ]);
       setNotes('');
+      setSubEvents([]);
     }
   }, [initialData, isOpen]);
 
@@ -204,80 +216,6 @@ export const EventModal: React.FC<EventModalProps> = ({
     const adv = Number(advancePaid) || 0;
     const balanceDue = Math.max(0, total - adv);
 
-    // Initial default sub-events for wedding if creating new
-    const initialSubEvents = (!initialData && category === 'Wedding') ? [
-      {
-        id: `sub-${Date.now()}-1`,
-        eventId: '',
-        name: 'Mehendi',
-        date: startDate,
-        startTime: '04:00 PM',
-        endTime: '08:30 PM',
-        venue: venue || 'Terrace / Banquet',
-        status: 'Scheduled' as const,
-        assignedCrewIds: [],
-        eventCharge: 15000,
-        contentRequirements: ['Bride Mehendi Macro POV', 'Bridesmaid Candids'],
-        notes: 'Sunset natural light.'
-      },
-      {
-        id: `sub-${Date.now()}-2`,
-        eventId: '',
-        name: 'Haldi',
-        date: startDate,
-        startTime: '10:00 AM',
-        endTime: '02:00 PM',
-        venue: venue || 'Lawn Area',
-        status: 'Scheduled' as const,
-        assignedCrewIds: [],
-        eventCharge: 15000,
-        contentRequirements: ['Haldi Phoolon Ki Holi', 'Water Splash Candids'],
-        notes: 'Waterproof protective pouches.'
-      },
-      {
-        id: `sub-${Date.now()}-3`,
-        eventId: '',
-        name: 'Sangeet',
-        date: startDate,
-        startTime: '06:00 PM',
-        endTime: '11:45 PM',
-        venue: venue || 'Grand Ballroom',
-        status: 'Scheduled' as const,
-        assignedCrewIds: [],
-        eventCharge: 25000,
-        contentRequirements: ['Stage Choreography Dance POV', 'DJ Floor Party BTS'],
-        notes: 'Audio feed from DJ mixer.'
-      },
-      {
-        id: `sub-${Date.now()}-4`,
-        eventId: '',
-        name: 'Wedding',
-        date: endDate || startDate,
-        startTime: '04:30 PM',
-        endTime: '09:30 PM',
-        venue: venue || 'Mandap Lawn',
-        status: 'Scheduled' as const,
-        assignedCrewIds: [],
-        eventCharge: 30000,
-        contentRequirements: ['Bride POV Walk Down Aisle', 'Groom Baraat Entry', 'Sacred Vows & Phere'],
-        notes: 'Drone coverage for baraat.'
-      },
-      {
-        id: `sub-${Date.now()}-5`,
-        eventId: '',
-        name: 'Reception',
-        date: endDate || startDate,
-        startTime: '08:30 PM',
-        endTime: '01:00 AM',
-        venue: venue || 'Royal Hall',
-        status: 'Scheduled' as const,
-        assignedCrewIds: [],
-        eventCharge: 15000,
-        contentRequirements: ['Cake Cutting & Toast POV', 'Couple Formal Portraits'],
-        notes: 'Guest greetings.'
-      }
-    ] : undefined;
-
     const finalCrewAssignments: EventCrewAssignment[] = selectedCrew.map((c, idx) => ({
       id: `asg-${Date.now()}-${idx}-${c.crewId}`,
       eventId: initialData?.id || '',
@@ -300,6 +238,8 @@ export const EventModal: React.FC<EventModalProps> = ({
     onSave({
       id: initialData?.id,
       category,
+      partnerId: partnerId || undefined,
+      partnerName: partnerName || undefined,
       clientId: clientId || `cli-${Date.now()}`,
       clientName: clientName.trim(),
       clientContact: {
@@ -326,7 +266,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       clientRequirements: clientRequirements.trim(),
       status,
       deliverables,
-      subEvents: initialData?.subEvents || initialSubEvents,
+      subEvents: subEvents,
       notes
     });
 
@@ -379,6 +319,43 @@ export const EventModal: React.FC<EventModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Event Partner / Outsourced Agency Dropdown */}
+          <div className="p-3 bg-amber-50/50 border border-amber-200/80 rounded-xl space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="block font-bold text-neutral-800 text-[11px] uppercase tracking-wider font-mono">
+                Event Partner (If Outsourced by Agency / Planner)
+              </label>
+              {partnerId && (
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-[#C58B39] text-white">
+                  Partner Linked
+                </span>
+              )}
+            </div>
+            <select
+              value={partnerId}
+              onChange={(e) => {
+                const pid = e.target.value;
+                setPartnerId(pid);
+                const p = partners.find(item => item.id === pid);
+                setPartnerName(p ? p.companyName : '');
+                if (p && category !== 'Event Planner') {
+                  setCategory('Event Planner');
+                }
+              }}
+              className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 bg-white font-medium text-xs focus:outline-none focus:border-[#C58B39]"
+            >
+              <option value="">-- Direct Client / No Event Partner --</option>
+              {partners.map(p => (
+                <option key={p.id} value={p.id}>
+                  🏢 {p.companyName} {p.name && p.name !== p.companyName ? `(${p.name})` : ''} · {p.city}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-neutral-500">
+              Shoots linked to a partner appear automatically in the Event Partners workspace, Calendar, and assigned crew phone terminals.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -598,6 +575,167 @@ export const EventModal: React.FC<EventModalProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Ceremonies / Sub-Events / Event Charges Selection */}
+          <div className="p-4 bg-[#FAF8F5] border border-[#E8E3D9] rounded-xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[#C58B39]">
+                    Ceremonies & Functions ({subEvents.length})
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  Tap to add or remove wedding ceremonies. Leave empty if this is a single-event shoot.
+                </p>
+              </div>
+              {subEvents.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSubEvents([])}
+                  className="text-[11px] font-mono text-rose-600 hover:underline"
+                >
+                  Clear all functions
+                </button>
+              )}
+            </div>
+
+            {/* Quick Toggle Ceremony Chips */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {[
+                { name: 'Mehendi', defaultCharge: 15000 },
+                { name: 'Haldi', defaultCharge: 15000 },
+                { name: 'Sangeet', defaultCharge: 25000 },
+                { name: 'Wedding Ceremony', defaultCharge: 30000 },
+                { name: 'Reception', defaultCharge: 20000 },
+                { name: 'Cocktail', defaultCharge: 20000 },
+                { name: 'Pre-Wedding Shoot', defaultCharge: 25000 }
+              ].map(preset => {
+                const isSelected = subEvents.some(s => s.name.toLowerCase() === preset.name.toLowerCase());
+                return (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSubEvents(subEvents.filter(s => s.name.toLowerCase() !== preset.name.toLowerCase()));
+                      } else {
+                        setSubEvents([
+                          ...subEvents,
+                          {
+                            id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                            eventId: initialData?.id || '',
+                            name: preset.name,
+                            date: startDate || new Date().toISOString().split('T')[0],
+                            startTime: '04:00 PM',
+                            endTime: '11:00 PM',
+                            venue: venue || 'Main Venue',
+                            status: 'Scheduled',
+                            assignedCrewIds: [],
+                            eventCharge: preset.defaultCharge,
+                            contentRequirements: [],
+                            notes: ''
+                          }
+                        ]);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-all ${
+                      isSelected
+                        ? 'bg-[#181818] text-white border-neutral-900 shadow-2xs'
+                        : 'bg-white text-neutral-700 border-[#DCD6C8] hover:border-[#C58B39]'
+                    }`}
+                  >
+                    {isSelected ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Plus className="w-3.5 h-3.5 text-neutral-400" />}
+                    <span>{preset.name}</span>
+                    <span className={`text-[10px] font-mono ${isSelected ? 'text-amber-300' : 'text-neutral-500'}`}>
+                      ₹{preset.defaultCharge.toLocaleString('en-IN')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Function Form */}
+            <div className="flex items-center gap-2 pt-2">
+              <input
+                type="text"
+                value={customFunctionName}
+                onChange={e => setCustomFunctionName(e.target.value)}
+                placeholder="Or type custom ceremony (e.g. Ring Ceremony, Pool Party)"
+                className="flex-1 px-3 py-1.5 bg-white border border-[#DCD6C8] rounded-lg text-xs"
+              />
+              <input
+                type="number"
+                value={customFunctionCharge}
+                onChange={e => setCustomFunctionCharge(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="Fee ₹"
+                className="w-24 px-2 py-1.5 bg-white border border-[#DCD6C8] rounded-lg text-xs font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!customFunctionName.trim()) return;
+                  setSubEvents([
+                    ...subEvents,
+                    {
+                      id: `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                      eventId: initialData?.id || '',
+                      name: customFunctionName.trim(),
+                      date: startDate || new Date().toISOString().split('T')[0],
+                      startTime: '04:00 PM',
+                      endTime: '11:00 PM',
+                      venue: venue || 'Main Venue',
+                      status: 'Scheduled',
+                      assignedCrewIds: [],
+                      eventCharge: Number(customFunctionCharge) || 15000,
+                      contentRequirements: [],
+                      notes: ''
+                    }
+                  ]);
+                  setCustomFunctionName('');
+                  setCustomFunctionCharge('');
+                }}
+                className="px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-semibold hover:bg-black transition-colors"
+              >
+                + Add
+              </button>
+            </div>
+
+            {/* Active Functions List */}
+            {subEvents.length > 0 ? (
+              <div className="space-y-1.5 pt-2 border-t border-[#E8E3D9]">
+                <div className="text-[10px] uppercase font-mono text-neutral-500 font-semibold">
+                  Selected Ceremonies ({subEvents.length}):
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {subEvents.map((s) => (
+                    <div
+                      key={s.id}
+                      className="px-2.5 py-1.5 bg-white border border-[#DCD6C8] rounded-lg text-xs flex items-center gap-2 shadow-2xs"
+                    >
+                      <span className="font-semibold text-neutral-900">{s.name}</span>
+                      <span className="text-neutral-300">·</span>
+                      <span className="font-mono text-[#C58B39] font-bold">
+                        ₹{(s.eventCharge || 15000).toLocaleString('en-IN')}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSubEvents(subEvents.filter(sub => sub.id !== s.id))}
+                        className="text-neutral-400 hover:text-rose-600 p-0.5 rounded transition-colors"
+                        title="Remove this ceremony"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-[11px] text-neutral-500 italic p-2 bg-white/70 rounded border border-dashed border-[#E8E3D9]">
+                No separate sub-events added. This shoot is booked as a single standalone event.
+              </div>
+            )}
           </div>
 
           {/* Crew Deployment Section (Multiple Crew) */}

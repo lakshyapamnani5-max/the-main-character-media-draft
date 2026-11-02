@@ -93,13 +93,21 @@ export const JobsView: React.FC<JobsViewProps> = ({
   const [activeCommandCenterEvent, setActiveCommandCenterEvent] = useState<EventShoot | null>(null);
   const [payingEvent, setPayingEvent] = useState<EventShoot | null>(null);
   const [crewAssignTargetEvent, setCrewAssignTargetEvent] = useState<EventShoot | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<{ id: string; name: string } | null>(null);
 
   const crewRoster = StorageService.getCrewRoster().filter(c => c.status === 'Active');
 
-  const handleDeleteEvent = (eventId: string, eventName: string) => {
-    if (window.confirm(`Are you sure you want to delete "${eventName}"? This will remove the shoot from weddings, calendar, partner views, and crew phone portals.`)) {
-      StorageService.deleteEvent(eventId);
-      if (onDeleteEvent) onDeleteEvent(eventId);
+  const handleRequestDeleteEvent = (eventId: string, eventName: string) => {
+    setEventToDelete({ id: eventId, name: eventName });
+  };
+
+  const handleConfirmDeleteEvent = () => {
+    if (!eventToDelete) return;
+    const targetId = eventToDelete.id;
+    setEventToDelete(null);
+    StorageService.deleteEvent(targetId);
+    if (onDeleteEvent) {
+      onDeleteEvent(targetId);
     }
   };
 
@@ -599,9 +607,13 @@ export const JobsView: React.FC<JobsViewProps> = ({
                         </span>
                         <button
                           type="button"
-                          onClick={() => handleDeleteEvent(event.id, event.eventName)}
-                          className="p-1 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRequestDeleteEvent(event.id, event.eventName);
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
                           title="Delete Shoot"
+                          aria-label={`Delete ${event.eventName}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -845,9 +857,13 @@ export const JobsView: React.FC<JobsViewProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => handleDeleteEvent(event.id, event.eventName)}
-                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRequestDeleteEvent(event.id, event.eventName);
+                          }}
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-colors cursor-pointer"
                           title="Delete Shoot"
+                          aria-label={`Delete ${event.eventName}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -912,6 +928,79 @@ export const JobsView: React.FC<JobsViewProps> = ({
             setPayingEvent(null);
           }}
         />
+      )}
+
+      {/* Full Dossier Event Command Center */}
+      {Boolean(activeCommandCenterEvent) && (
+        <EventCommandCenter
+          isOpen={true}
+          onClose={() => setActiveCommandCenterEvent(null)}
+          event={events.find(e => e.id === (activeCommandCenterEvent as unknown as EventShoot).id) || (activeCommandCenterEvent as unknown as EventShoot)}
+          onSaveEvent={(evt) => {
+            onSaveEvent(evt);
+            const currentId = (activeCommandCenterEvent as unknown as EventShoot)?.id;
+            if (currentId) {
+              const fresh = StorageService.getEventById(currentId);
+              if (fresh) setActiveCommandCenterEvent(fresh);
+            }
+          }}
+          onToggleDeliverable={onToggleDeliverable}
+          onRecordPayment={onRecordPayment}
+          onSelectQuoteForPreview={onSelectQuoteForPreview}
+          quotes={quotes}
+          payments={payments}
+          onDeleteEvent={(id) => {
+            setActiveCommandCenterEvent(null);
+            if (onDeleteEvent) onDeleteEvent(id);
+          }}
+        />
+      )}
+
+      {/* In-App Deletion Confirmation Modal (Guaranteed to work inside iframe) */}
+      {eventToDelete && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setEventToDelete(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E8E3D9] space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-serif text-lg font-bold text-neutral-900">
+                Delete Shoot Production?
+              </h3>
+              <p className="text-xs text-neutral-600">
+                Are you sure you want to permanently delete <strong className="text-neutral-900">"{eventToDelete.name}"</strong>?
+              </p>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                This will immediately remove this shoot from Weddings, Production Calendar, Event Partner records, and Crew phones.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteEvent}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Yes, Delete Shoot</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

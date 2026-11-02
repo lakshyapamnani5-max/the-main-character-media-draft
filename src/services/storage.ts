@@ -656,26 +656,24 @@ export class StorageService {
 
   static deleteEvent(eventId: string): boolean {
     const events = this.getEvents();
-    const filtered = events.filter(e => e.id !== eventId);
-    if (filtered.length !== events.length) {
-      this.persistEvents(filtered, undefined, eventId);
-      // Clean up references in partners
-      try {
-        const partners = this.getPartners();
-        let partnersChanged = false;
-        partners.forEach(p => {
-          if (p.associatedEventIds && p.associatedEventIds.includes(eventId)) {
-            p.associatedEventIds = p.associatedEventIds.filter((id: string) => id !== eventId);
-            partnersChanged = true;
-          }
-        });
-        if (partnersChanged) {
-          localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+    const filtered = events.filter(e => String(e.id) !== String(eventId));
+    this.persistEvents(filtered, undefined, eventId);
+    // Clean up references in partners
+    try {
+      const partners = this.getPartners();
+      let partnersChanged = false;
+      partners.forEach(p => {
+        if (p.associatedEventIds && p.associatedEventIds.includes(eventId)) {
+          p.associatedEventIds = p.associatedEventIds.filter((id: string) => id !== eventId);
+          partnersChanged = true;
         }
-      } catch {}
-      return true;
-    }
-    return false;
+      });
+      if (partnersChanged) {
+        localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+      }
+    } catch {}
+    this.notifyListeners();
+    return true;
   }
 
   // Sub-Events Management

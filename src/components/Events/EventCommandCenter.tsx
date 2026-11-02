@@ -87,6 +87,7 @@ interface EventCommandCenterProps {
   onSelectQuoteForPreview: (quote: Quotation) => void;
   quotes: Quotation[];
   payments: PaymentRecord[];
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
@@ -98,9 +99,11 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
   onRecordPayment,
   onSelectQuoteForPreview,
   quotes,
-  payments
+  payments,
+  onDeleteEvent
 }) => {
   const [activeTab, setActiveTab] = useState<CommandCenterTab>('overview');
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   // Modal Triggers
   const [isSubEventModalOpen, setIsSubEventModalOpen] = useState(false);
@@ -526,6 +529,16 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
             >
               <Calendar className="w-3.5 h-3.5 text-[#C58B39]" />
               <span>Export Calendar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDeleteConfirmOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-300 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 rounded-lg transition-colors shadow-xs cursor-pointer"
+              title="Delete this shoot production"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Delete Shoot</span>
             </button>
 
             <button
@@ -2290,6 +2303,58 @@ export const EventCommandCenter: React.FC<EventCommandCenterProps> = ({
         shoot={event}
         allShoots={[event]}
       />
+
+      {/* In-App Deletion Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setIsDeleteConfirmOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#E8E3D9] space-y-4 text-neutral-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <h3 className="font-serif text-lg font-bold text-neutral-900">
+                Delete Shoot Production?
+              </h3>
+              <p className="text-xs text-neutral-600">
+                Are you sure you want to permanently delete <strong className="text-neutral-900">"{event.eventName}"</strong>?
+              </p>
+              <p className="text-[11px] text-neutral-400 leading-relaxed">
+                This will immediately remove this shoot from Weddings, Production Calendar, Event Partner records, and Crew phones.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsDeleteConfirmOpen(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsDeleteConfirmOpen(false);
+                  StorageService.deleteEvent(event.id);
+                  if (onDeleteEvent) onDeleteEvent(event.id);
+                  onClose();
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-98 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Yes, Delete Shoot</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

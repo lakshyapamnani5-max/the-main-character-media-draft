@@ -102,8 +102,8 @@ export const CrewAppLayout: React.FC<CrewAppLayoutProps> = ({
       <header className="sticky top-0 z-40 bg-[#121212] text-white px-4 py-3 border-b border-[#222222] flex items-center justify-between shadow-md">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded border border-[#C58B39] bg-[#1C1A18] flex items-center justify-center font-serif text-[#C58B39] font-bold text-sm tracking-wider">
-            M
+          <div className="w-8 h-8 rounded border border-[#C58B39]/60 bg-white p-0.5 flex items-center justify-center overflow-hidden shrink-0 shadow-xs">
+            <img src="/logo.png" alt="TMCM" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="font-serif tracking-widest text-xs font-bold text-white uppercase">

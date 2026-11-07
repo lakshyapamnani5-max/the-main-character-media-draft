@@ -115,7 +115,7 @@ const DEFAULT_PAYMENTS: PaymentRecord[] = [];
 const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   companyName: 'The Main Character Media',
   tagline: 'Luxury Wedding & Celebration Content Creation',
-  logoUrl: '',
+  logoUrl: '/logo.png',
   phone: '+91 98200 12345',
   whatsapp: '+91 98200 12345',
   email: 'hello@themaincharactermedia.com',

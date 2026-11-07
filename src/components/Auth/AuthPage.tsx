@@ -115,8 +115,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
       {/* Top Brand Banner */}
       <header className="relative z-10 px-6 py-5 max-w-6xl mx-auto w-full flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg border border-[#C58B39]/60 bg-[#161513] flex items-center justify-center shadow-lg">
-            <span className="font-serif text-[#C58B39] font-bold text-xl tracking-wider">M</span>
+          <div className="w-10 h-10 rounded-lg border border-[#C58B39]/60 bg-white p-1 flex items-center justify-center shadow-lg overflow-hidden shrink-0">
+            <img src="/logo.png" alt="TMCM" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="font-serif tracking-[0.2em] text-sm font-bold text-white uppercase">

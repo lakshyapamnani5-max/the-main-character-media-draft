@@ -37,6 +37,7 @@ import { EventModal } from '../Events/EventModal';
 import { EventCommandCenter } from '../Events/EventCommandCenter';
 import { AssignCrewModal } from '../Events/AssignCrewModal';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
+import { formatDisplayDate } from '../../utils/dateUtils';
 
 export type JobFilterTab = 
   | 'all' 
@@ -532,7 +533,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       <div>
                         <div className="flex items-center gap-2 text-xs text-neutral-500">
                           <span className="font-mono text-[#C58B39] font-bold">
-                            {event.startDate || (event as any).shootDate ? new Date(event.startDate || (event as any).shootDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'TBD'}
+                            {formatDisplayDate(event.startDate || (event as any).shootDate)}
                           </span>
                           <span aria-hidden="true">·</span>
                           <span className="font-mono">{callTime}</span>

@@ -115,12 +115,20 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const upcoming7DaysEvents = events.filter(e => {
     const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
     return start >= todayStr && start <= next7DaysStr && e.status !== 'Cancelled' && e.status !== 'Archived';
-  }).sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+  }).sort((a, b) => {
+    const dateA = a.startDate || (a as any).shootDate || '';
+    const dateB = b.startDate || (b as any).shootDate || '';
+    return dateA.localeCompare(dateB);
+  });
 
-  // Confirmed upcoming events
+  // Confirmed upcoming events sorted ascending (first date first)
   const upcomingEvents = events.filter(e => 
     e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress'
-  ).sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+  ).sort((a, b) => {
+    const dateA = a.startDate || (a as any).shootDate || '';
+    const dateB = b.startDate || (b as any).shootDate || '';
+    return dateA.localeCompare(dateB);
+  });
 
   // Events with pending balance
   const eventsWithPendingBalance = events.filter(e => 

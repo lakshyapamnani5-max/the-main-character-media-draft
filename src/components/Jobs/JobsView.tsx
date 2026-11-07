@@ -179,42 +179,51 @@ export const JobsView: React.FC<JobsViewProps> = ({
   };
 
   // Filter events based on tab
-  const filteredEvents = events.filter(e => {
-    const start = e.startDate || (e as any).shootDate || '';
+  const filteredEvents = events
+    .filter(e => {
+      const start = e.startDate || (e as any).shootDate || '';
 
-    // Tab filtering
-    if (activeTab === 'upcoming') {
-      const isUpcoming = (e.status === 'Confirmed' || e.status === 'Scheduled') && start >= todayStr;
-      if (!isUpcoming) return false;
-    } else if (activeTab === 'active') {
-      const isActive = e.status === 'In Progress' || (start <= todayStr && (e.endDate || start) >= todayStr && e.status !== 'Completed' && e.status !== 'Cancelled');
-      if (!isActive) return false;
-    } else if (activeTab === 'completed') {
-      if (e.status !== 'Completed') return false;
-    } else if (activeTab === 'other') {
-      const type = (e.eventType || '').toLowerCase();
-      const isOther = !type.includes('wedding') && !type.includes('sangeet') && !type.includes('reception');
-      if (!isOther) return false;
-    }
+      // Tab filtering
+      if (activeTab === 'upcoming') {
+        const isUpcoming = (e.status === 'Confirmed' || e.status === 'Scheduled') && start >= todayStr;
+        if (!isUpcoming) return false;
+      } else if (activeTab === 'active') {
+        const isActive = e.status === 'In Progress' || (start <= todayStr && (e.endDate || start) >= todayStr && e.status !== 'Completed' && e.status !== 'Cancelled');
+        if (!isActive) return false;
+      } else if (activeTab === 'completed') {
+        if (e.status !== 'Completed') return false;
+      } else if (activeTab === 'other') {
+        const type = (e.eventType || '').toLowerCase();
+        const isOther = !type.includes('wedding') && !type.includes('sangeet') && !type.includes('reception');
+        if (!isOther) return false;
+      }
 
-    // Status filter
-    if (statusFilter !== 'All' && e.status !== statusFilter) {
-      return false;
-    }
+      // Status filter
+      if (statusFilter !== 'All' && e.status !== statusFilter) {
+        return false;
+      }
 
-    // Search query
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      const match = 
-        e.eventName.toLowerCase().includes(q) ||
-        e.clientName.toLowerCase().includes(q) ||
-        e.venue.toLowerCase().includes(q) ||
-        (e.locationCity || e.city || '').toLowerCase().includes(q);
-      if (!match) return false;
-    }
+      // Search query
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const match = 
+          e.eventName.toLowerCase().includes(q) ||
+          e.clientName.toLowerCase().includes(q) ||
+          e.venue.toLowerCase().includes(q) ||
+          (e.locationCity || e.city || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
 
-    return true;
-  });
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate || (a as any).shootDate || '';
+      const dateB = b.startDate || (b as any).shootDate || '';
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB); // Ascending order: earliest / first date first
+    });
 
   // If viewing single event command center
   if (activeCommandCenterEvent) {

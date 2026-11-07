@@ -39,21 +39,45 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
     return isAssigned;
   });
 
-  const todayShoots = myAssignedShoots.filter(event => {
-    const start = event.startDate || event.shootDate || '';
-    const end = event.endDate || start;
-    return (todayStr >= start && todayStr <= end) && event.status !== 'Cancelled' && event.status !== 'Archived';
-  });
+  const todayShoots = myAssignedShoots
+    .filter(event => {
+      const start = event.startDate || event.shootDate || '';
+      const end = event.endDate || start;
+      return (todayStr >= start && todayStr <= end) && event.status !== 'Cancelled' && event.status !== 'Archived';
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate || a.shootDate || '';
+      const dateB = b.startDate || b.shootDate || '';
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB);
+    });
 
-  const upcomingShoots = myAssignedShoots.filter(event => {
-    const start = event.startDate || event.shootDate || '';
-    return start >= todayStr && event.status !== 'Completed' && event.status !== 'Cancelled' && event.status !== 'Archived';
-  });
+  const upcomingShoots = myAssignedShoots
+    .filter(event => {
+      const start = event.startDate || event.shootDate || '';
+      return start >= todayStr && event.status !== 'Completed' && event.status !== 'Cancelled' && event.status !== 'Archived';
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate || a.shootDate || '';
+      const dateB = b.startDate || b.shootDate || '';
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB); // Ascending order: earliest / first date first
+    });
 
-  const completedShoots = myAssignedShoots.filter(event => {
-    const start = event.startDate || event.shootDate || '';
-    return event.status === 'Completed' || (start < todayStr && event.status !== 'Cancelled');
-  });
+  const completedShoots = myAssignedShoots
+    .filter(event => {
+      const start = event.startDate || event.shootDate || '';
+      return event.status === 'Completed' || (start < todayStr && event.status !== 'Cancelled');
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate || a.shootDate || '';
+      const dateB = b.startDate || b.shootDate || '';
+      return dateB.localeCompare(dateA); // Most recently completed first
+    });
 
   const currentList = activeSubTab === 'today' 
     ? todayShoots 

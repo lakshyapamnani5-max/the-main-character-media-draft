@@ -111,20 +111,29 @@ export const EventsView: React.FC<EventsViewProps> = ({
     'Archived'
   ];
 
-  const filteredEvents = events.filter(e => {
-    const matchesStatus = selectedStatus === 'All' || e.status === selectedStatus;
-    const startDate = e.startDate || (e as any).shootDate || '';
-    const locationCity = e.locationCity || (e as any).city || '';
-    
-    const matchesSearch = 
-      e.eventName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.leadCreator.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      locationCity.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredEvents = events
+    .filter(e => {
+      const matchesStatus = selectedStatus === 'All' || e.status === selectedStatus;
+      const startDate = e.startDate || (e as any).shootDate || '';
+      const locationCity = e.locationCity || (e as any).city || '';
+      
+      const matchesSearch = 
+        e.eventName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.venue.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.leadCreator.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        locationCity.toLowerCase().includes(searchQuery.toLowerCase());
 
-    return matchesStatus && matchesSearch;
-  });
+      return matchesStatus && matchesSearch;
+    })
+    .sort((a, b) => {
+      const dateA = a.startDate || (a as any).shootDate || '';
+      const dateB = b.startDate || (b as any).shootDate || '';
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB); // Ascending order: earliest / first date first
+    });
 
   const handleAddNew = () => {
     setEditingEvent(null);

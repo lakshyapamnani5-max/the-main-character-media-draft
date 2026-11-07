@@ -31,31 +31,40 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
   });
 
   // Calculate earnings items
-  const shootPayoutItems = myShoots.map(event => {
-    const asg = event.crewAssignments?.find(a => a.crewId === activeCrew.id);
-    const amount = asg?.payout || activeCrew.defaultPayout || 0;
-    const paidAmount = asg?.paidAmount !== undefined 
-      ? asg.paidAmount 
-      : (asg?.paymentStatus === 'Paid' ? amount : 0);
-    const remainingDue = Math.max(0, amount - paidAmount);
-    const isSettled = asg?.paymentStatus === 'Paid' || (paidAmount >= amount && amount > 0);
-    const isPartial = asg?.paymentStatus === 'Partially Paid' || (paidAmount > 0 && remainingDue > 0);
-    const role = asg?.role || activeCrew.role;
-    const date = event.startDate || (event as any).shootDate || 'Upcoming';
+  const shootPayoutItems = myShoots
+    .map(event => {
+      const asg = event.crewAssignments?.find(a => a.crewId === activeCrew.id);
+      const amount = asg?.payout || activeCrew.defaultPayout || 0;
+      const paidAmount = asg?.paidAmount !== undefined 
+        ? asg.paidAmount 
+        : (asg?.paymentStatus === 'Paid' ? amount : 0);
+      const remainingDue = Math.max(0, amount - paidAmount);
+      const isSettled = asg?.paymentStatus === 'Paid' || (paidAmount >= amount && amount > 0);
+      const isPartial = asg?.paymentStatus === 'Partially Paid' || (paidAmount > 0 && remainingDue > 0);
+      const role = asg?.role || activeCrew.role;
+      const date = event.startDate || (event as any).shootDate || 'Upcoming';
 
-    return {
-      event,
-      amount,
-      paidAmount,
-      remainingDue,
-      isSettled,
-      isPartial,
-      paymentMode: asg?.paymentMode,
-      paidAt: asg?.paidAt,
-      role,
-      date
-    };
-  });
+      return {
+        event,
+        amount,
+        paidAmount,
+        remainingDue,
+        isSettled,
+        isPartial,
+        paymentMode: asg?.paymentMode,
+        paidAt: asg?.paidAt,
+        role,
+        date
+      };
+    })
+    .sort((a, b) => {
+      const dateA = a.event.startDate || (a.event as any).shootDate || '';
+      const dateB = b.event.startDate || (b.event as any).shootDate || '';
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.localeCompare(dateB); // Ascending order: earliest / first date first
+    });
 
   const totalSettled = shootPayoutItems.reduce((sum, item) => sum + item.paidAmount, 0);
   const totalUnsettled = shootPayoutItems.reduce((sum, item) => sum + item.remainingDue, 0);

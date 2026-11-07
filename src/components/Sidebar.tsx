@@ -202,9 +202,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="flex items-center gap-3 text-left group focus:outline-none min-w-0"
             title="The Main Character Media"
           >
-            {companySettings.logoUrl ? (
+            {companySettings.logoUrl || '/logo.png' ? (
               <img 
-                src={companySettings.logoUrl} 
+                src={companySettings.logoUrl || '/logo.png'} 
                 alt="Logo" 
                 className="w-8 h-8 rounded border border-[#C58B39]/50 bg-white p-0.5 object-contain group-hover:scale-105 transition-transform shadow-xs shrink-0"
               />

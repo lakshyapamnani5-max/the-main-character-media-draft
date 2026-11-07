@@ -115,7 +115,7 @@ const DEFAULT_PAYMENTS: PaymentRecord[] = [];
 const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   companyName: 'The Main Character Media',
   tagline: 'Luxury Wedding & Celebration Content Creation',
-  logoUrl: '',
+  logoUrl: '/logo.png',
   phone: '+91 98200 12345',
   whatsapp: '+91 98200 12345',
   email: 'hello@themaincharactermedia.com',
@@ -443,8 +443,45 @@ export class StorageService {
     this.initialize();
     try {
       const data = localStorage.getItem(STORAGE_KEYS.EVENTS);
-      const events: EventShoot[] = data ? JSON.parse(data) : DEFAULT_EVENTS;
-      return events;
+      const rawEvents: EventShoot[] = data ? JSON.parse(data) : DEFAULT_EVENTS;
+
+      let hadLegacyMockData = false;
+      const sanitized = rawEvents.map(e => {
+        let changed = false;
+        let cleanedPOVs = e.povs;
+        if (e.povs && e.povs.length > 0) {
+          cleanedPOVs = e.povs.filter(p => 
+            !p.description?.includes('lehenga reveal') && 
+            !p.description?.includes('Mandap sacred moments')
+          );
+          if (cleanedPOVs.length !== e.povs.length) changed = true;
+        }
+
+        let cleanedTimeline = e.timeline;
+        if (e.timeline && e.timeline.length > 0) {
+          cleanedTimeline = e.timeline.filter(t => t.title !== 'Crew Call & Rig Setup');
+          if (cleanedTimeline.length !== e.timeline.length) changed = true;
+        }
+
+        if (changed) {
+          hadLegacyMockData = true;
+          return {
+            ...e,
+            povs: cleanedPOVs || [],
+            timeline: cleanedTimeline || []
+          };
+        }
+        return e;
+      });
+
+      if (hadLegacyMockData) {
+        localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(sanitized));
+        sanitized.forEach(e => {
+          saveEventToFirestore(e).catch(() => {});
+        });
+      }
+
+      return sanitized;
     } catch {
       return DEFAULT_EVENTS;
     }
@@ -543,36 +580,8 @@ export class StorageService {
       crewMembers: initialCrewMembers,
       crewAssignments: initialAssignments,
       subEvents: eventData.subEvents !== undefined ? eventData.subEvents : [],
-      timeline: eventData.timeline || [
-        {
-          id: `tl-${Date.now()}-1`,
-          eventId: `evt-${Date.now()}`,
-          time: '03:00 PM',
-          title: 'Crew Call & Rig Setup',
-          venue: eventData.venue || 'Main Venue',
-          assignedCrewIds: initialAssignments.map(a => a.crewId),
-          priority: 'High',
-          completed: false
-        }
-      ],
-      povs: eventData.povs || [
-        {
-          id: `pov-${Date.now()}-1`,
-          eventId: `evt-${Date.now()}`,
-          type: 'Bride POV',
-          description: 'Bride getting ready and final lehenga reveal.',
-          priority: 'Urgent',
-          status: 'Pending'
-        },
-        {
-          id: `pov-${Date.now()}-2`,
-          eventId: `evt-${Date.now()}`,
-          type: 'Couple POV',
-          description: 'Mandap sacred moments and varmala exchange.',
-          priority: 'Urgent',
-          status: 'Pending'
-        }
-      ],
+      timeline: eventData.timeline || [],
+      povs: eventData.povs || [],
       files: eventData.files || [],
       activityLog: [
         {

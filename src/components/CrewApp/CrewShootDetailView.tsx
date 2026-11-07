@@ -94,9 +94,13 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
     window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  // Filter POVs assigned to this crew member or all
-  const myPOVs = (event.povs || []).filter(p => !p.assignedCrewId || p.assignedCrewId === activeCrew.id);
-  const otherPOVs = (event.povs || []).filter(p => p.assignedCrewId && p.assignedCrewId !== activeCrew.id);
+  // Filter POVs assigned to this crew member (excluding any legacy dummy/mock POVs)
+  const rawPOVs = (event.povs || []).filter(p => 
+    !p.description?.includes('lehenga reveal') && 
+    !p.description?.includes('Mandap sacred moments')
+  );
+  const myPOVs = rawPOVs.filter(p => !p.assignedCrewId || p.assignedCrewId === activeCrew.id);
+  const otherPOVs = rawPOVs.filter(p => p.assignedCrewId && p.assignedCrewId !== activeCrew.id);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-24 text-neutral-900 animate-in fade-in duration-150">
@@ -309,23 +313,19 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
           </div>
         )}
 
-        {/* Dedicated POVs / Content Tasks Section */}
-        <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="font-serif font-bold text-sm text-neutral-900 flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-[#C58B39]" />
-              <span>Your Assigned POVs & Shot Queue</span>
+        {/* Dedicated POVs / Content Tasks Section (Only shown if POVs have actually been created/assigned) */}
+        {myPOVs.length > 0 && (
+          <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="font-serif font-bold text-sm text-neutral-900 flex items-center gap-1.5">
+                <Camera className="w-4 h-4 text-[#C58B39]" />
+                <span>Your Assigned POVs & Shot Queue</span>
+              </div>
+              <span className="text-[11px] font-mono text-neutral-500 font-medium">
+                {myPOVs.filter(p => p.status === 'Captured' || p.status === 'Delivered').length} / {myPOVs.length} Done
+              </span>
             </div>
-            <span className="text-[11px] font-mono text-neutral-500 font-medium">
-              {myPOVs.filter(p => p.status === 'Captured' || p.status === 'Delivered').length} / {myPOVs.length} Done
-            </span>
-          </div>
 
-          {myPOVs.length === 0 ? (
-            <div className="p-6 text-center text-xs text-neutral-500 bg-[#FAF8F5] rounded-xl border border-dashed border-[#E8E3D9]">
-              No individual POVs assigned specifically to your queue yet. Follow the general timeline.
-            </div>
-          ) : (
             <div className="space-y-3">
               {myPOVs.map(pov => {
                 const isCaptured = pov.status === 'Captured' || pov.status === 'Delivered';
@@ -411,8 +411,8 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
                 );
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Special Instructions & Notes */}
         {(event.notes || event.consentUsageNotes) && (

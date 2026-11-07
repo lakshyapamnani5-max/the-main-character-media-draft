@@ -183,6 +183,25 @@ const DEFAULT_PLANNERS: PlannerVendor[] = [];
 
 const DEFAULT_INVOICES: Invoice[] = [];
 
+export const DEFAULT_EVENT_CATEGORIES: string[] = [
+  'Wedding',
+  'Haldi Ceremony',
+  'Mehendi Soirée',
+  'Sangeet Gala',
+  'Reception Evening',
+  'Engagement',
+  'Pre-Wedding Cinematic',
+  'Multi-Day Royal Wedding',
+  'Cocktail Soirée',
+  'Maternity Shoot',
+  'Baby Shower',
+  'Birthday Celebration',
+  'Corporate Gala',
+  'Fashion & Editorial',
+  'Commercial Ad Shoot',
+  'Other Shoot'
+];
+
 export class StorageService {
   private static notifyListeners() {
     if (typeof window !== 'undefined') {
@@ -278,6 +297,40 @@ export class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS)) {
       localStorage.setItem(STORAGE_KEYS.COMPANY_SETTINGS, JSON.stringify(DEFAULT_COMPANY_SETTINGS));
     }
+  }
+
+  // --- EVENT CATEGORIES & TYPES ---
+  static getEventCategories(): string[] {
+    if (typeof window === 'undefined') return DEFAULT_EVENT_CATEGORIES;
+    try {
+      const data = localStorage.getItem('tmc_event_categories_v1');
+      if (data) {
+        const parsed: string[] = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...DEFAULT_EVENT_CATEGORIES, ...parsed]));
+        }
+      }
+      return DEFAULT_EVENT_CATEGORIES;
+    } catch {
+      return DEFAULT_EVENT_CATEGORIES;
+    }
+  }
+
+  static addEventCategory(category: string): string[] {
+    const trimmed = (category || '').trim();
+    if (!trimmed) return this.getEventCategories();
+    const current = this.getEventCategories();
+    if (!current.includes(trimmed)) {
+      const updated = [...current, trimmed];
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('tmc_event_categories_v1', JSON.stringify(updated));
+        } catch {}
+      }
+      this.notifyListeners();
+      return updated;
+    }
+    return current;
   }
 
   // --- CREW ROSTER & CONFLICT DETECTOR ---

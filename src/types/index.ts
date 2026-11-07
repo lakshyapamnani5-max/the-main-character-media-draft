@@ -589,7 +589,15 @@ export interface DashboardMetrics {
   activeJobsCount: number;
   monthlyRevenue: number;
   monthlyExpenses: number;
+  monthlyCrewPayouts?: number;
+  monthlyGrossProfit?: number;
+  monthlyEstimatedProfit?: number;
+  monthlyMarginPercent?: number;
+  totalExpenses?: number;
   estimatedProfit: number;
+  profitMarginPercent?: number;
+  crewSettledPayout?: number;
+  crewPendingPayout?: number;
   newEnquiriesCount: number;
   outstandingInvoicesCount?: number;
   outstandingInvoicesAmount?: number;

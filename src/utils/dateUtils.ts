@@ -60,3 +60,4 @@ export function isSameDay(dateStr1?: string | null, dateStr2?: string | null): b
   if (!dateStr1 || !dateStr2) return false;
   return dateStr1.split('T')[0].trim() === dateStr2.split('T')[0].trim();
 }
+

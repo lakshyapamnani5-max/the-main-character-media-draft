@@ -936,7 +936,11 @@ export class StorageService {
   static updateCrewAssignmentPaymentStatus(
     eventId: string,
     crewId: string,
-    paymentStatus: 'Paid' | 'Unpaid'
+    paymentStatus: 'Paid' | 'Unpaid' | 'Partially Paid',
+    customPaidAmount?: number,
+    customTotalPayout?: number,
+    paymentMode?: string,
+    notes?: string
   ): boolean {
     const events = this.getEvents();
     const event = events.find(e => e.id === eventId);
@@ -948,15 +952,55 @@ export class StorageService {
 
     const assignment = event.crewAssignments.find(a => a.crewId === crewId);
     if (assignment) {
-      assignment.paymentStatus = paymentStatus;
-      if (paymentStatus === 'Paid') {
-        assignment.paidAt = new Date().toISOString();
-      } else {
-        delete assignment.paidAt;
+      if (customTotalPayout !== undefined && customTotalPayout >= 0) {
+        assignment.payout = customTotalPayout;
       }
+
+      const total = assignment.payout || 0;
+
+      if (customPaidAmount !== undefined) {
+        const paid = Math.max(0, customPaidAmount);
+        assignment.paidAmount = paid;
+        if (paid >= total && total > 0) {
+          assignment.paymentStatus = 'Paid';
+          assignment.paidAt = new Date().toISOString();
+        } else if (paid > 0) {
+          assignment.paymentStatus = 'Partially Paid';
+          assignment.paidAt = new Date().toISOString();
+        } else {
+          assignment.paymentStatus = 'Unpaid';
+          delete assignment.paidAt;
+        }
+      } else {
+        assignment.paymentStatus = paymentStatus;
+        if (paymentStatus === 'Paid') {
+          assignment.paidAmount = total;
+          assignment.paidAt = new Date().toISOString();
+        } else if (paymentStatus === 'Unpaid') {
+          assignment.paidAmount = 0;
+          delete assignment.paidAt;
+        }
+      }
+
+      if (paymentMode) assignment.paymentMode = paymentMode;
+      if (notes) assignment.notes = notes;
     } else {
       const crewRoster = this.getCrewRoster();
       const crewMember = crewRoster.find(c => c.id === crewId || c.name === crewId);
+      const total = customTotalPayout !== undefined ? customTotalPayout : (crewMember ? crewMember.defaultPayout : 6000);
+      const paid = customPaidAmount !== undefined 
+        ? Math.max(0, customPaidAmount) 
+        : (paymentStatus === 'Paid' ? total : 0);
+
+      let computedStatus: 'Paid' | 'Unpaid' | 'Partially Paid' = paymentStatus;
+      if (paid >= total && total > 0) {
+        computedStatus = 'Paid';
+      } else if (paid > 0) {
+        computedStatus = 'Partially Paid';
+      } else {
+        computedStatus = 'Unpaid';
+      }
+
       event.crewAssignments.push({
         id: `asg-${Date.now()}`,
         eventId,
@@ -965,15 +1009,20 @@ export class StorageService {
         role: crewMember ? crewMember.role : 'Content Creator',
         callTime: '08:00 AM',
         wrapTime: '11:00 PM',
-        payout: crewMember ? crewMember.defaultPayout : 6000,
+        payout: total,
+        paidAmount: paid,
         assignedSubEventIds: [],
         assignedPOVIds: [],
-        paymentStatus,
-        paidAt: paymentStatus === 'Paid' ? new Date().toISOString() : undefined,
+        paymentStatus: computedStatus,
+        paymentMode,
+        notes,
+        paidAt: paid > 0 ? new Date().toISOString() : undefined,
         createdAt: new Date().toISOString()
       });
     }
 
+    // Recalculate event.crewPayout
+    event.crewPayout = event.crewAssignments.reduce((acc, curr) => acc + (curr.payout || 0), 0);
     event.updatedAt = new Date().toISOString();
     this.persistEvents(events, event);
     return true;

@@ -28,11 +28,13 @@ import {
   CrewMember, 
   Expense, 
   DashboardMetrics,
-  Invoice
+  Invoice,
+  EventCrewAssignment
 } from '../../types';
 import { StorageService } from '../../services/storage';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
 import { InvoicesView } from '../Invoices/InvoicesView';
+import { RecordCrewPayoutModal } from '../Crew/RecordCrewPayoutModal';
 
 export type MoneyTab = 'overview' | 'invoices' | 'payments' | 'payouts' | 'expenses';
 
@@ -68,9 +70,26 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
   const [isAddPaymentOpen, setIsAddPaymentOpen] = useState(false);
   const [selectedEventForPayment, setSelectedEventForPayment] = useState<EventShoot | null>(null);
   const [expandedCrewId, setExpandedCrewId] = useState<string | null>(null);
+  const [payoutModalData, setPayoutModalData] = useState<{ event: EventShoot; crewMember: CrewMember; assignment?: EventCrewAssignment } | null>(null);
 
-  const handleUpdateCrewPayoutStatus = (eventId: string, crewId: string, status: 'Paid' | 'Unpaid') => {
-    StorageService.updateCrewAssignmentPaymentStatus(eventId, crewId, status);
+  const handleUpdateCrewPayoutStatus = (
+    eventId: string, 
+    crewId: string, 
+    status: 'Paid' | 'Unpaid' | 'Partially Paid',
+    customPaidAmount?: number,
+    customTotalPayout?: number,
+    paymentMode?: string,
+    notes?: string
+  ) => {
+    StorageService.updateCrewAssignmentPaymentStatus(
+      eventId, 
+      crewId, 
+      status, 
+      customPaidAmount, 
+      customTotalPayout, 
+      paymentMode, 
+      notes
+    );
     onRefreshData();
   };
   
@@ -125,23 +144,53 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
     let totalEarned = 0;
     let settled = 0;
     let unsettled = 0;
-    const shootsDetails: { event: EventShoot; amount: number; status: 'Paid' | 'Unpaid'; role: string }[] = [];
+    const shootsDetails: { 
+      event: EventShoot; 
+      assignment?: EventCrewAssignment;
+      amount: number; 
+      paidAmount: number;
+      remainingDue: number;
+      status: 'Paid' | 'Unpaid' | 'Partially Paid'; 
+      role: string 
+    }[] = [];
 
     events.forEach(ev => {
       const assignment = (ev.crewAssignments || []).find(a => a.crewId === crew.id);
       if (assignment) {
         assignedShootCount++;
         const amt = assignment.payout || crew.defaultPayout || 0;
-        const status = assignment.paymentStatus || 'Unpaid';
+        const paidAmount = assignment.paidAmount !== undefined 
+          ? assignment.paidAmount 
+          : (assignment.paymentStatus === 'Paid' ? amt : 0);
+        const remainingDue = Math.max(0, amt - paidAmount);
+        const status: 'Paid' | 'Unpaid' | 'Partially Paid' = assignment.paymentStatus || 
+          (paidAmount >= amt && amt > 0 ? 'Paid' : paidAmount > 0 ? 'Partially Paid' : 'Unpaid');
+
         totalEarned += amt;
-        if (status === 'Paid') settled += amt; else unsettled += amt;
-        shootsDetails.push({ event: ev, amount: amt, status, role: assignment.role });
+        settled += paidAmount;
+        unsettled += remainingDue;
+        shootsDetails.push({ 
+          event: ev, 
+          assignment,
+          amount: amt, 
+          paidAmount,
+          remainingDue,
+          status, 
+          role: assignment.role 
+        });
       } else if (ev.crewMembers && ev.crewMembers.includes(crew.name)) {
         assignedShootCount++;
         const amt = crew.defaultPayout || 0;
         totalEarned += amt;
         unsettled += amt;
-        shootsDetails.push({ event: ev, amount: amt, status: 'Unpaid', role: crew.role });
+        shootsDetails.push({ 
+          event: ev, 
+          amount: amt, 
+          paidAmount: 0,
+          remainingDue: amt,
+          status: 'Unpaid', 
+          role: crew.role 
+        });
       }
     });
 
@@ -599,29 +648,58 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
                             {shootsDetails.length === 0 ? (
                               <div className="text-center py-2 text-xs text-neutral-400 italic">No shoots assigned.</div>
                             ) : (
-                              shootsDetails.map(({ event, amount, status, role }) => (
-                                <div key={event.id} className="p-2 bg-white border border-[#E8E3D9] rounded-lg flex items-center justify-between gap-2">
+                              shootsDetails.map(({ event, assignment, amount, paidAmount, remainingDue, status, role }) => (
+                                <div key={event.id} className="p-2.5 bg-white border border-[#E8E3D9] rounded-lg flex items-center justify-between gap-2">
                                   <div className="min-w-0 flex-1">
                                     <div className="font-semibold text-xs text-neutral-900 truncate">{event.eventName}</div>
                                     <div className="text-[10px] text-neutral-500 font-mono">
                                       {event.startDate || (event as any).shootDate} · Role: {role}
                                     </div>
+                                    {status === 'Partially Paid' && (
+                                      <div className="text-[10px] font-mono mt-0.5">
+                                        Paid: <span className="text-emerald-700 font-semibold">₹{paidAmount.toLocaleString('en-IN')}</span> · Due: <span className="text-amber-700 font-semibold">₹{remainingDue.toLocaleString('en-IN')}</span>
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="font-mono font-bold text-xs text-neutral-900">
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="font-mono font-bold text-xs text-neutral-900 mr-1">
                                       ₹{amount.toLocaleString('en-IN')}
                                     </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPayoutModalData({ event, crewMember: crew, assignment })}
+                                      className="px-2 py-1 text-[10px] font-semibold bg-[#FAF8F5] hover:bg-[#F2ECE1] text-[#C58B39] border border-[#E8E3D9] rounded transition-colors flex items-center gap-1"
+                                      title="Pay Custom Amount / Advance"
+                                    >
+                                      <Wallet className="w-3 h-3" />
+                                      <span>Pay Custom</span>
+                                    </button>
                                     <select
                                       value={status}
-                                      onChange={(e) => handleUpdateCrewPayoutStatus(event.id, crew.id, e.target.value as 'Paid' | 'Unpaid')}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === 'Custom') {
+                                          setPayoutModalData({ event, crewMember: crew, assignment });
+                                        } else {
+                                          handleUpdateCrewPayoutStatus(event.id, crew.id, val as 'Paid' | 'Unpaid');
+                                        }
+                                      }}
                                       className={`text-[10px] font-semibold px-2 py-1 rounded border cursor-pointer focus:outline-none ${
                                         status === 'Paid'
                                           ? 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold'
-                                          : 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
+                                          : status === 'Partially Paid'
+                                            ? 'bg-amber-100 text-amber-900 border-amber-400 font-bold'
+                                            : 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
                                       }`}
                                     >
                                       <option value="Unpaid">Unpaid</option>
-                                      <option value="Paid">Paid</option>
+                                      {status === 'Partially Paid' && (
+                                        <option value="Partially Paid">
+                                          Partially Paid ({Math.round((paidAmount / (amount || 1)) * 100)}%)
+                                        </option>
+                                      )}
+                                      <option value="Paid">Paid Full</option>
+                                      <option value="Custom">Custom...</option>
                                     </select>
                                   </div>
                                 </div>
@@ -878,6 +956,20 @@ export const MoneyView: React.FC<MoneyViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Record Custom Payout Modal */}
+      {payoutModalData && (
+        <RecordCrewPayoutModal
+          isOpen={!!payoutModalData}
+          onClose={() => setPayoutModalData(null)}
+          event={payoutModalData.event}
+          crewMember={payoutModalData.crewMember}
+          assignment={payoutModalData.assignment}
+          onSavePayout={(eventId, crewId, status, customPaid, customTotal, paymentMode, notes) => {
+            handleUpdateCrewPayoutStatus(eventId, crewId, status, customPaid, customTotal, paymentMode, notes);
+          }}
+        />
       )}
 
     </div>

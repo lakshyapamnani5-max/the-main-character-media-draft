@@ -355,11 +355,13 @@ export interface EventCrewAssignment {
   wrapTime: string;
   reportingLocation?: string;
   payout: number;
+  paidAmount?: number;
+  paymentMode?: string;
   assignedSubEventIds: string[];
   assignedPOVIds: string[];
   notes?: string;
   overrideConflictConfirmed?: boolean;
-  paymentStatus?: 'Paid' | 'Unpaid';
+  paymentStatus?: 'Paid' | 'Unpaid' | 'Partially Paid';
   paidAt?: string;
   createdAt: string;
 }

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { EventCharge, Quotation, Invoice } from '../types';
 import { StorageService } from './storage';
+import { formatDisplayDate } from '../utils/dateUtils';
 
 export class PDFGeneratorService {
   /**
@@ -270,8 +271,8 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(220, 220, 220);
-    doc.text(`Date: ${new Date(quote.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 23, { align: 'right' });
-    doc.text(`Valid Until: ${new Date(quote.validUntil).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(`Date: ${formatDisplayDate(quote.createdAt)}`, pageWidth - margin, 23, { align: 'right' });
+    doc.text(`Valid Until: ${formatDisplayDate(quote.validUntil)}`, pageWidth - margin, 28, { align: 'right' });
     doc.text(`Status: ${quote.status.toUpperCase()}`, pageWidth - margin, 33, { align: 'right' });
 
     yPos = 48;
@@ -315,7 +316,7 @@ export class PDFGeneratorService {
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
     doc.text(`Type: ${quote.eventType}`, rightColX, yPos + 17);
-    doc.text(`Date: ${quote.eventDate ? new Date(quote.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'TBD'}`, rightColX, yPos + 22);
+    doc.text(`Date: ${formatDisplayDate(quote.eventDate)}`, rightColX, yPos + 22);
     doc.text(`Venue: ${quote.venue || 'Venue TBD'}`, rightColX, yPos + 27);
 
     yPos += 40;
@@ -640,8 +641,8 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(220, 220, 220);
-    doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 23, { align: 'right' });
-    doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(`Issue Date: ${formatDisplayDate(invoice.issueDate)}`, pageWidth - margin, 23, { align: 'right' });
+    doc.text(`Due Date: ${formatDisplayDate(invoice.dueDate)}`, pageWidth - margin, 28, { align: 'right' });
     doc.text(`Status: ${invoice.paymentStatus.toUpperCase()}`, pageWidth - margin, 33, { align: 'right' });
 
     yPos = 48;
@@ -695,7 +696,7 @@ export class PDFGeneratorService {
     doc.setTextColor(80, 80, 80);
     doc.text(`Category: ${invoice.eventType}`, rightColX, yPos + 17);
     if (invoice.eventDate) {
-      doc.text(`Shoot Date: ${new Date(invoice.eventDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`, rightColX, yPos + 21.5);
+      doc.text(`Shoot Date: ${formatDisplayDate(invoice.eventDate)}`, rightColX, yPos + 21.5);
     }
 
     yPos += 40;

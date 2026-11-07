@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -34,6 +34,12 @@ import {
 } from '../../types';
 import { NavModule } from '../Header';
 import { AdminReminderBanner } from '../Reminders/AdminReminderBanner';
+import { 
+  getTodayDateString, 
+  parseDateSafe, 
+  formatDisplayDate, 
+  formatYYYYMMDD 
+} from '../../utils/dateUtils';
 
 interface HomeViewProps {
   metrics: DashboardMetrics;
@@ -76,19 +82,38 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onOpenEventDetail,
   onOpenRecordPayment
 }) => {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [financialTimeframe, setFinancialTimeframe] = useState<'all' | 'month'>('all');
+  const todayStr = getTodayDateString();
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Calculate this month's pending client balance
+  const thisMonthPending = useMemo(() => {
+    return events
+      .filter(e => {
+        if (e.status === 'Cancelled' || e.status === 'Archived') return false;
+        const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+        if (!start) return false;
+        const [y, m] = start.split('-').map(Number);
+        return (m - 1) === currentMonth && y === currentYear;
+      })
+      .reduce((sum, e) => sum + (e.balanceDue || 0), 0);
+  }, [events, currentMonth, currentYear]);
 
   // Today's events
   const todayEvents = events.filter(e => {
-    const start = e.startDate || (e as any).shootDate || '';
-    const end = e.endDate || start;
+    const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+    const end = (e.endDate || start).split('T')[0].trim();
     return (todayStr >= start && todayStr <= end) && e.status !== 'Cancelled' && e.status !== 'Archived';
   });
 
-  // Upcoming 7 days events
-  const next7DaysStr = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+  // Upcoming 7 days events (safe local date addition)
+  const next7Date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 12, 0, 0);
+  const next7DaysStr = formatYYYYMMDD(next7Date.getFullYear(), next7Date.getMonth() + 1, next7Date.getDate());
   const upcoming7DaysEvents = events.filter(e => {
-    const start = e.startDate || (e as any).shootDate || '';
+    const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
     return start >= todayStr && start <= next7DaysStr && e.status !== 'Cancelled' && e.status !== 'Archived';
   }).sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
 
@@ -281,13 +306,39 @@ export const HomeView: React.FC<HomeViewProps> = ({
         )}
       </div>
 
-      {/* SECTION 2: 9 KEY METRICS (Exact Cards Requested) */}
+      {/* SECTION 2: 9 KEY METRICS (With Timeframe Filter & Exact Mathematical Consistency) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-mono uppercase tracking-wider text-neutral-500 font-medium">
-            Production & Commercial Ledger
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono uppercase tracking-wider text-neutral-500 font-medium">
+              Production & Commercial Ledger
+            </span>
+            <span className="text-[11px] text-neutral-400 font-mono">· Live Synced</span>
           </div>
-          <span className="text-[11px] text-neutral-400 font-mono">Local Storage Synced</span>
+
+          {/* Timeframe Filter Tabs */}
+          <div className="flex items-center gap-1 p-0.5 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg text-xs font-medium self-start sm:self-auto">
+            <button
+              onClick={() => setFinancialTimeframe('all')}
+              className={`px-3 py-1 rounded-md transition-all ${
+                financialTimeframe === 'all'
+                  ? 'bg-neutral-900 text-white font-bold shadow-2xs'
+                  : 'text-neutral-600 hover:text-black'
+              }`}
+            >
+              Lifetime (Total Portfolio)
+            </button>
+            <button
+              onClick={() => setFinancialTimeframe('month')}
+              className={`px-3 py-1 rounded-md transition-all ${
+                financialTimeframe === 'month'
+                  ? 'bg-neutral-900 text-white font-bold shadow-2xs'
+                  : 'text-neutral-600 hover:text-black'
+              }`}
+            >
+              This Month ({new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })})
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -346,14 +397,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="bg-white border border-[#E8E3D9] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-amber-300 cursor-pointer transition-colors"
           >
             <div className="flex items-center justify-between text-neutral-500 text-xs">
-              <span className="font-medium">Pending Client Payments</span>
+              <span className="font-medium">
+                {financialTimeframe === 'month' ? "This Month's Pending" : "Pending Client Payments"}
+              </span>
               <TrendingUp className="w-4 h-4 text-amber-600" />
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-amber-700 font-mono tabular-nums">
-                ₹{metrics.pendingBalanceTotal.toLocaleString('en-IN')}
+                ₹{(financialTimeframe === 'month' ? thisMonthPending : metrics.pendingBalanceTotal).toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-1">Outstanding receivables</div>
+              <div className="text-[11px] text-neutral-500 mt-1">
+                {financialTimeframe === 'month' ? "Receivables due this month" : "Outstanding receivables"}
+              </div>
             </div>
           </div>
 
@@ -363,51 +418,68 @@ export const HomeView: React.FC<HomeViewProps> = ({
             className="bg-white border border-[#E8E3D9] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-[#C58B39]/50 cursor-pointer transition-colors"
           >
             <div className="flex items-center justify-between text-neutral-500 text-xs">
-              <span className="font-semibold text-neutral-800">Crew Commissions</span>
+              <span className="font-semibold text-neutral-800">
+                {financialTimeframe === 'month' ? "This Month's Crew" : "Crew Commissions"}
+              </span>
               <Users className="w-4 h-4 text-[#C58B39]" />
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 font-mono tabular-nums">
-                ₹{metrics.crewPayoutTotal.toLocaleString('en-IN')}
+                ₹{(financialTimeframe === 'month' ? (metrics.monthlyCrewPayouts || 0) : metrics.crewPayoutTotal).toLocaleString('en-IN')}
               </div>
               <div className="text-[11px] text-neutral-500 mt-1 flex items-center justify-between">
-                <span>Committed creator earnings</span>
-                <span className="text-emerald-700 font-medium font-mono text-[10px]">Margin: ₹{metrics.grossProfit.toLocaleString('en-IN')}</span>
+                <span>{financialTimeframe === 'month' ? "Committed this month" : "Committed creator earnings"}</span>
+                <span className="text-emerald-700 font-medium font-mono text-[10px]">
+                  Margin: ₹{(financialTimeframe === 'month' 
+                    ? (metrics.monthlyGrossProfit ?? (metrics.monthlyRevenue - (metrics.monthlyCrewPayouts || 0))) 
+                    : metrics.grossProfit
+                  ).toLocaleString('en-IN')}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 6. Monthly Revenue */}
+          {/* 6. Revenue */}
           <div 
             onClick={() => onNavigate('money', 'overview')}
             className="bg-white border border-[#E8E3D9] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-[#C58B39]/50 cursor-pointer transition-colors"
           >
             <div className="flex items-center justify-between text-neutral-500 text-xs">
-              <span className="font-medium">Monthly Revenue</span>
+              <span className="font-medium">
+                {financialTimeframe === 'month' ? "Monthly Revenue" : "Total Booked Revenue"}
+              </span>
               <DollarSign className="w-4 h-4 text-neutral-800" />
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-neutral-900 font-mono tabular-nums">
-                ₹{metrics.monthlyRevenue.toLocaleString('en-IN')}
+                ₹{(financialTimeframe === 'month' ? metrics.monthlyRevenue : metrics.totalRevenue).toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-1">Booked contracted package values</div>
+              <div className="text-[11px] text-neutral-500 mt-1">
+                {financialTimeframe === 'month' 
+                  ? "Booked package values this month" 
+                  : `Collected in bank: ₹${metrics.collectedRevenue.toLocaleString('en-IN')}`}
+              </div>
             </div>
           </div>
 
-          {/* 7. Monthly Expenses */}
+          {/* 7. Expenses */}
           <div 
             onClick={() => onNavigate('money', 'expenses')}
             className="bg-white border border-[#E8E3D9] rounded-xl p-4 sm:p-5 shadow-xs flex flex-col justify-between hover:border-red-300 cursor-pointer transition-colors"
           >
             <div className="flex items-center justify-between text-neutral-500 text-xs">
-              <span className="font-medium">Monthly Expenses</span>
+              <span className="font-medium">
+                {financialTimeframe === 'month' ? "Monthly Expenses" : "Operating Expenses"}
+              </span>
               <Receipt className="w-4 h-4 text-red-500" />
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-red-700 font-mono tabular-nums">
-                ₹{metrics.monthlyExpenses.toLocaleString('en-IN')}
+                ₹{(financialTimeframe === 'month' ? metrics.monthlyExpenses : (metrics.totalExpenses || 0)).toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-500 mt-1">Gear rental, cabs & storage</div>
+              <div className="text-[11px] text-neutral-500 mt-1">
+                {financialTimeframe === 'month' ? "Expenses logged this month" : "Gear rental, cabs & storage"}
+              </div>
             </div>
           </div>
 
@@ -418,13 +490,22 @@ export const HomeView: React.FC<HomeViewProps> = ({
           >
             <div className="flex items-center justify-between text-neutral-300 text-xs">
               <span className="font-medium">Estimated Profit</span>
-              <span className="text-[10px] font-mono text-[#C58B39] uppercase font-bold tracking-wider">Net Margin</span>
+              <span className="text-[10px] font-mono text-[#C58B39] uppercase font-bold tracking-wider">
+                {financialTimeframe === 'month' ? `${metrics.monthlyMarginPercent || 0}% Net Margin` : `${metrics.profitMarginPercent || 0}% Net Margin`}
+              </span>
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-white font-mono tabular-nums">
-                ₹{metrics.estimatedProfit.toLocaleString('en-IN')}
+                ₹{(financialTimeframe === 'month' 
+                  ? (metrics.monthlyEstimatedProfit ?? (metrics.monthlyRevenue - (metrics.monthlyCrewPayouts || 0) - metrics.monthlyExpenses)) 
+                  : metrics.estimatedProfit
+                ).toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-400 mt-1">Revenue minus crew & expenses</div>
+              <div className="text-[11px] text-neutral-400 mt-1 font-mono">
+                {financialTimeframe === 'month' 
+                  ? `₹${metrics.monthlyRevenue.toLocaleString('en-IN')} - ₹${(metrics.monthlyCrewPayouts || 0).toLocaleString('en-IN')} - ₹${metrics.monthlyExpenses.toLocaleString('en-IN')}`
+                  : `₹${metrics.totalRevenue.toLocaleString('en-IN')} - ₹${metrics.crewPayoutTotal.toLocaleString('en-IN')} - ₹${(metrics.totalExpenses || 0).toLocaleString('en-IN')}`}
+              </div>
             </div>
           </div>
 
@@ -476,14 +557,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 return (
                   <div key={event.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-2 px-2 rounded-lg transition-colors">
                     <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-[#FAF8F5] border border-[#E8E3D9] flex flex-col items-center justify-center shrink-0 text-center">
-                        <span className="text-[10px] uppercase font-mono text-neutral-500 font-bold">
-                          {new Date(event.startDate || (event as any).shootDate || '').toLocaleDateString('en-IN', { month: 'short' })}
-                        </span>
-                        <span className="font-serif font-bold text-base text-neutral-900 leading-none">
-                          {new Date(event.startDate || (event as any).shootDate || '').getDate()}
-                        </span>
-                      </div>
+                      {(() => {
+                        const d = parseDateSafe(event.startDate || (event as any).shootDate);
+                        return (
+                          <div className="w-12 h-12 rounded-lg bg-[#FAF8F5] border border-[#E8E3D9] flex flex-col items-center justify-center shrink-0 text-center">
+                            <span className="text-[10px] uppercase font-mono text-neutral-500 font-bold">
+                              {d.toLocaleDateString('en-IN', { month: 'short' })}
+                            </span>
+                            <span className="font-serif font-bold text-base text-neutral-900 leading-none">
+                              {d.getDate()}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       <div>
                         <div className="font-serif font-bold text-sm text-neutral-900">
@@ -660,7 +746,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       {/* Quiet Unboxed Metadata */}
                       <div className="flex items-center gap-2 text-xs text-neutral-500">
                         <span className="font-mono text-[#C58B39] font-bold">
-                          {event.startDate || (event as any).shootDate ? new Date(event.startDate || (event as any).shootDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Date TBD'}
+                          {formatDisplayDate(event.startDate || (event as any).shootDate)}
                         </span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono">{callTime}</span>

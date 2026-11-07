@@ -355,11 +355,13 @@ export interface EventCrewAssignment {
   wrapTime: string;
   reportingLocation?: string;
   payout: number;
+  paidAmount?: number;
+  paymentMode?: string;
   assignedSubEventIds: string[];
   assignedPOVIds: string[];
   notes?: string;
   overrideConflictConfirmed?: boolean;
-  paymentStatus?: 'Paid' | 'Unpaid';
+  paymentStatus?: 'Paid' | 'Unpaid' | 'Partially Paid';
   paidAt?: string;
   createdAt: string;
 }
@@ -591,7 +593,15 @@ export interface DashboardMetrics {
   activeJobsCount: number;
   monthlyRevenue: number;
   monthlyExpenses: number;
+  monthlyCrewPayouts?: number;
+  monthlyGrossProfit?: number;
+  monthlyEstimatedProfit?: number;
+  monthlyMarginPercent?: number;
+  totalExpenses?: number;
   estimatedProfit: number;
+  profitMarginPercent?: number;
+  crewSettledPayout?: number;
+  crewPendingPayout?: number;
   newEnquiriesCount: number;
   outstandingInvoicesCount?: number;
   outstandingInvoicesAmount?: number;

@@ -34,27 +34,36 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
   const shootPayoutItems = myShoots.map(event => {
     const asg = event.crewAssignments?.find(a => a.crewId === activeCrew.id);
     const amount = asg?.payout || activeCrew.defaultPayout || 0;
-    const isSettled = asg?.paymentStatus === 'Paid';
+    const paidAmount = asg?.paidAmount !== undefined 
+      ? asg.paidAmount 
+      : (asg?.paymentStatus === 'Paid' ? amount : 0);
+    const remainingDue = Math.max(0, amount - paidAmount);
+    const isSettled = asg?.paymentStatus === 'Paid' || (paidAmount >= amount && amount > 0);
+    const isPartial = asg?.paymentStatus === 'Partially Paid' || (paidAmount > 0 && remainingDue > 0);
     const role = asg?.role || activeCrew.role;
     const date = event.startDate || (event as any).shootDate || 'Upcoming';
 
     return {
       event,
       amount,
+      paidAmount,
+      remainingDue,
       isSettled,
+      isPartial,
+      paymentMode: asg?.paymentMode,
       paidAt: asg?.paidAt,
       role,
       date
     };
   });
 
-  const totalSettled = shootPayoutItems.filter(item => item.isSettled).reduce((sum, item) => sum + item.amount, 0);
-  const totalUnsettled = shootPayoutItems.filter(item => !item.isSettled).reduce((sum, item) => sum + item.amount, 0);
+  const totalSettled = shootPayoutItems.reduce((sum, item) => sum + item.paidAmount, 0);
+  const totalUnsettled = shootPayoutItems.reduce((sum, item) => sum + item.remainingDue, 0);
   const totalEarned = totalSettled + totalUnsettled;
 
   const filteredItems = shootPayoutItems.filter(item => {
     if (filter === 'settled') return item.isSettled;
-    if (filter === 'unsettled') return !item.isSettled;
+    if (filter === 'unsettled') return item.remainingDue > 0;
     return true;
   });
 
@@ -132,7 +141,7 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
               : 'bg-white text-neutral-600 border-[#E8E3D9] hover:bg-[#FAF8F5]'
           }`}
         >
-          Unsettled ({shootPayoutItems.filter(i => !i.isSettled).length})
+          Unsettled ({shootPayoutItems.filter(i => i.remainingDue > 0).length})
         </button>
         <button
           onClick={() => setFilter('settled')}
@@ -161,7 +170,7 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
             </p>
           </div>
         ) : (
-          filteredItems.map(({ event, amount, isSettled, paidAt, role, date }) => (
+          filteredItems.map(({ event, amount, paidAmount, remainingDue, isSettled, isPartial, paymentMode, paidAt, role, date }) => (
             <div
               key={event.id}
               className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3 hover:border-[#D5CEBF] transition-all"
@@ -198,6 +207,16 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
                       <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
                       <span>Settled</span>
                     </span>
+                  ) : isPartial ? (
+                    <div className="flex flex-col items-end gap-0.5 mt-1">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        <Clock className="w-2.5 h-2.5 text-amber-600" />
+                        <span>Partially Paid</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-neutral-500">
+                        Paid: <strong className="text-emerald-700 font-bold">₹{paidAmount.toLocaleString('en-IN')}</strong> · Due: <strong className="text-amber-700 font-bold">₹{remainingDue.toLocaleString('en-IN')}</strong>
+                      </span>
+                    </div>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
                       <Clock className="w-2.5 h-2.5 text-amber-600" />
@@ -214,7 +233,11 @@ export const CrewPayoutsTab: React.FC<CrewPayoutsTabProps> = ({
                 </div>
                 {isSettled ? (
                   <div className="text-emerald-700">
-                    Settled on {paidAt ? new Date(paidAt).toLocaleDateString('en-IN') : 'Completed'}
+                    Settled on {paidAt ? new Date(paidAt).toLocaleDateString('en-IN') : 'Completed'} {paymentMode ? `via ${paymentMode}` : ''}
+                  </div>
+                ) : isPartial ? (
+                  <div className="text-amber-700">
+                    ₹{paidAmount.toLocaleString('en-IN')} paid {paymentMode ? `via ${paymentMode}` : ''} · ₹{remainingDue.toLocaleString('en-IN')} due
                   </div>
                 ) : (
                   <div className="text-amber-700">

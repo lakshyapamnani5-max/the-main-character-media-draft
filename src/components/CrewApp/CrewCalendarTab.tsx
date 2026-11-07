@@ -12,6 +12,11 @@ import {
 } from 'lucide-react';
 import { EventShoot, CrewMember } from '../../types';
 import { CalendarExportModal } from '../Common/CalendarExportModal';
+import { 
+  formatYYYYMMDD, 
+  getTodayDateString, 
+  formatDisplayDate 
+} from '../../utils/dateUtils';
 
 interface CrewCalendarTabProps {
   activeCrew: CrewMember;
@@ -24,20 +29,21 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
   allShoots,
   onSelectShoot
 }) => {
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [eventToExport, setEventToExport] = useState<EventShoot | null>(null);
 
   // Month navigation
-  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(new Date());
+  const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
+  });
 
   const year = currentMonthDate.getFullYear();
   const month = currentMonthDate.getMonth();
 
-  const firstDayIndex = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1, 12, 0, 0).getDay();
+  const daysInMonth = new Date(year, month + 1, 0, 12, 0, 0).getDate();
 
   // Shoots assigned to active crew
   const myShoots = allShoots.filter(event => {
@@ -48,8 +54,8 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
   // Get booked dates set
   const bookedDatesSet = new Set<string>();
   myShoots.forEach(e => {
-    const start = e.startDate || e.shootDate || '';
-    const end = e.endDate || start;
+    const start = (e.startDate || e.shootDate || '').split('T')[0].trim();
+    const end = (e.endDate || start).split('T')[0].trim();
     if (start) {
       bookedDatesSet.add(start);
       if (end && end !== start) {
@@ -59,17 +65,17 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
   });
 
   const shootsOnSelectedDate = myShoots.filter(e => {
-    const start = e.startDate || e.shootDate || '';
-    const end = e.endDate || start;
+    const start = (e.startDate || e.shootDate || '').split('T')[0].trim();
+    const end = (e.endDate || start).split('T')[0].trim();
     return selectedDate >= start && selectedDate <= end;
   });
 
   const handlePrevMonth = () => {
-    setCurrentMonthDate(new Date(year, month - 1, 1));
+    setCurrentMonthDate(new Date(year, month - 1, 1, 12, 0, 0));
   };
 
   const handleNextMonth = () => {
-    setCurrentMonthDate(new Date(year, month + 1, 1));
+    setCurrentMonthDate(new Date(year, month + 1, 1, 12, 0, 0));
   };
 
   const monthNames = [
@@ -108,8 +114,25 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
       <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3">
         {/* Month Header */}
         <div className="flex items-center justify-between pb-2 border-b border-[#F0EBE1]">
-          <div className="font-serif font-bold text-base text-neutral-900">
-            {monthNames[month]} {year}
+          <div className="flex items-center gap-1.5">
+            <select
+              value={month}
+              onChange={(e) => setCurrentMonthDate(new Date(year, Number(e.target.value), 1, 12, 0, 0))}
+              className="text-sm font-serif font-bold text-neutral-900 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg px-2 py-1 focus:outline-none"
+            >
+              {monthNames.map((name, idx) => (
+                <option key={name} value={idx}>{name}</option>
+              ))}
+            </select>
+            <select
+              value={year}
+              onChange={(e) => setCurrentMonthDate(new Date(Number(e.target.value), month, 1, 12, 0, 0))}
+              className="text-sm font-mono font-bold text-neutral-900 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg px-2 py-1 focus:outline-none"
+            >
+              {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -146,10 +169,10 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
 
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const dayNum = i + 1;
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+            const dateStr = formatYYYYMMDD(year, month + 1, dayNum);
             const isBooked = bookedDatesSet.has(dateStr);
             const isSelected = selectedDate === dateStr;
-            const isToday = dateStr === new Date().toISOString().split('T')[0];
+            const isToday = dateStr === getTodayDateString();
 
             return (
               <button
@@ -180,7 +203,7 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
       <div className="space-y-2.5">
         <div className="flex items-center justify-between px-1">
           <div className="text-xs font-semibold uppercase tracking-wider text-neutral-500 font-mono">
-            Agenda: {new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+            Agenda: {formatDisplayDate(selectedDate, { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
           </div>
 
           <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-semibold ${

@@ -951,7 +951,11 @@ export class StorageService {
   static updateCrewAssignmentPaymentStatus(
     eventId: string,
     crewId: string,
-    paymentStatus: 'Paid' | 'Unpaid'
+    paymentStatus: 'Paid' | 'Unpaid' | 'Partially Paid',
+    customPaidAmount?: number,
+    customTotalPayout?: number,
+    paymentMode?: string,
+    notes?: string
   ): boolean {
     const events = this.getEvents();
     const event = events.find(e => e.id === eventId);
@@ -963,15 +967,55 @@ export class StorageService {
 
     const assignment = event.crewAssignments.find(a => a.crewId === crewId);
     if (assignment) {
-      assignment.paymentStatus = paymentStatus;
-      if (paymentStatus === 'Paid') {
-        assignment.paidAt = new Date().toISOString();
-      } else {
-        delete assignment.paidAt;
+      if (customTotalPayout !== undefined && customTotalPayout >= 0) {
+        assignment.payout = customTotalPayout;
       }
+
+      const total = assignment.payout || 0;
+
+      if (customPaidAmount !== undefined) {
+        const paid = Math.max(0, customPaidAmount);
+        assignment.paidAmount = paid;
+        if (paid >= total && total > 0) {
+          assignment.paymentStatus = 'Paid';
+          assignment.paidAt = new Date().toISOString();
+        } else if (paid > 0) {
+          assignment.paymentStatus = 'Partially Paid';
+          assignment.paidAt = new Date().toISOString();
+        } else {
+          assignment.paymentStatus = 'Unpaid';
+          delete assignment.paidAt;
+        }
+      } else {
+        assignment.paymentStatus = paymentStatus;
+        if (paymentStatus === 'Paid') {
+          assignment.paidAmount = total;
+          assignment.paidAt = new Date().toISOString();
+        } else if (paymentStatus === 'Unpaid') {
+          assignment.paidAmount = 0;
+          delete assignment.paidAt;
+        }
+      }
+
+      if (paymentMode) assignment.paymentMode = paymentMode;
+      if (notes) assignment.notes = notes;
     } else {
       const crewRoster = this.getCrewRoster();
       const crewMember = crewRoster.find(c => c.id === crewId || c.name === crewId);
+      const total = customTotalPayout !== undefined ? customTotalPayout : (crewMember ? crewMember.defaultPayout : 6000);
+      const paid = customPaidAmount !== undefined 
+        ? Math.max(0, customPaidAmount) 
+        : (paymentStatus === 'Paid' ? total : 0);
+
+      let computedStatus: 'Paid' | 'Unpaid' | 'Partially Paid' = paymentStatus;
+      if (paid >= total && total > 0) {
+        computedStatus = 'Paid';
+      } else if (paid > 0) {
+        computedStatus = 'Partially Paid';
+      } else {
+        computedStatus = 'Unpaid';
+      }
+
       event.crewAssignments.push({
         id: `asg-${Date.now()}`,
         eventId,
@@ -980,15 +1024,20 @@ export class StorageService {
         role: crewMember ? crewMember.role : 'Content Creator',
         callTime: '08:00 AM',
         wrapTime: '11:00 PM',
-        payout: crewMember ? crewMember.defaultPayout : 6000,
+        payout: total,
+        paidAmount: paid,
         assignedSubEventIds: [],
         assignedPOVIds: [],
-        paymentStatus,
-        paidAt: paymentStatus === 'Paid' ? new Date().toISOString() : undefined,
+        paymentStatus: computedStatus,
+        paymentMode,
+        notes,
+        paidAt: paid > 0 ? new Date().toISOString() : undefined,
         createdAt: new Date().toISOString()
       });
     }
 
+    // Recalculate event.crewPayout
+    event.crewPayout = event.crewAssignments.reduce((acc, curr) => acc + (curr.payout || 0), 0);
     event.updatedAt = new Date().toISOString();
     this.persistEvents(events, event);
     return true;
@@ -2206,45 +2255,86 @@ export class StorageService {
     const invoices = this.getInvoices();
 
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+    const todayStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-    const upcomingShoots = events.filter(e => 
+    // Filter active operational events (exclude Cancelled & Archived)
+    const activeEvents = events.filter(e => e.status !== 'Cancelled' && e.status !== 'Archived');
+
+    const upcomingShoots = activeEvents.filter(e => 
       e.status === 'Confirmed' || e.status === 'Scheduled' || e.status === 'In Progress'
     );
 
-    const todayShoots = events.filter(e => {
-      const start = e.startDate || (e as any).shootDate || '';
-      const end = e.endDate || start;
-      return (todayStr >= start && todayStr <= end) && e.status !== 'Cancelled' && e.status !== 'Archived';
+    const todayShoots = activeEvents.filter(e => {
+      const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+      const end = (e.endDate || start).split('T')[0].trim();
+      return (todayStr >= start && todayStr <= end);
     });
 
-    const activeJobs = events.filter(e =>
+    const activeJobs = activeEvents.filter(e =>
       e.status === 'In Progress' || e.status === 'Scheduled' || e.status === 'Confirmed'
     );
     
-    const thisMonthEvents = events.filter(e => {
-      const shootDate = new Date(e.startDate || (e as any).shootDate);
-      return shootDate.getMonth() === currentMonth && shootDate.getFullYear() === currentYear;
+    // This month events (safe local month & year check)
+    const thisMonthEvents = activeEvents.filter(e => {
+      const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+      if (!start) return false;
+      const parts = start.split('-').map(Number);
+      if (parts.length < 3) return false;
+      const evYear = parts[0];
+      const evMonth = parts[1] - 1; // 0-based
+      return evMonth === currentMonth && evYear === currentYear;
     });
 
     const monthlyRevenue = thisMonthEvents.reduce((acc, curr) => acc + (curr.packageTotal || 0), 0);
     const monthlyCrewPayouts = thisMonthEvents.reduce((acc, curr) => acc + (curr.crewPayout || 0), 0);
+    const monthlyGrossProfit = monthlyRevenue - monthlyCrewPayouts;
 
+    // This month expenses (safe local month & year check)
     const thisMonthExpensesList = expenses.filter(exp => {
-      const expDate = new Date(exp.date);
-      return expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear;
+      if (!exp.date) return false;
+      const parts = exp.date.split('T')[0].trim().split('-').map(Number);
+      if (parts.length < 3) return false;
+      const expYear = parts[0];
+      const expMonth = parts[1] - 1;
+      return expMonth === currentMonth && expYear === currentYear;
     });
     const monthlyExpenses = thisMonthExpensesList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
-    const estimatedProfit = monthlyRevenue - monthlyCrewPayouts - monthlyExpenses;
+    // Exact monthly net profit: Monthly Revenue - Monthly Crew - Monthly Expenses
+    const monthlyEstimatedProfit = monthlyRevenue - monthlyCrewPayouts - monthlyExpenses;
+    const monthlyMarginPercent = monthlyRevenue > 0 
+      ? Math.round((monthlyEstimatedProfit / monthlyRevenue) * 100) 
+      : 0;
 
-    const pendingBalanceTotal = events.reduce((acc, curr) => acc + (curr.balanceDue || 0), 0);
-    const totalRevenue = events.reduce((acc, curr) => acc + (curr.packageTotal || 0), 0);
+    // All-time totals across active portfolio
+    const totalRevenue = activeEvents.reduce((acc, curr) => acc + (curr.packageTotal || 0), 0);
     const collectedRevenue = payments.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-    const crewPayoutTotal = events.reduce((acc, curr) => acc + (curr.crewPayout || 0), 0);
+    const pendingBalanceTotal = Math.max(0, totalRevenue - collectedRevenue);
+    const crewPayoutTotal = activeEvents.reduce((acc, curr) => acc + (curr.crewPayout || 0), 0);
+    const totalExpenses = expenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
     const grossProfit = totalRevenue - crewPayoutTotal;
+
+    // Exact total net profit: Total Booked Revenue - Crew Commissions - Total Expenses
+    const totalEstimatedProfit = totalRevenue - crewPayoutTotal - totalExpenses;
+    const profitMarginPercent = totalRevenue > 0 
+      ? Math.round((totalEstimatedProfit / totalRevenue) * 100) 
+      : 0;
+
+    // Calculate settled vs pending creator payouts
+    let crewSettledPayout = 0;
+    let crewPendingPayout = 0;
+    activeEvents.forEach(e => {
+      (e.crewAssignments || []).forEach(asg => {
+        const tot = asg.payout || 0;
+        const pd = asg.paidAmount !== undefined 
+          ? asg.paidAmount 
+          : (asg.paymentStatus === 'Paid' ? tot : 0);
+        crewSettledPayout += pd;
+        crewPendingPayout += Math.max(0, tot - pd);
+      });
+    });
 
     const pendingEnquiries = enquiries.filter(
       e => !e.archived && e.pipelineStage !== 'Confirmed' && e.pipelineStage !== 'Lost'
@@ -2269,7 +2359,15 @@ export class StorageService {
       activeJobsCount: activeJobs.length,
       monthlyRevenue,
       monthlyExpenses,
-      estimatedProfit,
+      monthlyCrewPayouts,
+      monthlyGrossProfit,
+      monthlyEstimatedProfit,
+      monthlyMarginPercent,
+      totalExpenses,
+      estimatedProfit: totalEstimatedProfit,
+      profitMarginPercent,
+      crewSettledPayout,
+      crewPendingPayout,
       newEnquiriesCount: newEnquiries.length,
       outstandingInvoicesCount: outstandingInvoices.length,
       outstandingInvoicesAmount,

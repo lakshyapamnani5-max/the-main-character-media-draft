@@ -225,17 +225,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          {/* Card 8: Gross Profit */}
+          {/* Card 8: Estimated Net Profit */}
           <div className="bg-[#181818] text-white border border-[#2A2A2A] rounded-lg p-4 sm:p-5 shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between text-neutral-300">
-              <span className="text-xs font-medium">Gross Profit</span>
-              <span className="text-[11px] text-[#C58B39] font-medium uppercase tracking-wider">Agency Margin</span>
+              <span className="text-xs font-medium">Estimated Net Profit</span>
+              <span className="text-[11px] text-[#C58B39] font-medium uppercase tracking-wider">
+                {metrics.profitMarginPercent !== undefined ? `${metrics.profitMarginPercent}% Margin` : 'Net Margin'}
+              </span>
             </div>
             <div className="mt-3">
               <div className="text-2xl sm:text-3xl font-serif font-bold text-[#FAF8F5] font-mono tabular-nums">
-                ₹{metrics.grossProfit.toLocaleString('en-IN')}
+                ₹{metrics.estimatedProfit.toLocaleString('en-IN')}
               </div>
-              <div className="text-[11px] text-neutral-400 mt-1">Revenue minus crew compensation</div>
+              <div className="text-[11px] text-neutral-400 mt-1 font-mono">
+                Revenue minus crew & operating expenses
+              </div>
             </div>
           </div>
 

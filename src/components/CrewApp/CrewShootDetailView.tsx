@@ -217,8 +217,25 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
             </div>
 
             {crewAssignment?.payout ? (
-              <div className="text-neutral-600 font-mono text-[11px]">
-                Payout: <strong className="text-neutral-900">₹{crewAssignment.payout.toLocaleString('en-IN')}</strong>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="text-neutral-600 font-mono text-[11px]">
+                  Payout: <strong className="text-neutral-900">₹{crewAssignment.payout.toLocaleString('en-IN')}</strong>
+                </div>
+                {crewAssignment.paymentStatus === 'Paid' || (crewAssignment.paidAmount !== undefined && crewAssignment.paidAmount >= crewAssignment.payout) ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Paid in Full</span>
+                  </span>
+                ) : crewAssignment.paidAmount && crewAssignment.paidAmount > 0 ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    <Clock className="w-2.5 h-2.5 text-amber-600" />
+                    <span>Advance: ₹{crewAssignment.paidAmount.toLocaleString('en-IN')} (Due: ₹{(crewAssignment.payout - crewAssignment.paidAmount).toLocaleString('en-IN')})</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono text-neutral-500 bg-neutral-100 border border-neutral-200">
+                    Pending
+                  </span>
+                )}
               </div>
             ) : null}
           </div>

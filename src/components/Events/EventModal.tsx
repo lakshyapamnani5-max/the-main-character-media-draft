@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Users, AlertTriangle, Check, UserCheck, Clock, IndianRupee } from 'lucide-react';
+import { X, Plus, Trash2, Users, AlertTriangle, Check, UserCheck, Clock, IndianRupee, Wallet, CheckCircle2 } from 'lucide-react';
 import { EventShoot, EventStatus, EventDeliverable, Client, CrewMember, CrewRole, EventCrewAssignment, Partner, SubEvent } from '../../types';
 import { StorageService } from '../../services/storage';
 import { getTodayDateString } from '../../utils/dateUtils';
@@ -10,7 +10,11 @@ interface EventCrewSelection {
   role: CrewRole | string;
   callTime: string;
   wrapTime: string;
-  payout: number;
+  payout: number | '';
+  advancePaid?: number | '';
+  showPayoutConfig?: boolean;
+  isPaidFull?: boolean;
+  paymentMode?: string;
   phone?: string;
 }
 
@@ -87,25 +91,39 @@ export const EventModal: React.FC<EventModalProps> = ({
 
       // Populate selected crew from existing assignments or crew members
       if (initialData.crewAssignments && initialData.crewAssignments.length > 0) {
-        setSelectedCrew(initialData.crewAssignments.map(a => ({
-          crewId: a.crewId,
-          crewName: a.crewName,
-          role: a.role,
-          callTime: a.callTime || '08:00 AM',
-          wrapTime: a.wrapTime || '11:00 PM',
-          payout: a.payout !== undefined ? a.payout : 6000,
-          phone: a.phone
-        })));
+        setSelectedCrew(initialData.crewAssignments.map(a => {
+          const payoutVal = a.payout !== undefined ? a.payout : 6000;
+          const advanceVal = a.paidAmount !== undefined ? a.paidAmount : (a.paymentStatus === 'Paid' ? payoutVal : 0);
+          const isFull = a.paymentStatus === 'Paid' || (payoutVal > 0 && advanceVal >= payoutVal);
+          return {
+            crewId: a.crewId,
+            crewName: a.crewName,
+            role: a.role,
+            callTime: a.callTime || '08:00 AM',
+            wrapTime: a.wrapTime || '11:00 PM',
+            payout: payoutVal,
+            advancePaid: advanceVal,
+            showPayoutConfig: Boolean((a.payout && a.payout > 0) || advanceVal > 0 || a.paymentStatus === 'Paid'),
+            isPaidFull: isFull,
+            paymentMode: a.paymentMode || 'UPI',
+            phone: a.phone
+          };
+        }));
       } else if (initialData.crewMembers && initialData.crewMembers.length > 0) {
         setSelectedCrew(initialData.crewMembers.map(name => {
           const member = crewRoster.find(c => c.name.toLowerCase() === name.toLowerCase());
+          const payoutVal = member?.defaultPayout || 6000;
           return {
             crewId: member?.id || `crew-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             crewName: member?.name || name,
             role: member?.role || 'Content Creator',
             callTime: '08:00 AM',
             wrapTime: '11:00 PM',
-            payout: member?.defaultPayout || 6000,
+            payout: payoutVal,
+            advancePaid: 0,
+            showPayoutConfig: false,
+            isPaidFull: false,
+            paymentMode: 'UPI',
             phone: member?.phone
           };
         }));
@@ -166,6 +184,7 @@ export const EventModal: React.FC<EventModalProps> = ({
     } else {
       const startTime = shootTime?.split('-')[0]?.trim() || '08:00 AM';
       const endTime = shootTime?.split('-')[1]?.trim() || '11:00 PM';
+      const defaultPayout = member.defaultPayout || 6000;
       setSelectedCrew([
         ...selectedCrew,
         {
@@ -174,7 +193,11 @@ export const EventModal: React.FC<EventModalProps> = ({
           role: member.role || 'Content Creator',
           callTime: startTime,
           wrapTime: endTime,
-          payout: member.defaultPayout || 6000,
+          payout: defaultPayout,
+          advancePaid: 0,
+          showPayoutConfig: false,
+          isPaidFull: false,
+          paymentMode: 'UPI',
           phone: member.phone
         }
       ]);
@@ -183,6 +206,55 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   const updateCrewField = (crewId: string, field: keyof EventCrewSelection, value: any) => {
     setSelectedCrew(selectedCrew.map(c => c.crewId === crewId ? { ...c, [field]: value } : c));
+  };
+
+  const handleTogglePayoutConfig = (crewId: string, checked: boolean) => {
+    setSelectedCrew(prev => prev.map(c => {
+      if (c.crewId !== crewId) return c;
+      return {
+        ...c,
+        showPayoutConfig: checked,
+        payout: c.payout !== '' && c.payout !== undefined ? c.payout : 6000
+      };
+    }));
+  };
+
+  const handleCrewPayoutChange = (crewId: string, value: number | '') => {
+    setSelectedCrew(prev => prev.map(c => {
+      if (c.crewId !== crewId) return c;
+      const newPayout = value;
+      const newAdvance = c.isPaidFull ? newPayout : c.advancePaid;
+      return {
+        ...c,
+        payout: newPayout,
+        advancePaid: newAdvance
+      };
+    }));
+  };
+
+  const handleCrewAdvanceChange = (crewId: string, value: number | '') => {
+    setSelectedCrew(prev => prev.map(c => {
+      if (c.crewId !== crewId) return c;
+      const advNum = Number(value) || 0;
+      const payNum = Number(c.payout) || 0;
+      const isFull = payNum > 0 && advNum >= payNum;
+      return {
+        ...c,
+        advancePaid: value,
+        isPaidFull: isFull
+      };
+    }));
+  };
+
+  const handleTogglePaidFull = (crewId: string, checked: boolean) => {
+    setSelectedCrew(prev => prev.map(c => {
+      if (c.crewId !== crewId) return c;
+      return {
+        ...c,
+        isPaidFull: checked,
+        advancePaid: checked ? (c.payout !== '' ? c.payout : 6000) : 0
+      };
+    }));
   };
 
   const removeCrew = (crewId: string) => {
@@ -259,21 +331,31 @@ export const EventModal: React.FC<EventModalProps> = ({
     const adv = Number(advancePaid) || 0;
     const balanceDue = Math.max(0, total - adv);
 
-    const finalCrewAssignments: EventCrewAssignment[] = selectedCrew.map((c, idx) => ({
-      id: `asg-${Date.now()}-${idx}-${c.crewId}`,
-      eventId: initialData?.id || '',
-      crewId: c.crewId,
-      crewName: c.crewName,
-      role: c.role,
-      callTime: c.callTime,
-      wrapTime: c.wrapTime,
-      payout: Number(c.payout) || 0,
-      phone: c.phone || '',
-      assignedSubEventIds: [],
-      assignedPOVIds: [],
-      paymentStatus: 'Unpaid',
-      createdAt: new Date().toISOString()
-    }));
+    const finalCrewAssignments: EventCrewAssignment[] = selectedCrew.map((c, idx) => {
+      const payoutNum = Number(c.payout) || 0;
+      const advanceNum = Number(c.advancePaid) || 0;
+      const isFull = Boolean(c.isPaidFull || (advanceNum >= payoutNum && payoutNum > 0));
+      const isPartial = Boolean(!isFull && advanceNum > 0);
+
+      return {
+        id: `asg-${Date.now()}-${idx}-${c.crewId}`,
+        eventId: initialData?.id || '',
+        crewId: c.crewId,
+        crewName: c.crewName,
+        role: c.role,
+        callTime: c.callTime,
+        wrapTime: c.wrapTime,
+        payout: payoutNum,
+        paidAmount: isFull ? payoutNum : advanceNum,
+        paymentStatus: isFull ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid',
+        paymentMode: c.paymentMode || (advanceNum > 0 ? 'UPI' : undefined),
+        paidAt: (isFull || isPartial) ? new Date().toISOString() : undefined,
+        phone: c.phone || '',
+        assignedSubEventIds: [],
+        assignedPOVIds: [],
+        createdAt: new Date().toISOString()
+      };
+    });
 
     const finalCrewMembers = selectedCrew.map(c => c.crewName);
     const totalCrewPayoutCalc = selectedCrew.reduce((sum, c) => sum + (Number(c.payout) || 0), 0);
@@ -861,74 +943,164 @@ export const EventModal: React.FC<EventModalProps> = ({
                   {selectedCrew.map((c) => (
                     <div
                       key={c.crewId}
-                      className="bg-white border border-[#E8E3D9] rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs shadow-2xs"
+                      className="bg-white border border-[#E8E3D9] rounded-xl p-3 space-y-2.5 text-xs shadow-2xs"
                     >
-                      <div className="flex items-center gap-2 min-w-[140px]">
-                        <div className="w-7 h-7 rounded-full bg-[#181818] text-[#C58B39] font-bold flex items-center justify-center text-[10px]">
-                          {c.crewName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      {/* Top Row: Identity, Role, Call Time, Remove */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-[140px]">
+                          <div className="w-7 h-7 rounded-full bg-[#181818] text-[#C58B39] font-bold flex items-center justify-center text-[10px]">
+                            {c.crewName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-neutral-900 leading-tight">{c.crewName}</div>
+                            {c.phone && <div className="text-[10px] text-neutral-400 font-mono">{c.phone}</div>}
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-semibold text-neutral-900 leading-tight">{c.crewName}</div>
-                          {c.phone && <div className="text-[10px] text-neutral-400 font-mono">{c.phone}</div>}
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Role */}
-                        <div>
-                          <span className="text-[9px] text-neutral-400 block">Role</span>
-                          <select
-                            value={c.role}
-                            onChange={(e) => updateCrewField(c.crewId, 'role', e.target.value)}
-                            className="px-2 py-1 border border-[#DCD6C8] rounded bg-white text-xs text-neutral-800"
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Role */}
+                          <div>
+                            <span className="text-[9px] text-neutral-400 block font-medium">Role</span>
+                            <select
+                              value={c.role}
+                              onChange={(e) => updateCrewField(c.crewId, 'role', e.target.value)}
+                              className="px-2 py-1 border border-[#DCD6C8] rounded bg-white text-xs text-neutral-800"
+                            >
+                              <option value="Content Creator">Content Creator</option>
+                              <option value="Cinematographer">Cinematographer</option>
+                              <option value="Photographer">Photographer</option>
+                              <option value="Videographer">Videographer</option>
+                              <option value="Drone Operator">Drone Operator</option>
+                              <option value="Editor">Editor</option>
+                              <option value="Assistant">Assistant</option>
+                              <option value="Social Media Manager">Social Media Manager</option>
+                            </select>
+                          </div>
+
+                          {/* Call Time */}
+                          <div className="w-24">
+                            <span className="text-[9px] text-neutral-400 block font-medium">Call Time</span>
+                            <input
+                              type="text"
+                              value={c.callTime}
+                              onChange={(e) => updateCrewField(c.crewId, 'callTime', e.target.value)}
+                              placeholder="08:00 AM"
+                              className="w-full px-2 py-1 border border-[#DCD6C8] rounded text-xs font-mono text-neutral-900"
+                            />
+                          </div>
+
+                          {/* Remove */}
+                          <button
+                            type="button"
+                            onClick={() => removeCrew(c.crewId)}
+                            className="p-1.5 text-neutral-400 hover:text-rose-600 rounded hover:bg-neutral-100 transition-colors mt-3"
+                            title="Remove crew"
                           >
-                            <option value="Content Creator">Content Creator</option>
-                            <option value="Cinematographer">Cinematographer</option>
-                            <option value="Photographer">Photographer</option>
-                            <option value="Videographer">Videographer</option>
-                            <option value="Drone Operator">Drone Operator</option>
-                            <option value="Editor">Editor</option>
-                            <option value="Assistant">Assistant</option>
-                            <option value="Social Media Manager">Social Media Manager</option>
-                          </select>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-
-                        {/* Call Time */}
-                        <div className="w-24">
-                          <span className="text-[9px] text-neutral-400 block">Call Time</span>
-                          <input
-                            type="text"
-                            value={c.callTime}
-                            onChange={(e) => updateCrewField(c.crewId, 'callTime', e.target.value)}
-                            placeholder="08:00 AM"
-                            className="w-full px-2 py-1 border border-[#DCD6C8] rounded text-xs font-mono text-neutral-900"
-                          />
-                        </div>
-
-                        {/* Payout */}
-                        <div className="w-24">
-                          <span className="text-[9px] text-neutral-400 block">Payout (₹)</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={c.payout}
-                            onChange={(e) => updateCrewField(c.crewId, 'payout', e.target.value === '' ? '' : Number(e.target.value))}
-                            placeholder="6000"
-                            className="w-full px-2 py-1 border border-[#DCD6C8] rounded text-xs font-mono font-bold text-neutral-900"
-                          />
-                        </div>
-
-                        {/* Remove */}
-                        <button
-                          type="button"
-                          onClick={() => removeCrew(c.crewId)}
-                          className="p-1.5 text-neutral-400 hover:text-rose-600 rounded hover:bg-neutral-100 transition-colors mt-3"
-                          title="Remove crew"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
+
+                      {/* Checkbox Strip to configure Payout & Advance */}
+                      <div className="pt-2 border-t border-[#F0EBE1] flex items-center justify-between">
+                        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={!!c.showPayoutConfig}
+                            onChange={(e) => handleTogglePayoutConfig(c.crewId, e.target.checked)}
+                            className="w-4 h-4 rounded text-[#C58B39] focus:ring-[#C58B39] accent-[#C58B39] cursor-pointer"
+                          />
+                          <span className="font-semibold text-neutral-800 flex items-center gap-1.5 text-xs">
+                            <Wallet className="w-3.5 h-3.5 text-[#C58B39]" />
+                            <span>Set Payout & Advance Payment</span>
+                          </span>
+                        </label>
+
+                        {!c.showPayoutConfig && (
+                          <div className="text-[11px] font-mono text-neutral-500">
+                            Agreed: <strong className="text-neutral-800">₹{Number(c.payout) || 0}</strong>
+                            {c.isPaidFull && <span className="text-emerald-700 font-bold ml-1.5">✓ Paid Full</span>}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expanded Payout & Advance Configuration */}
+                      {c.showPayoutConfig && (
+                        <div className="p-3 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg space-y-2.5 mt-1.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                            {/* Payout Input (Editable textfield) */}
+                            <div>
+                              <label className="block text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">
+                                Total Payout (₹) *
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={c.payout}
+                                onChange={(e) => handleCrewPayoutChange(c.crewId, e.target.value === '' ? '' : Number(e.target.value))}
+                                placeholder="6000"
+                                className="w-full px-2.5 py-1.5 border border-[#DCD6C8] rounded text-xs font-mono font-bold text-neutral-900 bg-white focus:outline-none focus:border-[#C58B39]"
+                              />
+                            </div>
+
+                            {/* Advance Paid Input (Editable textfield) */}
+                            <div>
+                              <label className="block text-[10px] font-semibold text-neutral-600 uppercase tracking-wider mb-1">
+                                Add Advance Paid (₹)
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={c.advancePaid}
+                                onChange={(e) => handleCrewAdvanceChange(c.crewId, e.target.value === '' ? '' : Number(e.target.value))}
+                                placeholder="0"
+                                className="w-full px-2.5 py-1.5 border border-[#DCD6C8] rounded text-xs font-mono font-bold text-neutral-900 bg-white focus:outline-none focus:border-[#C58B39]"
+                              />
+                            </div>
+
+                            {/* Paid In Full Checkbox */}
+                            <div>
+                              <label className={`w-full h-[34px] px-3 rounded border text-xs font-semibold flex items-center gap-2 cursor-pointer transition-all select-none ${
+                                c.isPaidFull || (Number(c.payout) > 0 && Number(c.advancePaid) >= Number(c.payout))
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                  : 'bg-white border-[#DCD6C8] text-neutral-700 hover:border-[#C58B39]'
+                              }`}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(c.isPaidFull || (Number(c.payout) > 0 && Number(c.advancePaid) >= Number(c.payout)))}
+                                  onChange={(e) => handleTogglePaidFull(c.crewId, e.target.checked)}
+                                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                                />
+                                <span className="truncate">
+                                  Paid in Full {c.isPaidFull ? '✓' : ''}
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Real-time Status Badge Banner */}
+                          <div className="flex items-center justify-between text-[11px] font-mono pt-1.5 border-t border-[#E8E3D9]">
+                            {c.isPaidFull || (Number(c.payout) > 0 && Number(c.advancePaid) >= Number(c.payout)) ? (
+                              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Paid in Full · Appears as Settled in Crew App (₹{(Number(c.payout) || 0).toLocaleString('en-IN')})</span>
+                              </span>
+                            ) : Number(c.advancePaid) > 0 ? (
+                              <span className="text-amber-800 font-semibold flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Advance: ₹{(Number(c.advancePaid) || 0).toLocaleString('en-IN')} · Due: ₹{Math.max(0, (Number(c.payout) || 0) - (Number(c.advancePaid) || 0)).toLocaleString('en-IN')}</span>
+                              </span>
+                            ) : (
+                              <span className="text-neutral-500 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                                <span>Unpaid · ₹{(Number(c.payout) || 0).toLocaleString('en-IN')} pending post-shoot settlement</span>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

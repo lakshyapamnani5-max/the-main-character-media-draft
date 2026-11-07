@@ -60,6 +60,7 @@ import {
   subscribeToFirestoreEvents,
   subscribeToFirestoreCrew,
   subscribeToRealtimeCrew,
+  subscribeToFirestoreQuotations,
   saveCrewToFirestore,
   deleteCrewFromFirestore
 } from './services/firebase';
@@ -224,6 +225,13 @@ export default function App() {
     const unsubscribeCrewFirestore = subscribeToFirestoreCrew(handleIncomingCrew);
     const unsubscribeCrewRealtime = subscribeToRealtimeCrew(handleIncomingCrew);
 
+    // Firebase Realtime Live Sync for Quotations
+    const unsubscribeQuotations = subscribeToFirestoreQuotations((firestoreQuotes) => {
+      const list = firestoreQuotes || [];
+      localStorage.setItem('tmc_quotations', JSON.stringify(list));
+      setQuotations(list);
+    });
+
     const handleStorageUpdate = () => {
       refreshAllData();
     };
@@ -233,6 +241,7 @@ export default function App() {
       unsubscribeAuth();
       unsubscribePartners();
       unsubscribeEvents();
+      unsubscribeQuotations();
       unsubscribeCrewFirestore();
       if (unsubscribeCrewRealtime) unsubscribeCrewRealtime();
       window.removeEventListener('tmc_storage_updated', handleStorageUpdate);

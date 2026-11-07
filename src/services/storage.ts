@@ -42,7 +42,9 @@ import {
   savePartnerToFirestore,
   deletePartnerFromFirestore,
   saveEventToFirestore,
-  deleteEventFromFirestore
+  deleteEventFromFirestore,
+  saveQuotationToFirestore,
+  deleteQuotationFromFirestore
 } from './firebase';
 import { RealtimeSyncService, SyncCollection } from './realtimeSync';
 
@@ -1587,8 +1589,8 @@ export class StorageService {
           ...quotes[idx],
           ...quoteData,
         } as Quotation;
-        localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotes));
-        this.notifyListeners();
+        this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, quotes[idx]);
+        saveQuotationToFirestore(quotes[idx]).catch(() => {});
         return quotes[idx];
       }
     }
@@ -1629,7 +1631,7 @@ export class StorageService {
       '4. Edited 9:16 high-definition reels delivered within 5-7 working days.';
 
     const newQuote: Quotation = {
-      id: `qtn-${Date.now()}`,
+      id: quoteData.id || `qtn-${Date.now()}`,
       quoteNumber,
       clientId: quoteData.clientId,
       enquiryId: quoteData.enquiryId,
@@ -1661,6 +1663,7 @@ export class StorageService {
 
     quotes.unshift(newQuote);
     this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, newQuote);
+    saveQuotationToFirestore(newQuote).catch(() => {});
 
     if (newQuote.enquiryId) {
       const enquiries = this.getEnquiries();
@@ -1689,6 +1692,7 @@ export class StorageService {
     }
 
     this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, quotes[idx]);
+    saveQuotationToFirestore(quotes[idx]).catch(() => {});
     return quotes[idx];
   }
 
@@ -1697,6 +1701,7 @@ export class StorageService {
     const filtered = quotes.filter(q => q.id !== quoteId);
     if (filtered.length !== quotes.length) {
       this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, filtered, null, quoteId);
+      deleteQuotationFromFirestore(quoteId).catch(() => {});
       return true;
     }
     return false;

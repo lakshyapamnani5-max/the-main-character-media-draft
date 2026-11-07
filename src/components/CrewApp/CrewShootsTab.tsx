@@ -190,6 +190,13 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
                     <div className="text-xs text-neutral-500">
                       Client: <strong className="text-neutral-700">{event.clientName}</strong>
                     </div>
+                    {event.partnerName && (
+                      <div className="mt-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold text-[10px]">
+                          🤝 Partner: {event.partnerName}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FAF8F5] border border-[#E8E3D9] text-neutral-700 font-semibold uppercase">

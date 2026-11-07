@@ -345,6 +345,11 @@ export default function App() {
     refreshAllData();
   };
 
+  const handleDeleteEvent = (eventId: string) => {
+    StorageService.deleteEvent(eventId);
+    refreshAllData();
+  };
+
   const handleToggleDeliverable = (eventId: string, deliverableId: string) => {
     StorageService.toggleDeliverable(eventId, deliverableId);
     refreshAllData();
@@ -685,6 +690,7 @@ export default function App() {
               enquiries={enquiries}
               initialTab={jobsSubTab}
               onSaveEvent={handleSaveEvent}
+              onDeleteEvent={handleDeleteEvent}
               onToggleDeliverable={handleToggleDeliverable}
               onRecordPayment={handleRecordPayment}
               onSelectQuoteForPreview={(quote) => setPreviewingQuote(quote)}

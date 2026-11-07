@@ -143,6 +143,13 @@ export const CrewShootDetailView: React.FC<CrewShootDetailViewProps> = ({
             <div className="text-xs text-neutral-500 mt-0.5">
               Client: <strong className="text-neutral-700">{event.clientName}</strong>
             </div>
+            {event.partnerName && (
+              <div className="mt-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-750 font-semibold text-xs">
+                  🤝 Event Partner: {event.partnerName}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Vitals Grid with Big Call Time */}

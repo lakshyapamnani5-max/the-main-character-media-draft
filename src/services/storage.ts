@@ -132,6 +132,7 @@ const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
   branch: 'Bandra West, Mumbai',
   upiId: 'tmcmedia@hdfcbank',
   upiQrUrl: '',
+  crewQrLink: 'https://instagram.com/themaincharactermedia',
   signatureUrl: '',
   signatoryName: 'Authorized Signatory',
   signatoryTitle: 'Creative Producer & Founder',
@@ -517,6 +518,9 @@ export class StorageService {
 
     const newEvent: EventShoot = {
       id: `evt-${Date.now()}`,
+      category: eventData.category || 'Wedding',
+      partnerId: eventData.partnerId,
+      partnerName: eventData.partnerName,
       clientId: eventData.clientId || `cli-${Date.now()}`,
       clientName: eventData.clientName.trim(),
       clientContact: eventData.clientContact || {
@@ -538,23 +542,7 @@ export class StorageService {
       leadCreator: eventData.leadCreator || (initialCrewMembers[0] || ''),
       crewMembers: initialCrewMembers,
       crewAssignments: initialAssignments,
-      subEvents: eventData.subEvents || [
-        {
-          id: `sub-${Date.now()}-1`,
-          eventId: `evt-${Date.now()}`,
-          name: 'Main Ceremony & Wedding',
-          date: startDate,
-          startTime: '04:00 PM',
-          endTime: '11:00 PM',
-          venue: eventData.venue || 'Main Venue',
-          description: 'Ceremonial rituals and couple portraits.',
-          status: 'Scheduled',
-          assignedCrewIds: initialAssignments.map(a => a.crewId),
-          notes: '',
-          createdAt: now,
-          updatedAt: now
-        }
-      ],
+      subEvents: eventData.subEvents !== undefined ? eventData.subEvents : [],
       timeline: eventData.timeline || [
         {
           id: `tl-${Date.now()}-1`,
@@ -622,6 +610,21 @@ export class StorageService {
       });
     });
 
+    // If partner associated, update partner's associatedEventIds
+    if (newEvent.partnerId) {
+      try {
+        const partners = this.getPartners();
+        const p = partners.find(part => part.id === newEvent.partnerId);
+        if (p) {
+          if (!p.associatedEventIds) p.associatedEventIds = [];
+          if (!p.associatedEventIds.includes(newEvent.id)) {
+            p.associatedEventIds.push(newEvent.id);
+            localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+          }
+        }
+      } catch {}
+    }
+
     return newEvent;
   }
 
@@ -653,12 +656,24 @@ export class StorageService {
 
   static deleteEvent(eventId: string): boolean {
     const events = this.getEvents();
-    const filtered = events.filter(e => e.id !== eventId);
-    if (filtered.length !== events.length) {
-      this.persistEvents(filtered, undefined, eventId);
-      return true;
-    }
-    return false;
+    const filtered = events.filter(e => String(e.id) !== String(eventId));
+    this.persistEvents(filtered, undefined, eventId);
+    // Clean up references in partners
+    try {
+      const partners = this.getPartners();
+      let partnersChanged = false;
+      partners.forEach(p => {
+        if (p.associatedEventIds && p.associatedEventIds.includes(eventId)) {
+          p.associatedEventIds = p.associatedEventIds.filter((id: string) => id !== eventId);
+          partnersChanged = true;
+        }
+      });
+      if (partnersChanged) {
+        localStorage.setItem(STORAGE_KEYS.PARTNERS, JSON.stringify(partners));
+      }
+    } catch {}
+    this.notifyListeners();
+    return true;
   }
 
   // Sub-Events Management
@@ -1026,6 +1041,112 @@ export class StorageService {
     event.updatedAt = new Date().toISOString();
     this.persistEvents(events, event);
     return true;
+  }
+
+  static removeCrewFromEvent(eventId: string, crewIdOrName: string): boolean {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return false;
+
+    if (!event.crewAssignments) event.crewAssignments = [];
+    if (!event.crewMembers) event.crewMembers = [];
+
+    const removedAsg = event.crewAssignments.find(
+      a => a.crewId === crewIdOrName || a.crewName === crewIdOrName || a.id === crewIdOrName
+    );
+    const removedName = removedAsg?.crewName || crewIdOrName;
+
+    event.crewAssignments = event.crewAssignments.filter(
+      a => a.crewId !== crewIdOrName && a.crewName !== crewIdOrName && a.id !== crewIdOrName
+    );
+    event.crewMembers = event.crewMembers.filter(
+      name => name !== crewIdOrName && name !== removedName
+    );
+
+    // Recalculate total crew payout
+    event.crewPayout = event.crewAssignments.reduce((acc, curr) => acc + (curr.payout || 0), 0);
+
+    const now = new Date().toISOString();
+    if (!event.activityLog) event.activityLog = [];
+    event.activityLog.unshift({
+      id: `act-${Date.now()}`,
+      eventId,
+      action: 'Crew Removed',
+      details: `Removed creator ${removedName} from shoot.`,
+      performedBy: 'Admin',
+      timestamp: now
+    });
+
+    event.updatedAt = now;
+    this.persistEvents(events, event);
+    return true;
+  }
+
+  static addCrewToEvent(
+    eventId: string,
+    crewMember: CrewMember,
+    customOptions?: { callTime?: string; wrapTime?: string; payout?: number }
+  ): EventCrewAssignment | null {
+    const events = this.getEvents();
+    const event = events.find(e => e.id === eventId);
+    if (!event) return null;
+
+    if (!event.crewAssignments) event.crewAssignments = [];
+    if (!event.crewMembers) event.crewMembers = [];
+
+    // If already assigned, return existing
+    const existing = event.crewAssignments.find(a => a.crewId === crewMember.id);
+    if (existing) return existing;
+
+    const callTime = customOptions?.callTime || event.shootTime?.split('-')[0]?.trim() || '08:00 AM';
+    const wrapTime = customOptions?.wrapTime || event.shootTime?.split('-')[1]?.trim() || '11:00 PM';
+    const payout = customOptions?.payout !== undefined ? customOptions.payout : (crewMember.defaultPayout || 6000);
+
+    const now = new Date().toISOString();
+    const newAsg: EventCrewAssignment = {
+      id: `asg-${Date.now()}-${crewMember.id}`,
+      eventId,
+      crewId: crewMember.id,
+      crewName: crewMember.name,
+      role: crewMember.role,
+      phone: crewMember.phone,
+      callTime,
+      wrapTime,
+      payout,
+      assignedSubEventIds: [],
+      assignedPOVIds: [],
+      paymentStatus: 'Unpaid',
+      createdAt: now
+    };
+
+    event.crewAssignments.push(newAsg);
+    if (!event.crewMembers.includes(crewMember.name)) {
+      event.crewMembers.push(crewMember.name);
+    }
+    event.crewPayout = event.crewAssignments.reduce((acc, curr) => acc + (curr.payout || 0), 0);
+
+    if (!event.activityLog) event.activityLog = [];
+    event.activityLog.unshift({
+      id: `act-${Date.now()}`,
+      eventId,
+      action: 'Crew Assigned',
+      details: `Assigned ${crewMember.name} (${crewMember.role}) with payout ₹${payout.toLocaleString('en-IN')}.`,
+      performedBy: 'Admin',
+      timestamp: now
+    });
+
+    event.updatedAt = now;
+    this.persistEvents(events, event);
+
+    this.addCrewNotification({
+      crewId: crewMember.id,
+      title: 'New Shoot Assignment 🎬',
+      message: `You've been assigned to "${event.eventName}" on ${event.startDate || (event as any).shootDate} at ${event.venue || 'TBD'}. Call time: ${callTime}.`,
+      type: 'shoot_assigned',
+      eventId: event.id
+    });
+
+    return newAsg;
   }
 
   // File Management

@@ -462,6 +462,9 @@ export interface CompanySettings {
   upiId: string;
   upiQrUrl?: string;
   
+  // Crew QR Code & Public Link (Instagram / Linktree / Portfolio)
+  crewQrLink?: string;
+  
   // Signature & Authorization
   signatureUrl?: string;
   signatoryName: string;
@@ -556,6 +559,7 @@ export interface Partner {
   website?: string;
   rating?: number;
   notes?: string;
+  associatedEventIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

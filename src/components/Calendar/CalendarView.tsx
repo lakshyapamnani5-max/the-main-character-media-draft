@@ -571,7 +571,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           className="px-1.5 py-1 rounded bg-[#FAF8F5] border border-[#E8E3D9] hover:border-[#C58B39] text-[10px] text-neutral-900 font-medium truncate flex items-center justify-between gap-1 shadow-2xs"
                           title={`${ev.eventName} - ${ev.venue}`}
                         >
-                          <span className="truncate">{ev.eventName}</span>
+                          <span className="truncate flex items-center gap-1">
+                            {ev.partnerName && <span title={`Partner: ${ev.partnerName}`}>🤝</span>}
+                            <span>{ev.eventName}</span>
+                          </span>
                           <span className="text-[9px] font-mono text-[#C58B39] font-bold shrink-0">{totalCrew}C</span>
                         </div>
                       );
@@ -659,6 +662,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       className="p-2 rounded-lg bg-white border border-[#E8E3D9] hover:border-[#C58B39] shadow-2xs text-xs space-y-1 cursor-pointer transition-all"
                     >
                       <div className="font-bold text-neutral-900 truncate">{ev.eventName}</div>
+                      {ev.partnerName && (
+                        <div className="text-[10px] text-indigo-700 font-medium truncate flex items-center gap-1">
+                          <span>🤝</span>
+                          <span className="truncate">{ev.partnerName}</span>
+                        </div>
+                      )}
                       <div className="text-[10px] text-neutral-500 font-mono truncate">
                         {ev.crewAssignments?.[0]?.callTime || ev.shootTime || '08:00 AM'}
                       </div>
@@ -723,6 +732,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <div className="text-xs text-neutral-600 mt-0.5">
                         Client: <strong className="text-neutral-800">{event.clientName}</strong>
                       </div>
+                      {event.partnerName && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-semibold text-[10px]">
+                            🤝 Partner: {event.partnerName}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white border border-[#E8E3D9] text-neutral-800 font-semibold uppercase">

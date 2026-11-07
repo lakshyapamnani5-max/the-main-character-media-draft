@@ -14,11 +14,14 @@ import {
   LogOut,
   Building2,
   Lock,
-  Instagram
+  Instagram,
+  QrCode,
+  Sparkles
 } from 'lucide-react';
 import { CrewMember, EventShoot } from '../../types';
 import { StorageService } from '../../services/storage';
 import { PWAInstallButton } from '../Common/PWAInstallButton';
+import { QRCodeDisplay } from '../Common/QRCodeDisplay';
 
 interface CrewProfileTabProps {
   activeCrew: CrewMember;
@@ -36,6 +39,7 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
   onSignOut
 }) => {
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+  const companySettings = StorageService.getCompanySettings();
 
   const myShoots = allShoots.filter(event => {
     return (event.crewAssignments && event.crewAssignments.some(a => a.crewId === activeCrew.id)) ||
@@ -156,6 +160,30 @@ export const CrewProfileTab: React.FC<CrewProfileTabProps> = ({
             <strong>WhatsApp Contact:</strong> <span className="font-mono text-neutral-900">{activeCrew.phone || 'Not configured'}</span>
           </div>
         </div>
+      </div>
+
+      {/* On-Set Guest & Client QR Code (Instagram / Linktree / Portfolio) */}
+      <div className="bg-white border border-[#E8E3D9] rounded-2xl p-4 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="font-serif font-bold text-sm text-neutral-900 flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-[#C58B39]" />
+            <span>Guest & Client Connect QR</span>
+          </div>
+          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-50 text-[#8C6428] border border-amber-200">
+            Show on Set
+          </span>
+        </div>
+
+        <p className="text-[11px] text-neutral-500">
+          Show this QR code to wedding guests, couples, or planners on set so they can scan with their phone camera to instantly follow our Instagram, Linktree, or portfolio.
+        </p>
+
+        <QRCodeDisplay
+          value={companySettings.crewQrLink || 'https://instagram.com/themaincharactermedia'}
+          title={companySettings.companyName || 'The Main Character Media'}
+          subtitle="Scan with camera to open Instagram / Linktree"
+          size={180}
+        />
       </div>
 
       {/* Crew Portal Sign Out */}

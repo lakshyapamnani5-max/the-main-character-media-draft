@@ -353,3 +353,4 @@ export const RecordCrewPayoutModal: React.FC<RecordCrewPayoutModalProps> = ({
     </div>
   );
 };
+

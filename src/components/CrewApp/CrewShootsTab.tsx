@@ -229,10 +229,29 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
                   </div>
                 </div>
 
-                {/* Role & View Action */}
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <div className="text-xs text-neutral-600 truncate">
-                    Role: <strong className="text-neutral-900">{role}</strong>
+                {/* Role, Payout Status & View Action */}
+                <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-neutral-600">
+                    <div>
+                      Role: <strong className="text-neutral-900">{role}</strong>
+                    </div>
+                    {assignment?.payout ? (
+                      assignment.paymentStatus === 'Paid' || (assignment.paidAmount !== undefined && assignment.paidAmount >= assignment.payout) ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                          <span>Paid in Full (₹{assignment.payout.toLocaleString('en-IN')})</span>
+                        </span>
+                      ) : assignment.paidAmount && assignment.paidAmount > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <Clock className="w-2.5 h-2.5 text-amber-600" />
+                          <span>Advance: ₹{assignment.paidAmount.toLocaleString('en-IN')} (Due: ₹{(assignment.payout - assignment.paidAmount).toLocaleString('en-IN')})</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-neutral-100 text-neutral-700 border border-neutral-200">
+                          <span>Payout: ₹{assignment.payout.toLocaleString('en-IN')}</span>
+                        </span>
+                      )
+                    ) : null}
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">

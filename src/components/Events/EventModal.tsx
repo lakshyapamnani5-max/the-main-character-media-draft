@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Users, AlertTriangle, Check, UserCheck, Clock, IndianRupee } from 'lucide-react';
 import { EventShoot, EventStatus, EventDeliverable, Client, CrewMember, CrewRole, EventCrewAssignment } from '../../types';
 import { StorageService } from '../../services/storage';
+import { getTodayDateString } from '../../utils/dateUtils';
 
 interface EventCrewSelection {
   crewId: string;
@@ -49,6 +50,10 @@ export const EventModal: React.FC<EventModalProps> = ({
   const [deliverables, setDeliverables] = useState<EventDeliverable[]>([]);
   const [newDeliverableTitle, setNewDeliverableTitle] = useState('');
   const [notes, setNotes] = useState('');
+  
+  // Track whether the user has manually diverged Event Name or End Date
+  const [isEventNameCustomized, setIsEventNameCustomized] = useState(false);
+  const [isEndDateCustomized, setIsEndDateCustomized] = useState(false);
 
   const clients = StorageService.getClients();
   const crewRoster = StorageService.getCrewRoster().filter(c => c.status === 'Active');
@@ -62,8 +67,12 @@ export const EventModal: React.FC<EventModalProps> = ({
       setClientEmail(initialData.clientContact?.email || '');
       setEventName(initialData.eventName);
       setEventType(initialData.eventType);
-      setStartDate(initialData.startDate || initialData.shootDate || '');
-      setEndDate(initialData.endDate || initialData.startDate || initialData.shootDate || '');
+      const start = initialData.startDate || initialData.shootDate || '';
+      const end = initialData.endDate || start;
+      setStartDate(start);
+      setEndDate(end);
+      setIsEventNameCustomized(Boolean(initialData.eventName && initialData.eventName !== initialData.clientName));
+      setIsEndDateCustomized(Boolean(end && start && end !== start));
       setShootTime(initialData.shootTime || '14:00 - 22:00');
       setVenue(initialData.venue);
       setCity(initialData.locationCity || initialData.city || 'Mumbai');
@@ -100,14 +109,14 @@ export const EventModal: React.FC<EventModalProps> = ({
       setCrewPayout(initialData.crewPayout);
       setPackageTotal(initialData.packageTotal);
       setAdvancePaid(initialData.advancePaid);
-      setPaymentDueDate(initialData.paymentDueDate || '');
+      setPaymentDueDate(initialData.paymentDueDate || end || start);
       setStatus(initialData.status || 'Confirmed');
       setClientRequirements(initialData.clientRequirements || '');
       setDeliverables(initialData.deliverables || []);
       setNotes(initialData.notes || '');
     } else {
-      const defaultStart = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const defaultEnd = new Date(Date.now() + 16 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const defaultStart = getTodayDateString();
+      const defaultEnd = defaultStart;
       setCategory('Wedding');
       setClientId('');
       setClientName('');
@@ -117,6 +126,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setEventType('Wedding');
       setStartDate(defaultStart);
       setEndDate(defaultEnd);
+      setIsEventNameCustomized(false);
+      setIsEndDateCustomized(false);
       setShootTime('14:00 - 22:00');
       setVenue('');
       setCity('Mumbai');
@@ -169,6 +180,39 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleClientNameChange = (val: string) => {
+    setClientName(val);
+    if (!isEventNameCustomized) {
+      setEventName(val);
+    }
+  };
+
+  const handleEventNameChange = (val: string) => {
+    setEventName(val);
+    if (val.trim() && val.trim() !== clientName.trim()) {
+      setIsEventNameCustomized(true);
+    } else if (!val.trim()) {
+      setIsEventNameCustomized(false);
+    }
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    if (!isEndDateCustomized || !endDate || endDate === startDate || endDate < val) {
+      setEndDate(val);
+      setPaymentDueDate(val);
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDate(val);
+    if (val && val !== startDate) {
+      setIsEndDateCustomized(true);
+    } else {
+      setIsEndDateCustomized(false);
+    }
+  };
+
   const handleSelectClient = (id: string) => {
     setClientId(id);
     const cli = clients.find(c => c.id === id);
@@ -176,8 +220,8 @@ export const EventModal: React.FC<EventModalProps> = ({
       setClientName(cli.name);
       setClientPhone(cli.phone || '');
       setClientEmail(cli.email || '');
-      if (!eventName) {
-        setEventName(`${cli.name.split('&')[0].trim()} Wedding Shoot`);
+      if (!isEventNameCustomized) {
+        setEventName(cli.name);
       }
     }
   };
@@ -404,7 +448,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 type="text"
                 required
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                onChange={(e) => handleClientNameChange(e.target.value)}
                 placeholder="e.g. Rahul Mehta & Priya Saxena"
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
@@ -437,12 +481,17 @@ export const EventModal: React.FC<EventModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">Main Event / Job Title *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-medium text-neutral-700">Main Event / Job Title *</label>
+                {!isEventNameCustomized && clientName && (
+                  <span className="text-[10px] text-[#C58B39] font-mono font-medium">Auto-synced</span>
+                )}
+              </div>
               <input
                 type="text"
                 required
                 value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
+                onChange={(e) => handleEventNameChange(e.target.value)}
                 placeholder="e.g. Rahul & Priya Royal Wedding"
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
@@ -475,17 +524,22 @@ export const EventModal: React.FC<EventModalProps> = ({
                 type="date"
                 required
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-medium text-neutral-700 mb-1">End Date</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-medium text-neutral-700">End Date</label>
+                {!isEndDateCustomized && startDate && (
+                  <span className="text-[10px] text-[#C58B39] font-mono font-medium">Synced with Start Date</span>
+                )}
+              </div>
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => handleEndDateChange(e.target.value)}
                 className="w-full px-3 py-2 border border-[#DCD6C8] rounded-lg text-neutral-900 font-mono"
               />
             </div>

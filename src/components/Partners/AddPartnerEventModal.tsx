@@ -46,6 +46,8 @@ export const AddPartnerEventModal: React.FC<AddPartnerEventModalProps> = ({
 }) => {
   const [eventName, setEventName] = useState('');
   const [clientName, setClientName] = useState('');
+  const [isEventNameCustomized, setIsEventNameCustomized] = useState(false);
+  const [isEndDateCustomized, setIsEndDateCustomized] = useState(false);
   const [clientPhone, setClientPhone] = useState('');
   const [eventType, setEventType] = useState('Wedding');
   const [startDate, setStartDate] = useState(initialDate || new Date().toISOString().split('T')[0]);
@@ -116,6 +118,38 @@ export const AddPartnerEventModal: React.FC<AddPartnerEventModalProps> = ({
     if (updated.length > 0) {
       const sumPayouts = updated.reduce((s, c) => s + c.payout, 0);
       setCrewRate(sumPayouts);
+    }
+  };
+
+  const handleClientNameChange = (val: string) => {
+    setClientName(val);
+    if (!isEventNameCustomized) {
+      setEventName(val);
+    }
+  };
+
+  const handleEventNameChange = (val: string) => {
+    setEventName(val);
+    if (val.trim() && val.trim() !== clientName.trim()) {
+      setIsEventNameCustomized(true);
+    } else if (!val.trim()) {
+      setIsEventNameCustomized(false);
+    }
+  };
+
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    if (!isEndDateCustomized || !endDate || endDate === startDate || endDate < val) {
+      setEndDate(val);
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDate(val);
+    if (val && val !== startDate) {
+      setIsEndDateCustomized(true);
+    } else {
+      setIsEndDateCustomized(false);
     }
   };
 
@@ -226,25 +260,30 @@ export const AddPartnerEventModal: React.FC<AddPartnerEventModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-neutral-700 mb-1">Event / Shoot Title *</label>
-              <input
-                type="text"
-                required
-                value={eventName}
-                onChange={(e) => setEventName(e.target.value)}
-                placeholder="e.g. Sangeet & Reception Coverage"
-                className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-neutral-900 focus:outline-none focus:border-[#C58B39]"
-              />
-            </div>
-
-            <div>
               <label className="block font-semibold text-neutral-700 mb-1">End Client / Couple *</label>
               <input
                 type="text"
                 required
                 value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
+                onChange={(e) => handleClientNameChange(e.target.value)}
                 placeholder="e.g. Ananya & Dev"
+                className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-neutral-700">Event / Shoot Title *</label>
+                {!isEventNameCustomized && clientName && (
+                  <span className="text-[10px] text-[#C58B39] font-mono font-medium">Auto-synced</span>
+                )}
+              </div>
+              <input
+                type="text"
+                required
+                value={eventName}
+                onChange={(e) => handleEventNameChange(e.target.value)}
+                placeholder="e.g. Sangeet & Reception Coverage"
                 className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-neutral-900 focus:outline-none focus:border-[#C58B39]"
               />
             </div>
@@ -272,20 +311,22 @@ export const AddPartnerEventModal: React.FC<AddPartnerEventModalProps> = ({
                 type="date"
                 required
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
-                }}
+                onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-neutral-900 font-mono"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-neutral-700 mb-1">End Date</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-neutral-700">End Date</label>
+                {!isEndDateCustomized && startDate && (
+                  <span className="text-[10px] text-[#C58B39] font-mono font-medium">Synced</span>
+                )}
+              </div>
               <input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => handleEndDateChange(e.target.value)}
                 className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-neutral-900 font-mono"
               />
             </div>

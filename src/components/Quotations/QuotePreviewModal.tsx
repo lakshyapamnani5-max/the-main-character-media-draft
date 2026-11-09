@@ -26,6 +26,10 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
 
   if (!isOpen || !quote) return null;
 
+  const grossSubtotal = (quote.items || []).reduce((acc, curr) => acc + (curr.rate * (curr.quantity || 1)), 0);
+  const discountedItems = (quote.items || []).filter(it => (it.discount || 0) > 0);
+  const totalItemDiscount = discountedItems.reduce((acc, curr) => acc + (curr.discount || 0), 0);
+
   const handleDownload = () => {
     PDFGeneratorService.downloadQuotationPDF(quote);
   };
@@ -342,8 +346,13 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
                         <td className="py-3 px-3 text-right font-mono tabular-nums text-neutral-700">
                           ₹{item.rate.toLocaleString('en-IN')}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-[#181818]">
-                          ₹{item.amount.toLocaleString('en-IN')}
+                        <td className="py-3 px-4 text-right font-mono tabular-nums">
+                          <div className="font-bold text-[#181818]">₹{item.amount.toLocaleString('en-IN')}</div>
+                          {item.discount && item.discount > 0 ? (
+                            <div className="text-[10px] text-rose-600 font-medium mt-0.5">
+                              Less Disc: -₹{item.discount.toLocaleString('en-IN')}
+                            </div>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
@@ -379,15 +388,25 @@ export const QuotePreviewModal: React.FC<QuotePreviewModalProps> = ({
               {/* Totals Box */}
               <div className="bg-[#FAF8F5] border border-[#E8E3D9] p-4 rounded space-y-2 text-xs">
                 <div className="flex justify-between text-neutral-600">
-                  <span>Subtotal:</span>
+                  <span>Gross Subtotal:</span>
                   <span className="font-mono font-medium text-neutral-900 tabular-nums">
-                    ₹{quote.subtotal.toLocaleString('en-IN')}
+                    ₹{grossSubtotal.toLocaleString('en-IN')}
                   </span>
                 </div>
 
+                {/* Item Discounts */}
+                {discountedItems.map((it, idx) => (
+                  <div key={it.id || idx} className="flex justify-between text-rose-700">
+                    <span className="truncate pr-2 font-medium">Less: Discount on {it.name}:</span>
+                    <span className="font-mono tabular-nums shrink-0 font-semibold">
+                      - ₹{(it.discount || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ))}
+
                 {quote.discountAmount > 0 && (
                   <div className="flex justify-between text-neutral-700">
-                    <span>Discount {quote.discountType === 'percentage' ? `(${quote.discountValue}%)` : ''}:</span>
+                    <span>Less: Special Discount {quote.discountType === 'percentage' ? `(${quote.discountValue}%)` : ''}:</span>
                     <span className="font-mono text-neutral-900 tabular-nums">
                       - ₹{quote.discountAmount.toLocaleString('en-IN')}
                     </span>

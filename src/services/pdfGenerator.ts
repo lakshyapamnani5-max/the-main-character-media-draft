@@ -406,6 +406,8 @@ export class PDFGeneratorService {
     const col1MaxWidth = 95; // strict width bound for service details column
 
     quote.items.forEach((item, index) => {
+      const hasDiscount = Boolean(item.discount && item.discount > 0);
+
       // Calculate wrapped text lines
       doc.setFont('times', 'bold');
       doc.setFontSize(9);
@@ -430,7 +432,8 @@ export class PDFGeneratorService {
       if (descLines.length) textContentHeight += (descLines.length * 3.2);
       if (incLines.length) textContentHeight += (incLines.length * 3.2);
 
-      const itemRowHeight = Math.max(12, textContentHeight + 5);
+      const baseHeight = Math.max(12, textContentHeight + 5);
+      const itemRowHeight = hasDiscount ? Math.max(15, baseHeight) : baseHeight;
 
       // Check for page break
       if (yPos + itemRowHeight > pageHeight - 65) {
@@ -494,7 +497,16 @@ export class PDFGeneratorService {
 
       // Render Line Total
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(40, 40, 40);
       doc.text(item.amount.toLocaleString('en-IN'), pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+
+      if (hasDiscount) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(180, 40, 40);
+        doc.text(`Less: -${(item.discount || 0).toLocaleString('en-IN')}`, pageWidth - margin - 4, yPos + 9.5, { align: 'right' });
+      }
 
       yPos += itemRowHeight;
     });
@@ -504,7 +516,13 @@ export class PDFGeneratorService {
     // ==========================================
     // FINANCIAL SUMMARY & BANKING BOX
     // ==========================================
-    if (yPos > pageHeight - 75) {
+    const grossSubtotal = (quote.items || []).reduce((acc, curr) => acc + (curr.rate * (curr.quantity || 1)), 0);
+    const discountedItems = (quote.items || []).filter(it => (it.discount || 0) > 0);
+    const extraRows = discountedItems.length + (quote.discountAmount > 0 ? 1 : 0) + (quote.taxPercentage > 0 ? 1 : 0);
+    const totalsBoxHeight = 44 + (extraRows * 6);
+
+    // Check page space for breakdown
+    if (yPos + totalsBoxHeight > pageHeight - 35) {
       doc.addPage();
       yPos = margin + 5;
     }
@@ -516,30 +534,39 @@ export class PDFGeneratorService {
 
     // Totals Box (Right Side)
     let curTotalY = initialBreakdownY;
-    const totalsBoxHeight = 48;
     doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
     doc.roundedRect(totalsBoxX, curTotalY, totalsBoxWidth, totalsBoxHeight, 1.5, 1.5, 'FD');
 
-    const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false) => {
+    const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false, isDiscount: boolean = false) => {
       doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      doc.setFontSize(isHighlight ? 9 : 7.5);
-      doc.setTextColor(isHighlight ? 20 : (isBold ? 30 : 80), isHighlight ? 20 : 30, isHighlight ? 20 : 30);
+      doc.setFontSize(isHighlight ? 9.5 : 7.5);
+      if (isDiscount) {
+        doc.setTextColor(180, 40, 40);
+      } else {
+        doc.setTextColor(isHighlight ? 20 : (isBold ? 30 : 80), isHighlight ? 20 : 30, isHighlight ? 20 : 30);
+      }
       doc.text(label, totalsBoxX + 4, curTotalY + 5.5);
 
       doc.setFont('helvetica', 'bold');
       if (isHighlight) doc.setTextColor(197, 139, 57);
+      else if (isDiscount) doc.setTextColor(180, 40, 40);
       doc.text(value, pageWidth - margin - 4, curTotalY + 5.5, { align: 'right' });
       curTotalY += 6;
     };
 
-    addFinancialRow('Subtotal:', `INR ${quote.subtotal.toLocaleString('en-IN')}`);
+    addFinancialRow('Subtotal:', `INR ${grossSubtotal.toLocaleString('en-IN')}`);
+
+    discountedItems.forEach(it => {
+      const cleanName = it.name.length > 18 ? it.name.substring(0, 16) + '...' : it.name;
+      addFinancialRow(`Less: Disc (${cleanName}):`, `- INR ${(it.discount || 0).toLocaleString('en-IN')}`, false, false, true);
+    });
 
     if (quote.discountAmount > 0) {
       const discountLabel = quote.discountType === 'percentage' 
-        ? `Discount (${quote.discountValue}%):` 
-        : 'Special Discount:';
-      addFinancialRow(discountLabel, `- INR ${quote.discountAmount.toLocaleString('en-IN')}`);
+        ? `Less: Disc (${quote.discountValue}%):` 
+        : 'Less: Special Disc:';
+      addFinancialRow(discountLabel, `- INR ${quote.discountAmount.toLocaleString('en-IN')}`, false, false, true);
     }
 
     if (quote.taxPercentage > 0) {

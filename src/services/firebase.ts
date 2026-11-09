@@ -255,6 +255,59 @@ export function subscribeToFirestoreEvents(onUpdate: (events: EventShoot[]) => v
   }
 }
 
+// --- REALTIME DATABASE & FIRESTORE QUOTATIONS HELPERS ---
+
+export async function saveQuotationToFirestore(quotation: any): Promise<void> {
+  try {
+    const cleanQuote = JSON.parse(JSON.stringify(quotation));
+    if (rtdb) {
+      await set(ref(rtdb, `quotations/${quotation.id}`), cleanQuote);
+    }
+    try {
+      await setDoc(doc(db, 'quotations', quotation.id), cleanQuote);
+    } catch {
+      // non-blocking
+    }
+  } catch (error) {
+    console.warn('Error saving quotation to RTDB:', error);
+  }
+}
+
+export async function deleteQuotationFromFirestore(quoteId: string): Promise<void> {
+  try {
+    if (rtdb) {
+      await remove(ref(rtdb, `quotations/${quoteId}`));
+    }
+    try {
+      await deleteDoc(doc(db, 'quotations', quoteId));
+    } catch {
+      // non-blocking
+    }
+  } catch (error) {
+    console.warn('Error deleting quotation from RTDB:', error);
+  }
+}
+
+export function subscribeToFirestoreQuotations(onUpdate: (quotations: any[]) => void): Unsubscribe {
+  if (!rtdb) return () => {};
+  try {
+    const quotesRef = ref(rtdb, 'quotations');
+    return onValue(quotesRef, (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        const quotesList = Array.isArray(val) ? val.filter(Boolean) : Object.values(val).filter(Boolean);
+        onUpdate(quotesList);
+      } else {
+        onUpdate([]);
+      }
+    }, (error) => {
+      console.warn('Quotations RTDB listener error:', error.message);
+    });
+  } catch {
+    return () => {};
+  }
+}
+
 // --- FIRESTORE CREW ROSTER & FIREBASE AUTH HELPERS ---
 
 /**

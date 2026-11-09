@@ -36,5 +36,12 @@
     border: none !important;
     max-width: 100% !important;
     width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+  }
+  p, span, td, th, div {
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 }
+

@@ -42,7 +42,9 @@ import {
   savePartnerToFirestore,
   deletePartnerFromFirestore,
   saveEventToFirestore,
-  deleteEventFromFirestore
+  deleteEventFromFirestore,
+  saveQuotationToFirestore,
+  deleteQuotationFromFirestore
 } from './firebase';
 import { RealtimeSyncService, SyncCollection } from './realtimeSync';
 
@@ -183,6 +185,25 @@ const DEFAULT_PLANNERS: PlannerVendor[] = [];
 
 const DEFAULT_INVOICES: Invoice[] = [];
 
+export const DEFAULT_EVENT_CATEGORIES: string[] = [
+  'Wedding',
+  'Haldi Ceremony',
+  'Mehendi Soirée',
+  'Sangeet Gala',
+  'Reception Evening',
+  'Engagement',
+  'Pre-Wedding Cinematic',
+  'Multi-Day Royal Wedding',
+  'Cocktail Soirée',
+  'Maternity Shoot',
+  'Baby Shower',
+  'Birthday Celebration',
+  'Corporate Gala',
+  'Fashion & Editorial',
+  'Commercial Ad Shoot',
+  'Other Shoot'
+];
+
 export class StorageService {
   private static notifyListeners() {
     if (typeof window !== 'undefined') {
@@ -278,6 +299,40 @@ export class StorageService {
     if (!localStorage.getItem(STORAGE_KEYS.COMPANY_SETTINGS)) {
       localStorage.setItem(STORAGE_KEYS.COMPANY_SETTINGS, JSON.stringify(DEFAULT_COMPANY_SETTINGS));
     }
+  }
+
+  // --- EVENT CATEGORIES & TYPES ---
+  static getEventCategories(): string[] {
+    if (typeof window === 'undefined') return DEFAULT_EVENT_CATEGORIES;
+    try {
+      const data = localStorage.getItem('tmc_event_categories_v1');
+      if (data) {
+        const parsed: string[] = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...DEFAULT_EVENT_CATEGORIES, ...parsed]));
+        }
+      }
+      return DEFAULT_EVENT_CATEGORIES;
+    } catch {
+      return DEFAULT_EVENT_CATEGORIES;
+    }
+  }
+
+  static addEventCategory(category: string): string[] {
+    const trimmed = (category || '').trim();
+    if (!trimmed) return this.getEventCategories();
+    const current = this.getEventCategories();
+    if (!current.includes(trimmed)) {
+      const updated = [...current, trimmed];
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('tmc_event_categories_v1', JSON.stringify(updated));
+        } catch {}
+      }
+      this.notifyListeners();
+      return updated;
+    }
+    return current;
   }
 
   // --- CREW ROSTER & CONFLICT DETECTOR ---
@@ -1534,8 +1589,8 @@ export class StorageService {
           ...quotes[idx],
           ...quoteData,
         } as Quotation;
-        localStorage.setItem(STORAGE_KEYS.QUOTATIONS, JSON.stringify(quotes));
-        this.notifyListeners();
+        this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, quotes[idx]);
+        saveQuotationToFirestore(quotes[idx]).catch(() => {});
         return quotes[idx];
       }
     }
@@ -1576,7 +1631,7 @@ export class StorageService {
       '4. Edited 9:16 high-definition reels delivered within 5-7 working days.';
 
     const newQuote: Quotation = {
-      id: `qtn-${Date.now()}`,
+      id: quoteData.id || `qtn-${Date.now()}`,
       quoteNumber,
       clientId: quoteData.clientId,
       enquiryId: quoteData.enquiryId,
@@ -1608,6 +1663,7 @@ export class StorageService {
 
     quotes.unshift(newQuote);
     this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, newQuote);
+    saveQuotationToFirestore(newQuote).catch(() => {});
 
     if (newQuote.enquiryId) {
       const enquiries = this.getEnquiries();
@@ -1636,6 +1692,7 @@ export class StorageService {
     }
 
     this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, quotes, quotes[idx]);
+    saveQuotationToFirestore(quotes[idx]).catch(() => {});
     return quotes[idx];
   }
 
@@ -1644,6 +1701,7 @@ export class StorageService {
     const filtered = quotes.filter(q => q.id !== quoteId);
     if (filtered.length !== quotes.length) {
       this.persistAndSync('quotations', STORAGE_KEYS.QUOTATIONS, filtered, null, quoteId);
+      deleteQuotationFromFirestore(quoteId).catch(() => {});
       return true;
     }
     return false;

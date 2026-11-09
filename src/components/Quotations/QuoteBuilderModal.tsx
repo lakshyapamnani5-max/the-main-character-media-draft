@@ -58,6 +58,10 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   const [eventDate, setEventDate] = useState('');
   const [venue, setVenue] = useState('');
 
+  const [eventCategories, setEventCategories] = useState<string[]>(() => StorageService.getEventCategories());
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+
   const [items, setItems] = useState<QuoteItem[]>([]);
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -256,6 +260,19 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
     setCustomItemDesc('');
     setCustomItemQty(1);
     setCustomItemDiscount('');
+  };
+
+  const handleAddNewCategory = () => {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) {
+      setIsAddingCategory(false);
+      return;
+    }
+    const updated = StorageService.addEventCategory(trimmed);
+    setEventCategories(updated);
+    setEventType(trimmed);
+    setNewCategoryName('');
+    setIsAddingCategory(false);
   };
 
   const handleUpdateItemQuantity = (index: number, qty: number) => {
@@ -478,21 +495,80 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-neutral-700 mb-1">Event Type</label>
-                <select
-                  value={eventType}
-                  onChange={(e) => setEventType(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 focus:outline-none focus:border-[#C58B39]"
-                >
-                  <option value="Wedding">Wedding</option>
-                  <option value="Haldi Ceremony">Haldi Ceremony</option>
-                  <option value="Mehendi Soirée">Mehendi Soirée</option>
-                  <option value="Sangeet Gala">Sangeet Gala</option>
-                  <option value="Reception Evening">Reception Evening</option>
-                  <option value="Engagement">Engagement</option>
-                  <option value="Pre-Wedding Cinematic">Pre-Wedding Cinematic</option>
-                  <option value="Multi-Day Royal Wedding">Multi-Day Royal Wedding</option>
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-medium text-neutral-700">Event Type</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(!isAddingCategory)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#C58B39] hover:text-[#9e6d27] bg-[#FAF8F5] border border-[#E8E3D9] hover:border-[#C58B39] px-1.5 py-0.5 rounded transition-colors shadow-2xs cursor-pointer"
+                    title="Add custom event category / type"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {isAddingCategory ? (
+                  <div className="flex items-center gap-1 animate-in fade-in duration-150">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddNewCategory();
+                        } else if (e.key === 'Escape') {
+                          setIsAddingCategory(false);
+                          setNewCategoryName('');
+                        }
+                      }}
+                      placeholder="e.g. Maternity Shoot"
+                      className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-[#C58B39] rounded bg-white text-neutral-900 focus:outline-none ring-1 ring-[#C58B39]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewCategory}
+                      className="px-2 py-1.5 bg-[#C58B39] hover:bg-[#B37B2E] text-white text-xs font-semibold rounded transition-colors cursor-pointer shrink-0"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCategory(false);
+                        setNewCategoryName('');
+                      }}
+                      className="p-1 text-neutral-400 hover:text-neutral-700 rounded cursor-pointer shrink-0"
+                      title="Cancel"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <select
+                      value={eventType}
+                      onChange={(e) => setEventType(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-[#DCD6C8] rounded bg-white text-neutral-900 focus:outline-none focus:border-[#C58B39]"
+                    >
+                      {eventCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCategory(true)}
+                      className="p-1.5 border border-[#DCD6C8] hover:border-[#C58B39] bg-[#FAF8F5] hover:bg-[#F2ECE1] rounded text-[#C58B39] transition-colors cursor-pointer shrink-0"
+                      title="Add custom event category"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

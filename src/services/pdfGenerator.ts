@@ -201,7 +201,7 @@ export class PDFGeneratorService {
   }
 
   /**
-   * Generates and downloads a branded Client Quotation PDF
+   * Generates and downloads a branded Client Quotation PDF with guaranteed text boundaries
    */
   static downloadQuotationPDF(quote: Quotation): void {
     const doc = new jsPDF({
@@ -214,7 +214,7 @@ export class PDFGeneratorService {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 18;
-    const contentWidth = pageWidth - margin * 2;
+    const contentWidth = pageWidth - margin * 2; // 174mm
     let yPos = margin;
 
     // Header Background
@@ -237,116 +237,213 @@ export class PDFGeneratorService {
     }
 
     const headerTextX = hasLogo ? margin + 26 : margin;
+    const maxBrandWidth = pageWidth - margin - 55 - headerTextX;
 
     // Brand Name
     doc.setTextColor(255, 255, 255);
     doc.setFont('times', 'bold');
-    doc.setFontSize(hasLogo ? 16 : 18);
-    doc.text(company.companyName.toUpperCase(), headerTextX, 17);
+    doc.setFontSize(hasLogo ? 15 : 17);
+    const brandLines = doc.splitTextToSize(company.companyName.toUpperCase(), maxBrandWidth);
+    doc.text(brandLines, headerTextX, 16);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.8);
+    doc.setFontSize(7.5);
     doc.setTextColor(215, 210, 200);
-    doc.text(company.tagline.toUpperCase(), headerTextX, 23);
+    const taglineLines = doc.splitTextToSize(company.tagline.toUpperCase(), maxBrandWidth);
+    doc.text(taglineLines.slice(0, 1), headerTextX, 22.5);
 
     const contactLine = [
       company.phone,
       company.email,
       company.city ? `${company.city}, ${company.state}` : ''
     ].filter(Boolean).join('  ·  ');
-    doc.setFontSize(7);
+    doc.setFontSize(6.8);
     doc.setTextColor(190, 185, 175);
-    doc.text(contactLine, headerTextX, 29);
+    const contactLines = doc.splitTextToSize(contactLine, maxBrandWidth);
+    doc.text(contactLines.slice(0, 1), headerTextX, 28);
 
     if (company.gstin) {
-      doc.text(`GSTIN: ${company.gstin}`, headerTextX, 35);
+      doc.text(`GSTIN: ${company.gstin}`, headerTextX, 33.5);
     }
 
     // Quote details top right
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(245, 180, 80);
-    doc.text(quote.quoteNumber, pageWidth - margin, 17, { align: 'right' });
+    doc.text(quote.quoteNumber, pageWidth - margin, 16, { align: 'right' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(220, 220, 220);
-    doc.text(`Date: ${formatDisplayDate(quote.createdAt)}`, pageWidth - margin, 23, { align: 'right' });
-    doc.text(`Valid Until: ${formatDisplayDate(quote.validUntil)}`, pageWidth - margin, 28, { align: 'right' });
-    doc.text(`Status: ${quote.status.toUpperCase()}`, pageWidth - margin, 33, { align: 'right' });
+    doc.text(`Date: ${formatDisplayDate(quote.createdAt)}`, pageWidth - margin, 22, { align: 'right' });
+    doc.text(`Valid Until: ${formatDisplayDate(quote.validUntil)}`, pageWidth - margin, 27, { align: 'right' });
+    doc.text(`Status: ${quote.status.toUpperCase()}`, pageWidth - margin, 32, { align: 'right' });
 
-    yPos = 48;
+    yPos = 47;
 
-    // Client & Event Details Box
-    doc.setFillColor(252, 250, 246);
-    doc.setDrawColor(229, 223, 211);
-    doc.roundedRect(margin, yPos, contentWidth, 34, 2, 2, 'FD');
+    // ==========================================
+    // CLIENT & EVENT DETAILS BOX (Dynamic Height)
+    // ==========================================
+    const colWidth = (contentWidth / 2) - 8;
+    const leftX = margin + 5;
+    const rightColX = margin + (contentWidth / 2) + 4;
 
-    // Left Column: Client info
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(140, 100, 40);
-    doc.text('PREPARED FOR:', margin + 6, yPos + 6);
-
+    // Measure left column text
     doc.setFont('times', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(20, 20, 20);
-    doc.text(quote.clientName, margin + 6, yPos + 12);
+    doc.setFontSize(10.5);
+    const clientNameLines = doc.splitTextToSize(quote.clientName || 'Valued Client', colWidth);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.setTextColor(80, 80, 80);
-    if (quote.clientPhone) doc.text(`Phone: ${quote.clientPhone}`, margin + 6, yPos + 17);
-    if (quote.clientEmail) doc.text(`Email: ${quote.clientEmail}`, margin + 6, yPos + 22);
-    if (quote.clientInstagram) doc.text(`Instagram: ${quote.clientInstagram}`, margin + 6, yPos + 27);
+    doc.setFontSize(7.2);
+    const clientPhoneLines = quote.clientPhone ? doc.splitTextToSize(`Phone: ${quote.clientPhone}`, colWidth) : [];
+    const clientEmailLines = quote.clientEmail ? doc.splitTextToSize(`Email: ${quote.clientEmail}`, colWidth) : [];
+    const clientInstaLines = quote.clientInstagram ? doc.splitTextToSize(`Instagram: ${quote.clientInstagram}`, colWidth) : [];
+    const clientAddrLines = quote.clientAddress ? doc.splitTextToSize(`Address: ${quote.clientAddress}`, colWidth) : [];
 
-    // Right Column: Event info
-    const rightColX = margin + (contentWidth / 2) + 4;
+    const leftTotalHeight = 9 + (clientNameLines.length * 4.2) + 
+      ((clientPhoneLines.length + clientEmailLines.length + clientInstaLines.length + clientAddrLines.length) * 3.6);
+
+    // Measure right column text
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    const eventNameLines = doc.splitTextToSize(quote.eventName || 'Production Event', colWidth);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    const eventTypeLines = doc.splitTextToSize(`Type: ${quote.eventType || 'Wedding'}`, colWidth);
+    const eventDateLines = doc.splitTextToSize(`Date: ${formatDisplayDate(quote.eventDate)}`, colWidth);
+    const venueLines = doc.splitTextToSize(`Venue: ${quote.venue || 'Venue TBD'}`, colWidth);
+
+    const rightTotalHeight = 9 + (eventNameLines.length * 4.2) + 
+      ((eventTypeLines.length + eventDateLines.length + venueLines.length) * 3.6);
+
+    const boxHeight = Math.max(34, Math.max(leftTotalHeight, rightTotalHeight) + 4);
+
+    // Render Box
+    doc.setFillColor(252, 250, 246);
+    doc.setDrawColor(229, 223, 211);
+    doc.roundedRect(margin, yPos, contentWidth, boxHeight, 2, 2, 'FD');
+
+    // Render Left Column (Client info)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(140, 100, 40);
-    doc.text('EVENT DETAILS:', rightColX, yPos + 6);
+    doc.text('PREPARED FOR:', leftX, yPos + 6);
 
+    let curLeftY = yPos + 11;
     doc.setFont('times', 'bold');
     doc.setFontSize(10.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(quote.eventName, rightColX, yPos + 12);
+    doc.text(clientNameLines, leftX, curLeftY);
+    curLeftY += clientNameLines.length * 4.2;
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Type: ${quote.eventType}`, rightColX, yPos + 17);
-    doc.text(`Date: ${formatDisplayDate(quote.eventDate)}`, rightColX, yPos + 22);
-    doc.text(`Venue: ${quote.venue || 'Venue TBD'}`, rightColX, yPos + 27);
+    if (clientPhoneLines.length) {
+      doc.text(clientPhoneLines, leftX, curLeftY);
+      curLeftY += clientPhoneLines.length * 3.6;
+    }
+    if (clientEmailLines.length) {
+      doc.text(clientEmailLines, leftX, curLeftY);
+      curLeftY += clientEmailLines.length * 3.6;
+    }
+    if (clientInstaLines.length) {
+      doc.setTextColor(180, 120, 40);
+      doc.text(clientInstaLines, leftX, curLeftY);
+      curLeftY += clientInstaLines.length * 3.6;
+      doc.setTextColor(80, 80, 80);
+    }
+    if (clientAddrLines.length) {
+      doc.text(clientAddrLines, leftX, curLeftY);
+    }
 
-    yPos += 40;
-
-    // Services Table Header
-    doc.setFillColor(18, 18, 18);
-    doc.rect(margin, yPos, contentWidth, 7, 'F');
-
+    // Render Right Column (Event info)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text('SERVICE / ITEM', margin + 4, yPos + 4.8);
-    doc.text('QTY', margin + 105, yPos + 4.8, { align: 'center' });
-    doc.text('RATE (INR)', margin + 130, yPos + 4.8, { align: 'right' });
-    doc.text('TOTAL (INR)', pageWidth - margin - 4, yPos + 4.8, { align: 'right' });
+    doc.setFontSize(7.2);
+    doc.setTextColor(140, 100, 40);
+    doc.text('EVENT DETAILS:', rightColX, yPos + 6);
 
+    let curRightY = yPos + 11;
+    doc.setFont('times', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(20, 20, 20);
+    doc.text(eventNameLines, rightColX, curRightY);
+    curRightY += eventNameLines.length * 4.2;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(80, 80, 80);
+    doc.text(eventTypeLines, rightColX, curRightY);
+    curRightY += eventTypeLines.length * 3.6;
+
+    doc.text(eventDateLines, rightColX, curRightY);
+    curRightY += eventDateLines.length * 3.6;
+
+    doc.text(venueLines, rightColX, curRightY);
+
+    yPos += boxHeight + 6;
+
+    // ==========================================
+    // SERVICES & DELIVERABLES TABLE
+    // ==========================================
+    const drawTableHeader = (y: number) => {
+      doc.setFillColor(18, 18, 18);
+      doc.rect(margin, y, contentWidth, 7, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(255, 255, 255);
+      doc.text('SERVICE / ITEM DELIVERABLE', margin + 4, y + 4.8);
+      doc.text('QTY', margin + 110, y + 4.8, { align: 'center' });
+      doc.text('RATE (INR)', margin + 140, y + 4.8, { align: 'right' });
+      doc.text('TOTAL (INR)', pageWidth - margin - 4, y + 4.8, { align: 'right' });
+    };
+
+    drawTableHeader(yPos);
     yPos += 7;
 
-    // Items List
+    const col1MaxWidth = 95; // strict width bound for service details column
+
     quote.items.forEach((item, index) => {
       const hasDiscount = Boolean(item.discount && item.discount > 0);
-      const hasIncludedServices = Boolean(item.includedServices && item.includedServices.length > 0);
-      const itemRowHeight = hasIncludedServices ? (hasDiscount ? 17 : 15) : (hasDiscount ? 13 : 11);
 
-      if (yPos + itemRowHeight > pageHeight - 75) {
+      // Calculate wrapped text lines
+      doc.setFont('times', 'bold');
+      doc.setFontSize(9);
+      const nameLines = doc.splitTextToSize(item.name || 'Custom Service Item', col1MaxWidth);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      const subInfo = [item.duration, item.crewRequirement].filter(Boolean).join(' · ');
+      const subInfoLines = subInfo ? doc.splitTextToSize(subInfo, col1MaxWidth) : [];
+
+      doc.setFontSize(6.2);
+      const descLines = item.description ? doc.splitTextToSize(item.description, col1MaxWidth) : [];
+
+      const incString = item.includedServices && item.includedServices.length > 0 
+        ? `Includes: ${item.includedServices.join(', ')}`
+        : '';
+      const incLines = incString ? doc.splitTextToSize(incString, col1MaxWidth) : [];
+
+      // Calculate exact dynamic row height
+      let textContentHeight = (nameLines.length * 4.2);
+      if (subInfoLines.length) textContentHeight += (subInfoLines.length * 3.4);
+      if (descLines.length) textContentHeight += (descLines.length * 3.2);
+      if (incLines.length) textContentHeight += (incLines.length * 3.2);
+
+      const baseHeight = Math.max(12, textContentHeight + 5);
+      const itemRowHeight = hasDiscount ? Math.max(15, baseHeight) : baseHeight;
+
+      // Check for page break
+      if (yPos + itemRowHeight > pageHeight - 65) {
         doc.addPage();
-        yPos = margin;
+        yPos = margin + 5;
+        drawTableHeader(yPos);
+        yPos += 7;
       }
 
-      // Zebra striping
+      // Zebra background
       if (index % 2 === 1) {
         doc.setFillColor(250, 248, 245);
         doc.rect(margin, yPos, contentWidth, itemRowHeight, 'F');
@@ -355,36 +452,50 @@ export class PDFGeneratorService {
       doc.setDrawColor(235, 230, 222);
       doc.line(margin, yPos + itemRowHeight, pageWidth - margin, yPos + itemRowHeight);
 
-      // Title
+      // Render Title lines
+      let rowCursorY = yPos + 4.5;
       doc.setFont('times', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(20, 20, 20);
-      doc.text(item.name, margin + 4, yPos + 4.5);
+      doc.text(nameLines, margin + 4, rowCursorY);
+      rowCursorY += nameLines.length * 4.2;
 
-      // Sub meta
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(6.8);
-      doc.setTextColor(110, 110, 110);
-      const subInfo = [item.duration, item.crewRequirement].filter(Boolean).join(' · ');
-      if (subInfo) doc.text(subInfo, margin + 4, yPos + 8.5);
-
-      // Included services snippet
-      if (item.includedServices && item.includedServices.length > 0) {
-        doc.setFontSize(6.2);
-        doc.setTextColor(150, 110, 50);
-        doc.text(`Includes: ${item.includedServices.slice(0, 4).join(', ')}`, margin + 4, yPos + 12);
+      // Render Sub meta
+      if (subInfoLines.length) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.8);
+        doc.setTextColor(110, 110, 110);
+        doc.text(subInfoLines, margin + 4, rowCursorY);
+        rowCursorY += subInfoLines.length * 3.4;
       }
 
-      // Quantity
+      // Render Description
+      if (descLines.length) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(100, 100, 100);
+        doc.text(descLines, margin + 4, rowCursorY);
+        rowCursorY += descLines.length * 3.2;
+      }
+
+      // Render Included deliverables
+      if (incLines.length) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(150, 110, 50);
+        doc.text(incLines, margin + 4, rowCursorY);
+      }
+
+      // Render Quantity (aligned with top of row)
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(40, 40, 40);
-      doc.text(String(item.quantity), margin + 105, yPos + 5.5, { align: 'center' });
+      doc.text(String(item.quantity), margin + 110, yPos + 5.5, { align: 'center' });
 
-      // Unit Rate
-      doc.text(item.rate.toLocaleString('en-IN'), margin + 130, yPos + 5.5, { align: 'right' });
+      // Render Unit Rate
+      doc.text(item.rate.toLocaleString('en-IN'), margin + 140, yPos + 5.5, { align: 'right' });
 
-      // Line Total
+      // Render Line Total
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(40, 40, 40);
@@ -402,6 +513,9 @@ export class PDFGeneratorService {
 
     yPos += 5;
 
+    // ==========================================
+    // FINANCIAL SUMMARY & BANKING BOX
+    // ==========================================
     const grossSubtotal = (quote.items || []).reduce((acc, curr) => acc + (curr.rate * (curr.quantity || 1)), 0);
     const discountedItems = (quote.items || []).filter(it => (it.discount || 0) > 0);
     const extraRows = discountedItems.length + (quote.discountAmount > 0 ? 1 : 0) + (quote.taxPercentage > 0 ? 1 : 0);
@@ -410,12 +524,12 @@ export class PDFGeneratorService {
     // Check page space for breakdown
     if (yPos + totalsBoxHeight > pageHeight - 35) {
       doc.addPage();
-      yPos = margin;
+      yPos = margin + 5;
     }
 
-    const totalsBoxWidth = 85;
-    const totalsBoxX = pageWidth - margin - totalsBoxWidth;
-    const leftWidth = totalsBoxX - margin - 6;
+    const totalsBoxWidth = 82;
+    const totalsBoxX = pageWidth - margin - totalsBoxWidth; // 192 - 82 = 110mm
+    const leftWidth = totalsBoxX - margin - 6; // 110 - 18 - 6 = 86mm
     const initialBreakdownY = yPos;
 
     // Totals Box (Right Side)
@@ -426,7 +540,7 @@ export class PDFGeneratorService {
 
     const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false, isDiscount: boolean = false) => {
       doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      doc.setFontSize(isHighlight ? 9.5 : 7.6);
+      doc.setFontSize(isHighlight ? 9.5 : 7.5);
       if (isDiscount) {
         doc.setTextColor(180, 40, 40);
       } else {
@@ -465,28 +579,36 @@ export class PDFGeneratorService {
 
     addFinancialRow('Grand Total:', `INR ${quote.grandTotal.toLocaleString('en-IN')}`, true, true);
     addFinancialRow(`Advance Due (${quote.advancePercentage || company.defaultAdvancePercentage}%):`, `INR ${quote.advanceAmount.toLocaleString('en-IN')}`);
-    addFinancialRow('Balance Due on Event Day:', `INR ${quote.balanceAmount.toLocaleString('en-IN')}`, true);
+    addFinancialRow('Balance Due on Shoot Day:', `INR ${quote.balanceAmount.toLocaleString('en-IN')}`, true);
 
-    // Left of breakdown: Commercial Notes (Strictly bounded by leftWidth)
+    // Left of breakdown: Commercial Notes (strictly bounded by leftWidth)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(140, 100, 40);
-    doc.text('COMMERCIAL NOTES:', margin, initialBreakdownY + 4);
+    doc.text('COMMERCIAL NOTES:', margin, initialBreakdownY + 4.5);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
     doc.setTextColor(70, 70, 70);
-    const notesText = doc.splitTextToSize(
-      quote.notes || company.defaultCommercialNotes || 'Capture formatted exclusively for 9:16 social storytelling with high-bitrate audio.', 
-      leftWidth
-    );
-    doc.text(notesText, margin, initialBreakdownY + 8.5);
+    const rawNotes = quote.notes || company.defaultCommercialNotes || 'Capture formatted exclusively for 9:16 social storytelling with high-bitrate audio.';
+    const notesText = doc.splitTextToSize(rawNotes, leftWidth);
+    doc.text(notesText, margin, initialBreakdownY + 9);
 
-    const notesHeight = Math.max(12, notesText.length * 3.5 + 4);
+    const notesHeight = Math.max(8, notesText.length * 3.5 + 4);
     const bankBoxY = initialBreakdownY + notesHeight + 2;
 
-    // Dedicated Banking & UPI Box (Strictly bounded by leftWidth - NEVER overlaps!)
-    const bankBoxHeight = 25;
+    // Banking Box
+    const bankLine1 = `Bank: ${company.bankName}  ·  A/C: ${company.accountName}`;
+    const bankLine2 = `A/C #: ${company.accountNumber}  ·  IFSC: ${company.ifscCode}${company.branch ? ` (${company.branch})` : ''}`;
+    const bankLine3 = `UPI ID: ${company.upiId}`;
+
+    const bLines1 = doc.splitTextToSize(bankLine1, leftWidth - 8);
+    const bLines2 = doc.splitTextToSize(bankLine2, leftWidth - 8);
+    const bLines3 = doc.splitTextToSize(bankLine3, leftWidth - 8);
+
+    const bankContentHeight = (bLines1.length + bLines2.length + bLines3.length) * 3.6 + 7;
+    const bankBoxHeight = Math.max(22, bankContentHeight);
+
     doc.setFillColor(250, 247, 240);
     doc.setDrawColor(226, 213, 190);
     doc.roundedRect(margin, bankBoxY, leftWidth, bankBoxHeight, 1.5, 1.5, 'FD');
@@ -494,61 +616,63 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(6.8);
     doc.setTextColor(140, 100, 40);
-    doc.text('DIRECT BANKING & UPI SETTLEMENT:', margin + 3.5, bankBoxY + 4.5);
+    doc.text('DIRECT BANKING & UPI SETTLEMENT:', margin + 3.5, bankBoxY + 4.8);
 
+    let curBankY = bankBoxY + 8.8;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.4);
     doc.setTextColor(50, 50, 50);
+    doc.text(bLines1, margin + 3.5, curBankY);
+    curBankY += bLines1.length * 3.6;
 
-    const bankLine1 = `Bank: ${company.bankName}  ·  A/C: ${company.accountName}`;
-    const bankLine2 = `A/C #: ${company.accountNumber}  ·  IFSC: ${company.ifscCode}${company.branch ? ` (${company.branch})` : ''}`;
-    const bankLine3 = `UPI ID: ${company.upiId}`;
-
-    doc.text(doc.splitTextToSize(bankLine1, leftWidth - 7), margin + 3.5, bankBoxY + 9.5);
-    doc.text(doc.splitTextToSize(bankLine2, leftWidth - 7), margin + 3.5, bankBoxY + 14.5);
+    doc.text(bLines2, margin + 3.5, curBankY);
+    curBankY += bLines2.length * 3.6;
 
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(140, 100, 40);
-    doc.text(bankLine3, margin + 3.5, bankBoxY + 20);
+    doc.text(bLines3, margin + 3.5, curBankY);
 
     yPos = Math.max(curTotalY + 4, bankBoxY + bankBoxHeight + 6);
 
-    // Terms & Conditions
-    if (yPos > pageHeight - 55) {
+    // ==========================================
+    // TERMS & CONDITIONS
+    // ==========================================
+    if (yPos > pageHeight - 60) {
       doc.addPage();
-      yPos = margin;
+      yPos = margin + 5;
     }
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(18, 18, 18);
     doc.text('TERMS & CONDITIONS:', margin, yPos);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.setTextColor(80, 80, 80);
-    const terms = doc.splitTextToSize(quote.terms || company.defaultTerms, contentWidth);
-    const displayedTerms = terms.slice(0, 5);
-    doc.text(displayedTerms, margin, yPos + 4.5);
+    const rawTerms = quote.terms || company.defaultTerms;
+    const terms = doc.splitTextToSize(rawTerms, contentWidth);
+    doc.text(terms, margin, yPos + 4.5);
 
-    yPos += displayedTerms.length * 3.8 + 8;
+    yPos += terms.length * 3.4 + 7;
 
-    // Check space for signature
-    if (yPos > pageHeight - 35) {
+    // ==========================================
+    // SIGNATURE BLOCKS
+    // ==========================================
+    if (yPos > pageHeight - 38) {
       doc.addPage();
-      yPos = margin + 5;
+      yPos = margin + 8;
     }
 
-    // Signature Blocks
-    const sigColWidth = contentWidth / 2 - 10;
+    const sigColWidth = (contentWidth / 2) - 10;
 
     // Agency Signature
     doc.setFont('times', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(18, 18, 18);
-    doc.text(`For ${company.companyName}`, margin, yPos);
+    const agencySigTitle = doc.splitTextToSize(`For ${company.companyName}`, sigColWidth);
+    doc.text(agencySigTitle, margin, yPos);
 
-    // Digital Signature Image if uploaded
     if (company.signatureUrl && company.signatureUrl.startsWith('data:image/')) {
       try {
         doc.addImage(company.signatureUrl, 'PNG', margin, yPos + 2, 36, 12);
@@ -561,12 +685,14 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(40, 40, 40);
-    doc.text(company.signatoryName || 'Authorized Signatory', margin, yPos + 20);
+    const sigNameLines = doc.splitTextToSize(company.signatoryName || 'Authorized Signatory', sigColWidth);
+    doc.text(sigNameLines, margin, yPos + 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.2);
     doc.setTextColor(110, 110, 110);
-    doc.text(company.signatoryTitle || 'Creative Producer & Founder', margin, yPos + 24);
+    const sigTitleLines = doc.splitTextToSize(company.signatoryTitle || 'Creative Producer & Founder', sigColWidth);
+    doc.text(sigTitleLines, margin, yPos + 24);
 
     // Client Signature
     const clientSigX = pageWidth - margin - sigColWidth;
@@ -581,17 +707,28 @@ export class PDFGeneratorService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(40, 40, 40);
-    doc.text(quote.clientName, clientSigX, yPos + 20);
+    const clientSigName = doc.splitTextToSize(quote.clientName || 'Client Signatory', sigColWidth);
+    doc.text(clientSigName, clientSigX, yPos + 20);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.2);
     doc.setTextColor(110, 110, 110);
     doc.text('Date of Acceptance & Booking Authorization', clientSigX, yPos + 24);
 
-    // Footer
-    doc.setFontSize(6.5);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+    // Page Numbering Footer on all pages
+    const totalPages = (doc.internal as any).getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}  (Page ${i} of ${totalPages})`,
+        pageWidth / 2,
+        pageHeight - 6,
+        { align: 'center' }
+      );
+    }
 
     doc.save(`${quote.quoteNumber}_${quote.clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
   }
@@ -673,10 +810,24 @@ export class PDFGeneratorService {
 
     yPos = 48;
 
-    // Client & Event Details Box
+    // Client & Event Details Box with dynamic height
+    const billedToColWidth = (contentWidth / 2) - 10;
+    const clientNameLines = doc.splitTextToSize(invoice.clientName, billedToColWidth);
+    const clientPhoneLines = invoice.clientPhone ? doc.splitTextToSize(`Phone: ${invoice.clientPhone}`, billedToColWidth) : [];
+    const clientEmailLines = invoice.clientEmail ? doc.splitTextToSize(`Email: ${invoice.clientEmail}`, billedToColWidth) : [];
+    const clientAddressLines = invoice.clientAddress ? doc.splitTextToSize(`Address: ${invoice.clientAddress}`, billedToColWidth) : [];
+
+    const eventNameLines = doc.splitTextToSize(invoice.eventName, billedToColWidth);
+    const eventCategoryLines = doc.splitTextToSize(`Category: ${invoice.eventType}`, billedToColWidth);
+    const eventDateLines = invoice.eventDate ? doc.splitTextToSize(`Shoot Date: ${formatDisplayDate(invoice.eventDate)}`, billedToColWidth) : [];
+
+    const leftHeightCalc = 6 + (clientNameLines.length * 4.5) + (clientPhoneLines.length * 4) + (clientEmailLines.length * 4) + (clientAddressLines.length * 4) + 6;
+    const rightHeightCalc = 6 + (eventNameLines.length * 4.5) + (eventCategoryLines.length * 4) + (eventDateLines.length * 4) + 6;
+    const clientBoxHeight = Math.max(34, Math.max(leftHeightCalc, rightHeightCalc));
+
     doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
-    doc.roundedRect(margin, yPos, contentWidth, 34, 2, 2, 'FD');
+    doc.roundedRect(margin, yPos, contentWidth, clientBoxHeight, 2, 2, 'FD');
 
     // Left Column: Billed To
     doc.setFont('helvetica', 'bold');
@@ -685,47 +836,50 @@ export class PDFGeneratorService {
     doc.text('BILLED TO (CLIENT):', margin + 6, yPos + 6);
 
     doc.setFont('times', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(invoice.clientName, margin + 6, yPos + 12);
+    doc.text(clientNameLines, margin + 6, yPos + 11.5);
 
+    let leftInfoY = yPos + 11.5 + (clientNameLines.length * 4.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(80, 80, 80);
-    let leftInfoY = yPos + 17;
-    if (invoice.clientPhone) {
-      doc.text(`Phone: ${invoice.clientPhone}`, margin + 6, leftInfoY);
-      leftInfoY += 4.5;
+    if (clientPhoneLines.length > 0) {
+      doc.text(clientPhoneLines, margin + 6, leftInfoY);
+      leftInfoY += clientPhoneLines.length * 3.8;
     }
-    if (invoice.clientEmail) {
-      doc.text(`Email: ${invoice.clientEmail}`, margin + 6, leftInfoY);
-      leftInfoY += 4.5;
+    if (clientEmailLines.length > 0) {
+      doc.text(clientEmailLines, margin + 6, leftInfoY);
+      leftInfoY += clientEmailLines.length * 3.8;
     }
-    if (invoice.clientAddress) {
-      doc.text(`Address: ${invoice.clientAddress}`, margin + 6, leftInfoY);
+    if (clientAddressLines.length > 0) {
+      doc.text(clientAddressLines, margin + 6, leftInfoY);
     }
 
     // Right Column: Shoot Details
-    const rightColX = margin + contentWidth / 2 + 4;
+    const rightColX = margin + (contentWidth / 2) + 4;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(140, 100, 40);
     doc.text('PRODUCTION EVENT:', rightColX, yPos + 6);
 
     doc.setFont('times', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10.5);
     doc.setTextColor(20, 20, 20);
-    doc.text(invoice.eventName, rightColX, yPos + 12);
+    doc.text(eventNameLines, rightColX, yPos + 11.5);
 
+    let rightInfoY = yPos + 11.5 + (eventNameLines.length * 4.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setTextColor(80, 80, 80);
-    doc.text(`Category: ${invoice.eventType}`, rightColX, yPos + 17);
-    if (invoice.eventDate) {
-      doc.text(`Shoot Date: ${formatDisplayDate(invoice.eventDate)}`, rightColX, yPos + 21.5);
+    doc.text(eventCategoryLines, rightColX, rightInfoY);
+    rightInfoY += eventCategoryLines.length * 3.8;
+
+    if (eventDateLines.length > 0) {
+      doc.text(eventDateLines, rightColX, rightInfoY);
     }
 
-    yPos += 40;
+    yPos += clientBoxHeight + 6;
 
     // Table Header
     doc.setFillColor(18, 18, 18);
@@ -742,9 +896,16 @@ export class PDFGeneratorService {
 
     yPos += 7;
 
+    // Column widths for line items
+    const invoiceDescWidth = contentWidth - 12 - 75;
+
     // Table Rows
     invoice.items.forEach((item, index) => {
-      const rowHeight = item.description ? 13 : 9;
+      const nameLines = doc.splitTextToSize(item.name, invoiceDescWidth);
+      const descLines = item.description ? doc.splitTextToSize(item.description, invoiceDescWidth) : [];
+      
+      const contentHeight = (nameLines.length * 4.2) + (descLines.length > 0 ? (descLines.length * 3.4) + 2 : 0) + 4;
+      const rowHeight = Math.max(10, contentHeight);
 
       if (yPos + rowHeight > pageHeight - 65) {
         doc.addPage();
@@ -768,16 +929,16 @@ export class PDFGeneratorService {
 
       // Item Name
       doc.setFont('times', 'bold');
-      doc.setFontSize(9.5);
+      doc.setFontSize(9.2);
       doc.setTextColor(20, 20, 20);
-      doc.text(item.name, margin + 12, yPos + 5.5);
+      doc.text(nameLines, margin + 12, yPos + 5.2);
 
       // Description
-      if (item.description) {
+      if (descLines.length > 0) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.8);
         doc.setTextColor(90, 90, 90);
-        doc.text(item.description.slice(0, 75), margin + 12, yPos + 10);
+        doc.text(descLines, margin + 12, yPos + 5.2 + (nameLines.length * 4.2));
       }
 
       // Quantity
@@ -926,10 +1087,20 @@ export class PDFGeneratorService {
     doc.setTextColor(110, 110, 110);
     doc.text(company.signatoryTitle || 'Creative Producer & Founder', margin, yPos + 24);
 
-    // Footer
-    doc.setFontSize(6.5);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}`, pageWidth / 2, pageHeight - 6, { align: 'center' });
+    // Footer across all pages
+    const totalPages = (doc.internal as any).getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `${company.companyName} · ${company.tagline} · ${company.website || company.email || ''}  (Page ${i} of ${totalPages})`,
+        pageWidth / 2,
+        pageHeight - 6,
+        { align: 'center' }
+      );
+    }
 
     doc.save(`${invoice.invoiceNumber}_${invoice.clientName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`);
   }

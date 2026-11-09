@@ -337,7 +337,9 @@ export class PDFGeneratorService {
 
     // Items List
     quote.items.forEach((item, index) => {
-      const itemRowHeight = item.includedServices && item.includedServices.length > 0 ? 15 : 11;
+      const hasDiscount = Boolean(item.discount && item.discount > 0);
+      const hasIncludedServices = Boolean(item.includedServices && item.includedServices.length > 0);
+      const itemRowHeight = hasIncludedServices ? (hasDiscount ? 17 : 15) : (hasDiscount ? 13 : 11);
 
       if (yPos + itemRowHeight > pageHeight - 75) {
         doc.addPage();
@@ -384,15 +386,29 @@ export class PDFGeneratorService {
 
       // Line Total
       doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(40, 40, 40);
       doc.text(item.amount.toLocaleString('en-IN'), pageWidth - margin - 4, yPos + 5.5, { align: 'right' });
+
+      if (hasDiscount) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.2);
+        doc.setTextColor(180, 40, 40);
+        doc.text(`Less: -${(item.discount || 0).toLocaleString('en-IN')}`, pageWidth - margin - 4, yPos + 9.5, { align: 'right' });
+      }
 
       yPos += itemRowHeight;
     });
 
     yPos += 5;
 
+    const grossSubtotal = (quote.items || []).reduce((acc, curr) => acc + (curr.rate * (curr.quantity || 1)), 0);
+    const discountedItems = (quote.items || []).filter(it => (it.discount || 0) > 0);
+    const extraRows = discountedItems.length + (quote.discountAmount > 0 ? 1 : 0) + (quote.taxPercentage > 0 ? 1 : 0);
+    const totalsBoxHeight = 44 + (extraRows * 6);
+
     // Check page space for breakdown
-    if (yPos > pageHeight - 80) {
+    if (yPos + totalsBoxHeight > pageHeight - 35) {
       doc.addPage();
       yPos = margin;
     }
@@ -406,27 +422,37 @@ export class PDFGeneratorService {
     let curTotalY = initialBreakdownY;
     doc.setFillColor(252, 250, 246);
     doc.setDrawColor(229, 223, 211);
-    doc.roundedRect(totalsBoxX, curTotalY, totalsBoxWidth, 48, 1.5, 1.5, 'FD');
+    doc.roundedRect(totalsBoxX, curTotalY, totalsBoxWidth, totalsBoxHeight, 1.5, 1.5, 'FD');
 
-    const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false) => {
+    const addFinancialRow = (label: string, value: string, isBold: boolean = false, isHighlight: boolean = false, isDiscount: boolean = false) => {
       doc.setFont('helvetica', isBold ? 'bold' : 'normal');
       doc.setFontSize(isHighlight ? 9.5 : 7.6);
-      doc.setTextColor(isHighlight ? 20 : (isBold ? 30 : 80), isHighlight ? 20 : 30, isHighlight ? 20 : 30);
+      if (isDiscount) {
+        doc.setTextColor(180, 40, 40);
+      } else {
+        doc.setTextColor(isHighlight ? 20 : (isBold ? 30 : 80), isHighlight ? 20 : 30, isHighlight ? 20 : 30);
+      }
       doc.text(label, totalsBoxX + 4, curTotalY + 5.5);
 
       doc.setFont('helvetica', 'bold');
       if (isHighlight) doc.setTextColor(197, 139, 57);
+      else if (isDiscount) doc.setTextColor(180, 40, 40);
       doc.text(value, pageWidth - margin - 4, curTotalY + 5.5, { align: 'right' });
       curTotalY += 6;
     };
 
-    addFinancialRow('Subtotal:', `INR ${quote.subtotal.toLocaleString('en-IN')}`);
+    addFinancialRow('Subtotal:', `INR ${grossSubtotal.toLocaleString('en-IN')}`);
+
+    discountedItems.forEach(it => {
+      const cleanName = it.name.length > 18 ? it.name.substring(0, 16) + '...' : it.name;
+      addFinancialRow(`Less: Disc (${cleanName}):`, `- INR ${(it.discount || 0).toLocaleString('en-IN')}`, false, false, true);
+    });
 
     if (quote.discountAmount > 0) {
       const discountLabel = quote.discountType === 'percentage' 
-        ? `Discount (${quote.discountValue}%):` 
-        : 'Special Discount:';
-      addFinancialRow(discountLabel, `- INR ${quote.discountAmount.toLocaleString('en-IN')}`);
+        ? `Less: Disc (${quote.discountValue}%):` 
+        : 'Less: Special Disc:';
+      addFinancialRow(discountLabel, `- INR ${quote.discountAmount.toLocaleString('en-IN')}`, false, false, true);
     }
 
     if (quote.taxPercentage > 0) {

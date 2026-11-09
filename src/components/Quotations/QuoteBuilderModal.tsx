@@ -188,12 +188,16 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
   if (!isOpen) return null;
 
   // Real-time calculations
-  const subtotal = items.reduce((acc, curr) => acc + curr.amount, 0);
+  const grossSubtotal = items.reduce((acc, curr) => acc + (curr.rate * curr.quantity), 0);
+  const discountedItems = items.filter(it => (it.discount || 0) > 0);
+  const totalItemDiscount = discountedItems.reduce((acc, curr) => acc + (curr.discount || 0), 0);
+  const netSubtotal = Math.max(0, grossSubtotal - totalItemDiscount);
+
   const discountAmount = discountType === 'percentage' 
-    ? Math.round((subtotal * discountValue) / 100) 
+    ? Math.round((netSubtotal * discountValue) / 100) 
     : Number(discountValue) || 0;
 
-  const afterDiscount = Math.max(0, subtotal - discountAmount);
+  const afterDiscount = Math.max(0, netSubtotal - discountAmount);
   const taxAmount = Math.round((afterDiscount * taxPercentage) / 100);
   const grandTotal = afterDiscount + taxAmount;
   
@@ -310,7 +314,7 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
       eventDate: eventDate || new Date().toISOString().split('T')[0],
       venue: venue.trim() || 'Venue TBD',
       items,
-      subtotal,
+      subtotal: grossSubtotal,
       discountType,
       discountValue,
       discountAmount,
@@ -611,8 +615,13 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
                             className="w-20 px-1.5 py-1 text-right border border-[#DCD6C8] rounded font-mono tabular-nums bg-white text-rose-700"
                           />
                         </td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-neutral-900 tabular-nums">
-                          ₹{item.amount.toLocaleString('en-IN')}
+                        <td className="py-3 px-3 text-right font-mono tabular-nums">
+                          <div className="font-bold text-neutral-900">₹{item.amount.toLocaleString('en-IN')}</div>
+                          {(item.discount || 0) > 0 && (
+                            <div className="text-[10px] text-rose-600 font-medium">
+                              Less: -₹{(item.discount || 0).toLocaleString('en-IN')}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-2 text-center">
                           <button
@@ -716,16 +725,38 @@ export const QuoteBuilderModal: React.FC<QuoteBuilderModalProps> = ({
                 <div className="space-y-2.5 pt-2 text-xs">
                   {/* Subtotal */}
                   <div className="flex justify-between items-center text-neutral-600">
-                    <span>Subtotal:</span>
+                    <span>Gross Subtotal:</span>
                     <span className="font-mono font-bold text-sm text-neutral-900 tabular-nums">
-                      ₹{subtotal.toLocaleString('en-IN')}
+                      ₹{grossSubtotal.toLocaleString('en-IN')}
                     </span>
                   </div>
 
-                  {/* Discount */}
-                  <div className="flex justify-between items-center gap-2 pt-1 border-t border-[#F0ECE1]">
+                  {/* Item Discounts (Item-by-item deduction) */}
+                  {discountedItems.length > 0 && (
+                    <div className="space-y-1.5 pt-1.5 border-t border-[#F0ECE1]">
+                      {discountedItems.map((item, idx) => (
+                        <div key={item.id || idx} className="flex justify-between items-center text-rose-700 text-xs">
+                          <span className="truncate pr-2 font-medium">Less: Discount on {item.name}:</span>
+                          <span className="font-mono tabular-nums shrink-0 font-semibold">
+                            - ₹{(item.discount || 0).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      ))}
+                      {discountedItems.length > 1 && (
+                        <div className="flex justify-between items-center text-neutral-500 text-[11px] pt-0.5">
+                          <span>Total Item Discount:</span>
+                          <span className="font-mono tabular-nums font-medium">
+                            - ₹{totalItemDiscount.toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Quote / Special Discount */}
+                  <div className="flex justify-between items-center gap-2 pt-1.5 border-t border-[#F0ECE1]">
                     <div className="flex items-center gap-1.5">
-                      <span>Discount:</span>
+                      <span>Special Discount:</span>
                       <select
                         value={discountType}
                         onChange={(e) => setDiscountType(e.target.value as 'flat' | 'percentage')}

@@ -26,7 +26,9 @@ import {
   getTodayDateString, 
   parseDateSafe, 
   formatDisplayDate, 
-  formatFullDisplayDate 
+  formatFullDisplayDate,
+  normalizeDateString,
+  getDatesInRange
 } from '../../utils/dateUtils';
 
 export type CalendarType = 'weddings' | 'functions' | 'crew';
@@ -171,16 +173,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return days;
   }, [year, month]);
 
-  // Helper to find events active on a specific date
+  // Helper to find events active on a specific date (includes all dates between startDate and endDate)
   const getEventsForDate = (dateStr: string) => {
     return events.filter(e => {
       if (e.status === 'Cancelled' || e.status === 'Archived') return false;
-      const rawStart = e.startDate || (e as any).shootDate || '';
-      const start = rawStart.split('T')[0].trim();
-      const rawEnd = e.endDate || start;
-      const end = rawEnd.split('T')[0].trim();
+      const start = normalizeDateString(e.startDate || (e as any).shootDate);
+      if (!start) return false;
+      const rawEnd = normalizeDateString(e.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
 
-      const matchesDate = (dateStr >= start && dateStr <= end) || start === dateStr;
+      const matchesDate = dateStr >= start && dateStr <= end;
       if (!matchesDate) return false;
 
       // Filter by crew member if in crew calendar
@@ -194,13 +196,24 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
   };
 
+  // Helper to compute day index within a multi-day event
+  const getMultiDayMeta = (e: EventShoot, dateStr: string) => {
+    const start = normalizeDateString(e.startDate || (e as any).shootDate);
+    const rawEnd = normalizeDateString(e.endDate);
+    const end = rawEnd && rawEnd >= start ? rawEnd : start;
+    const allDates = getDatesInRange(start, end);
+    const totalDays = allDates.length;
+    const dayIndex = allDates.indexOf(dateStr) + 1;
+    return { start, end, totalDays, dayIndex };
+  };
+
   // Helper to find sub-events/ceremonies on a specific date
   const getSubEventsForDate = (dateStr: string) => {
     const list: { subEvent: SubEvent; parentEvent: EventShoot }[] = [];
     events.forEach(e => {
       if (e.status === 'Cancelled' || e.status === 'Archived') return;
       (e.subEvents || []).forEach(sub => {
-        const subDate = (sub.date || e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+        const subDate = normalizeDateString(sub.date || e.startDate || (e as any).shootDate);
         if (subDate === dateStr) {
           list.push({ subEvent: sub, parentEvent: e });
         }
@@ -240,15 +253,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return events
       .filter(e => e.status !== 'Cancelled' && e.status !== 'Archived')
       .map(e => {
-        const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
+        const start = normalizeDateString(e.startDate || (e as any).shootDate);
+        const rawEnd = normalizeDateString(e.endDate);
+        const end = rawEnd && rawEnd >= start ? rawEnd : start;
         const d = parseDateSafe(start);
+        const dEnd = parseDateSafe(end);
         return {
           event: e,
           dateStr: start,
+          endStr: end,
           year: d.getFullYear(),
           month: d.getMonth(),
           monthName: monthNames[d.getMonth()],
-          day: d.getDate()
+          day: d.getDate(),
+          endDay: dEnd.getDate(),
+          endMonthName: monthNames[dEnd.getMonth()]
         };
       })
       .filter(item => item.dateStr)
@@ -481,7 +500,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     title={`Jump to ${item.event.eventName} on ${item.dateStr}`}
                   >
                     <span className="font-mono font-bold text-[10px] text-[#C58B39]">
-                      {item.day} {item.monthName.slice(0, 3)} '{String(item.year).slice(2)}
+                      {item.endStr && item.endStr !== item.dateStr
+                        ? item.monthName === item.endMonthName
+                          ? `${item.day}–${item.endDay} ${item.monthName.slice(0, 3)} '${String(item.year).slice(2)}`
+                          : `${item.day} ${item.monthName.slice(0, 3)}–${item.endDay} ${item.endMonthName.slice(0, 3)} '${String(item.year).slice(2)}`
+                        : `${item.day} ${item.monthName.slice(0, 3)} '${String(item.year).slice(2)}`}
                     </span>
                     <span className="truncate max-w-[130px]">{item.event.eventName}</span>
                   </button>
@@ -561,6 +584,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   <div className="space-y-1 mt-1 flex-1 overflow-y-auto max-h-[85px]">
                     {calendarType === 'weddings' && cellEvents.slice(0, 2).map(ev => {
                       const totalCrew = ev.crewAssignments?.length || ev.crewMembers?.length || 0;
+                      const meta = getMultiDayMeta(ev, cell.dateString);
                       return (
                         <div
                           key={ev.id}
@@ -568,14 +592,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                             e.stopPropagation();
                             onSelectEvent(ev);
                           }}
-                          className="px-1.5 py-1 rounded bg-[#FAF8F5] border border-[#E8E3D9] hover:border-[#C58B39] text-[10px] text-neutral-900 font-medium truncate flex items-center justify-between gap-1 shadow-2xs"
-                          title={`${ev.eventName} - ${ev.venue}`}
+                          className={`px-1.5 py-1 rounded bg-[#FAF8F5] border hover:border-[#C58B39] text-[10px] text-neutral-900 font-medium truncate flex items-center justify-between gap-1 shadow-2xs ${
+                            meta.totalDays > 1 ? 'border-l-2 border-l-[#C58B39] border-[#E8E3D9]' : 'border-[#E8E3D9]'
+                          }`}
+                          title={`${ev.eventName} - ${ev.venue}${meta.totalDays > 1 ? ` (Day ${meta.dayIndex} of ${meta.totalDays})` : ''}`}
                         >
                           <span className="truncate flex items-center gap-1">
                             {ev.partnerName && <span title={`Partner: ${ev.partnerName}`}>🤝</span>}
                             <span>{ev.eventName}</span>
                           </span>
-                          <span className="text-[9px] font-mono text-[#C58B39] font-bold shrink-0">{totalCrew}C</span>
+                          <span className="text-[9px] font-mono text-[#C58B39] font-bold shrink-0">
+                            {meta.totalDays > 1 ? `D${meta.dayIndex}/${meta.totalDays}` : `${totalCrew}C`}
+                          </span>
                         </div>
                       );
                     })}
@@ -595,23 +623,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       </div>
                     ))}
 
-                    {calendarType === 'crew' && cellEvents.slice(0, 2).map(ev => (
-                      <div
-                        key={ev.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSelectEvent(ev);
-                        }}
-                        className="px-1.5 py-1 rounded bg-emerald-50/70 border border-emerald-200 hover:border-emerald-400 text-[10px] text-emerald-950 font-medium truncate flex items-center justify-between gap-1 shadow-2xs"
-                        title={`${ev.eventName} - ${ev.venue}`}
-                      >
-                        <span className="truncate">{ev.eventName}</span>
-                      </div>
-                    ))}
+                    {calendarType === 'crew' && cellEvents.slice(0, 2).map(ev => {
+                      const meta = getMultiDayMeta(ev, cell.dateString);
+                      return (
+                        <div
+                          key={ev.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectEvent(ev);
+                          }}
+                          className="px-1.5 py-1 rounded bg-emerald-50/70 border border-emerald-200 hover:border-emerald-400 text-[10px] text-emerald-950 font-medium truncate flex items-center justify-between gap-1 shadow-2xs"
+                          title={`${ev.eventName} - ${ev.venue}${meta.totalDays > 1 ? ` (Day ${meta.dayIndex}/${meta.totalDays})` : ''}`}
+                        >
+                          <span className="truncate">{ev.eventName}</span>
+                          {meta.totalDays > 1 && (
+                            <span className="text-[9px] font-mono text-emerald-800 font-bold shrink-0">D{meta.dayIndex}/{meta.totalDays}</span>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                    {cellEvents.length > 2 && (
+                    {calendarType !== 'functions' && cellEvents.length > 2 && (
                       <div className="text-[9px] font-mono text-neutral-400 text-center">
                         +{cellEvents.length - 2} more
+                      </div>
+                    )}
+                    {calendarType === 'functions' && cellSubEvents.length > 2 && (
+                      <div className="text-[9px] font-mono text-neutral-400 text-center">
+                        +{cellSubEvents.length - 2} more
                       </div>
                     )}
                   </div>
@@ -723,8 +762,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="text-[10px] font-mono uppercase text-[#C58B39] font-bold">
-                        {event.eventType} Shoot
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-mono uppercase text-[#C58B39] font-bold">
+                          {event.eventType} Shoot
+                        </span>
+                        {(() => {
+                          const meta = getMultiDayMeta(event, selectedDate);
+                          if (meta.totalDays > 1) {
+                            return (
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 font-bold">
+                                Day {meta.dayIndex} of {meta.totalDays} ({formatDisplayDate(meta.start, { day: '2-digit', month: 'short' })} – {formatDisplayDate(meta.end, { day: '2-digit', month: 'short' })})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <h3 className="font-serif text-lg font-bold text-neutral-900 mt-0.5">
                         {event.eventName}

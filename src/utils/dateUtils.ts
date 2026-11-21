@@ -61,3 +61,33 @@ export function isSameDay(dateStr1?: string | null, dateStr2?: string | null): b
   return dateStr1.split('T')[0].trim() === dateStr2.split('T')[0].trim();
 }
 
+// Normalize any date string to YYYY-MM-DD
+export function normalizeDateString(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  return dateStr.split('T')[0].trim();
+}
+
+// Expand a startDate..endDate range (inclusive) into all YYYY-MM-DD date strings in between
+export function getDatesInRange(startStr?: string | null, endStr?: string | null): string[] {
+  const start = normalizeDateString(startStr);
+  if (!start) return [];
+  const rawEnd = normalizeDateString(endStr);
+  const end = rawEnd && rawEnd >= start ? rawEnd : start;
+
+  if (start === end) return [start];
+
+  const startDate = parseDateSafe(start);
+  const endDate = parseDateSafe(end);
+  const result: string[] = [];
+  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 12, 0, 0);
+
+  // Guard at 366 days max to avoid accidental runaway loops on malformed input
+  let count = 0;
+  while (cursor <= endDate && count < 366) {
+    result.push(formatYYYYMMDD(cursor.getFullYear(), cursor.getMonth() + 1, cursor.getDate()));
+    cursor.setDate(cursor.getDate() + 1);
+    count++;
+  }
+  return result.length > 0 ? result : [start];
+}
+

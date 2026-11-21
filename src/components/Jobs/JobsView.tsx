@@ -41,7 +41,7 @@ import { EventModal } from '../Events/EventModal';
 import { EventCommandCenter } from '../Events/EventCommandCenter';
 import { AssignCrewModal } from '../Events/AssignCrewModal';
 import { AddPaymentModal } from '../Clients/AddPaymentModal';
-import { formatDisplayDate } from '../../utils/dateUtils';
+import { formatDisplayDate, normalizeDateString } from '../../utils/dateUtils';
 
 export type JobFilterTab = 
   | 'all' 
@@ -181,14 +181,16 @@ export const JobsView: React.FC<JobsViewProps> = ({
   // Filter events based on tab
   const filteredEvents = events
     .filter(e => {
-      const start = e.startDate || (e as any).shootDate || '';
+      const start = normalizeDateString(e.startDate || (e as any).shootDate);
+      const rawEnd = normalizeDateString(e.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
 
       // Tab filtering
       if (activeTab === 'upcoming') {
-        const isUpcoming = (e.status === 'Confirmed' || e.status === 'Scheduled') && start >= todayStr;
+        const isUpcoming = (e.status === 'Confirmed' || e.status === 'Scheduled') && end >= todayStr;
         if (!isUpcoming) return false;
       } else if (activeTab === 'active') {
-        const isActive = e.status === 'In Progress' || (start <= todayStr && (e.endDate || start) >= todayStr && e.status !== 'Completed' && e.status !== 'Cancelled');
+        const isActive = e.status === 'In Progress' || (start !== '' && start <= todayStr && end >= todayStr && e.status !== 'Completed' && e.status !== 'Cancelled');
         if (!isActive) return false;
       } else if (activeTab === 'completed') {
         if (e.status !== 'Completed') return false;

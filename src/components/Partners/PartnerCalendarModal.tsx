@@ -16,6 +16,12 @@ import {
 } from 'lucide-react';
 import { Partner, EventShoot, EventStatus } from '../../types';
 import { StorageService } from '../../services/storage';
+import {
+  formatYYYYMMDD,
+  getTodayDateString,
+  formatFullDisplayDate,
+  normalizeDateString
+} from '../../utils/dateUtils';
 
 interface PartnerCalendarModalProps {
   isOpen: boolean;
@@ -36,8 +42,11 @@ export const PartnerCalendarModal: React.FC<PartnerCalendarModalProps> = ({
   onRefreshData,
   onScheduleShootForPartner
 }) => {
-  const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [currentDate, setCurrentDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
+  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayDateString());
 
   if (!isOpen || !partner) return null;
 
@@ -50,67 +59,72 @@ export const PartnerCalendarModal: React.FC<PartnerCalendarModalProps> = ({
   ];
 
   const handlePrev = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
+    setCurrentDate(new Date(year, month - 1, 1, 12, 0, 0));
   };
 
   const handleNext = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+    setCurrentDate(new Date(year, month + 1, 1, 12, 0, 0));
   };
 
   const handleToday = () => {
     const today = new Date();
-    setCurrentDate(today);
-    setSelectedDate(today.toISOString().split('T')[0]);
+    setCurrentDate(new Date(today.getFullYear(), today.getMonth(), 1, 12, 0, 0));
+    setSelectedDate(getTodayDateString());
   };
 
   // Filter shoots outsourced by this specific partner
   const partnerShoots = events.filter(e => 
-    e.partnerId === partner.id || 
-    (e.notes && e.notes.toLowerCase().includes(partner.id.toLowerCase()))
+    e.status !== 'Cancelled' &&
+    e.status !== 'Archived' &&
+    (e.partnerId === partner.id || 
+    (e.notes && e.notes.toLowerCase().includes(partner.id.toLowerCase())))
   );
 
-  // Month grid
-  const firstDayIndex = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  // Month grid (timezone-safe midday anchoring)
+  const firstDayIndex = new Date(year, month, 1, 12, 0, 0).getDay();
+  const daysInMonth = new Date(year, month + 1, 0, 12, 0, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0, 12, 0, 0).getDate();
 
   const days: { dateString: string; dayNumber: number; isCurrentMonth: boolean }[] = [];
 
+  const prevYear = month === 0 ? year - 1 : year;
+  const prevMonth1Based = month === 0 ? 12 : month;
   for (let i = firstDayIndex - 1; i >= 0; i--) {
-    const prevDate = new Date(year, month - 1, daysInPrevMonth - i);
+    const dayNum = daysInPrevMonth - i;
     days.push({
-      dateString: prevDate.toISOString().split('T')[0],
-      dayNumber: daysInPrevMonth - i,
+      dateString: formatYYYYMMDD(prevYear, prevMonth1Based, dayNum),
+      dayNumber: dayNum,
       isCurrentMonth: false
     });
   }
 
   for (let i = 1; i <= daysInMonth; i++) {
-    const monthStr = String(month + 1).padStart(2, '0');
-    const dayStr = String(i).padStart(2, '0');
     days.push({
-      dateString: `${year}-${monthStr}-${dayStr}`,
+      dateString: formatYYYYMMDD(year, month + 1, i),
       dayNumber: i,
       isCurrentMonth: true
     });
   }
 
   const remaining = 42 - days.length;
+  const nextYear = month === 11 ? year + 1 : year;
+  const nextMonth1Based = month === 11 ? 1 : month + 2;
   for (let i = 1; i <= remaining; i++) {
-    const nextDate = new Date(year, month + 1, i);
     days.push({
-      dateString: nextDate.toISOString().split('T')[0],
+      dateString: formatYYYYMMDD(nextYear, nextMonth1Based, i),
       dayNumber: i,
       isCurrentMonth: false
     });
   }
 
-  // Get shoots on date
+  // Get shoots on date (spans all intermediate dates between startDate and endDate)
   const getShootsForDate = (dateStr: string) => {
     return partnerShoots.filter(e => {
-      const start = e.startDate || (e as any).shootDate || '';
-      const end = e.endDate || start;
-      return (dateStr >= start && dateStr <= end) || start === dateStr;
+      const start = normalizeDateString(e.startDate || (e as any).shootDate);
+      if (!start) return false;
+      const rawEnd = normalizeDateString(e.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
+      return dateStr >= start && dateStr <= end;
     });
   };
 
@@ -218,7 +232,7 @@ export const PartnerCalendarModal: React.FC<PartnerCalendarModalProps> = ({
               {days.map((d, index) => {
                 const dayShoots = getShootsForDate(d.dateString);
                 const isSelected = selectedDate === d.dateString;
-                const isToday = d.dateString === new Date().toISOString().split('T')[0];
+                const isToday = d.dateString === getTodayDateString();
 
                 return (
                   <div
@@ -271,7 +285,7 @@ export const PartnerCalendarModal: React.FC<PartnerCalendarModalProps> = ({
           <div className="p-4 rounded-xl bg-[#FAF8F5] border border-[#E8E3D9] space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="font-serif font-bold text-sm text-neutral-900">
-                Shoots on {new Date(selectedDate).toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}
+                Shoots on {formatFullDisplayDate(selectedDate)}
               </h4>
 
               <button

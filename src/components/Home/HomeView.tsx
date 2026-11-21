@@ -114,7 +114,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const next7DaysStr = formatYYYYMMDD(next7Date.getFullYear(), next7Date.getMonth() + 1, next7Date.getDate());
   const upcoming7DaysEvents = events.filter(e => {
     const start = (e.startDate || (e as any).shootDate || '').split('T')[0].trim();
-    return start >= todayStr && start <= next7DaysStr && e.status !== 'Cancelled' && e.status !== 'Archived';
+    const rawEnd = (e.endDate || start).split('T')[0].trim();
+    const end = rawEnd && rawEnd >= start ? rawEnd : start;
+    return start && end >= todayStr && start <= next7DaysStr && e.status !== 'Cancelled' && e.status !== 'Archived';
   }).sort((a, b) => {
     const dateA = a.startDate || (a as any).shootDate || '';
     const dateB = b.startDate || (b as any).shootDate || '';

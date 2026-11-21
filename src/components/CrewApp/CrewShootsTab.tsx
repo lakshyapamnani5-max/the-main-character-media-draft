@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { EventShoot, CrewMember } from '../../types';
 import { CalendarExportModal } from '../Common/CalendarExportModal';
+import { getTodayDateString, normalizeDateString } from '../../utils/dateUtils';
 
 interface CrewShootsTabProps {
   activeCrew: CrewMember;
@@ -30,7 +31,7 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
   const [exportShootTarget, setExportShootTarget] = useState<EventShoot | null>(null);
   const [isBulkExportOpen, setIsBulkExportOpen] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateString();
 
   // Shoots assigned to this crew member
   const myAssignedShoots = allShoots.filter(event => {
@@ -41,8 +42,10 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
 
   const todayShoots = myAssignedShoots
     .filter(event => {
-      const start = event.startDate || event.shootDate || '';
-      const end = event.endDate || start;
+      const start = normalizeDateString(event.startDate || event.shootDate);
+      if (!start) return false;
+      const rawEnd = normalizeDateString(event.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
       return (todayStr >= start && todayStr <= end) && event.status !== 'Cancelled' && event.status !== 'Archived';
     })
     .sort((a, b) => {
@@ -56,8 +59,10 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
 
   const upcomingShoots = myAssignedShoots
     .filter(event => {
-      const start = event.startDate || event.shootDate || '';
-      return start >= todayStr && event.status !== 'Completed' && event.status !== 'Cancelled' && event.status !== 'Archived';
+      const start = normalizeDateString(event.startDate || event.shootDate);
+      const rawEnd = normalizeDateString(event.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
+      return end >= todayStr && event.status !== 'Completed' && event.status !== 'Cancelled' && event.status !== 'Archived';
     })
     .sort((a, b) => {
       const dateA = a.startDate || a.shootDate || '';
@@ -70,8 +75,10 @@ export const CrewShootsTab: React.FC<CrewShootsTabProps> = ({
 
   const completedShoots = myAssignedShoots
     .filter(event => {
-      const start = event.startDate || event.shootDate || '';
-      return event.status === 'Completed' || (start < todayStr && event.status !== 'Cancelled');
+      const start = normalizeDateString(event.startDate || event.shootDate);
+      const rawEnd = normalizeDateString(event.endDate);
+      const end = rawEnd && rawEnd >= start ? rawEnd : start;
+      return event.status === 'Completed' || (end < todayStr && event.status !== 'Cancelled');
     })
     .sort((a, b) => {
       const dateA = a.startDate || a.shootDate || '';

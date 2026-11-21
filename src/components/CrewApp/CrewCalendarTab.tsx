@@ -15,7 +15,9 @@ import { CalendarExportModal } from '../Common/CalendarExportModal';
 import { 
   formatYYYYMMDD, 
   getTodayDateString, 
-  formatDisplayDate 
+  formatDisplayDate,
+  getDatesInRange,
+  normalizeDateString
 } from '../../utils/dateUtils';
 
 interface CrewCalendarTabProps {
@@ -45,28 +47,26 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
   const firstDayIndex = new Date(year, month, 1, 12, 0, 0).getDay();
   const daysInMonth = new Date(year, month + 1, 0, 12, 0, 0).getDate();
 
-  // Shoots assigned to active crew
+  // Shoots assigned to active crew (exclude Cancelled/Archived)
   const myShoots = allShoots.filter(event => {
+    if (event.status === 'Cancelled' || event.status === 'Archived') return false;
     return (event.crewAssignments && event.crewAssignments.some(a => a.crewId === activeCrew.id)) ||
       (event.crewMembers && event.crewMembers.some(name => name.toLowerCase() === activeCrew.name.toLowerCase()));
   });
 
-  // Get booked dates set
+  // Get booked dates set including all intermediate dates between startDate and endDate
   const bookedDatesSet = new Set<string>();
   myShoots.forEach(e => {
-    const start = (e.startDate || e.shootDate || '').split('T')[0].trim();
-    const end = (e.endDate || start).split('T')[0].trim();
-    if (start) {
-      bookedDatesSet.add(start);
-      if (end && end !== start) {
-        bookedDatesSet.add(end);
-      }
-    }
+    const start = normalizeDateString(e.startDate || e.shootDate);
+    const end = normalizeDateString(e.endDate) || start;
+    getDatesInRange(start, end).forEach(d => bookedDatesSet.add(d));
   });
 
   const shootsOnSelectedDate = myShoots.filter(e => {
-    const start = (e.startDate || e.shootDate || '').split('T')[0].trim();
-    const end = (e.endDate || start).split('T')[0].trim();
+    const start = normalizeDateString(e.startDate || e.shootDate);
+    if (!start) return false;
+    const rawEnd = normalizeDateString(e.endDate);
+    const end = rawEnd && rawEnd >= start ? rawEnd : start;
     return selectedDate >= start && selectedDate <= end;
   });
 
@@ -229,6 +229,11 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
             {shootsOnSelectedDate.map(event => {
               const assignment = event.crewAssignments?.find(a => a.crewId === activeCrew.id);
               const callTime = assignment?.callTime || event.shootTime?.split('-')[0]?.trim() || '08:00 AM';
+              const start = normalizeDateString(event.startDate || event.shootDate);
+              const rawEnd = normalizeDateString(event.endDate);
+              const end = rawEnd && rawEnd >= start ? rawEnd : start;
+              const spanDates = getDatesInRange(start, end);
+              const dayIdx = spanDates.indexOf(selectedDate);
 
               return (
                 <div
@@ -236,17 +241,24 @@ export const CrewCalendarTab: React.FC<CrewCalendarTabProps> = ({
                   onClick={() => onSelectShoot(event)}
                   className="bg-white border-2 border-[#C58B39] rounded-2xl p-4 shadow-xs space-y-3 cursor-pointer"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[#C58B39] font-bold">
-                        {event.eventType}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-[#C58B39] font-bold">
+                          {event.eventType}
+                        </span>
+                        {spanDates.length > 1 && dayIdx >= 0 && (
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#FAF8F5] border border-[#E8E3D9] text-[#8F5F1B]">
+                            Day {dayIdx + 1} of {spanDates.length} ({formatDisplayDate(start)} – {formatDisplayDate(end)})
+                          </span>
+                        )}
+                      </div>
                       <h2 className="font-serif text-base font-bold text-neutral-900">
                         {event.eventName}
                       </h2>
                     </div>
 
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-200 shrink-0">
                       Confirmed
                     </span>
                   </div>

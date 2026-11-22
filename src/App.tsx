@@ -20,8 +20,10 @@ import { MoreView, MoreSubTab } from './components/More/MoreView';
 import { PartnersView } from './components/Partners/PartnersView';
 import { PartnerCalendarModal } from './components/Partners/PartnerCalendarModal';
 import { AddPartnerEventModal } from './components/Partners/AddPartnerEventModal';
+import { PartnerPortalLayout } from './components/Partners/PartnerPortalLayout';
 import { AuthModal } from './components/Auth/AuthModal';
 import { AuthPage } from './components/Auth/AuthPage';
+import { getTodayDateString } from './utils/dateUtils';
 import { CrewManagementView } from './components/Crew/CrewManagementView';
 import { EventChargesView } from './components/EventCharges/EventChargesView';
 import { InvoiceModal } from './components/Invoices/InvoiceModal';
@@ -80,6 +82,7 @@ export default function App() {
   const [appViewMode, setAppViewMode] = useState<'admin' | 'crew'>(() => {
     const session = StorageService.getUserSession();
     if (session?.role === 'crew') return 'crew';
+    if (session?.role === 'partner') return 'admin';
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       const hash = window.location.hash.toLowerCase();
@@ -88,9 +91,10 @@ export default function App() {
         return 'crew';
       }
     }
-    return session?.role || StorageService.getAppViewMode();
+    return StorageService.getAppViewMode();
   });
   const [activeCrewId, setActiveCrewId] = useState<string>(() => StorageService.getActiveCrewMemberId());
+  const [previewPartnerId, setPreviewPartnerId] = useState<string | null>(null);
 
   // Navigation state (Default to 'home')
   const [activeModule, setActiveModule] = useState<NavModule>('home');
@@ -412,13 +416,16 @@ export default function App() {
   const handleLoginSuccess = (session: UserSession) => {
     StorageService.setUserSession(session);
     setUserSession(session);
-    setAppViewMode(session.role);
     if (session.role === 'crew') {
+      setAppViewMode('crew');
       if (session.crewId) {
         setActiveCrewId(session.crewId);
         StorageService.setActiveCrewMemberId(session.crewId);
       }
+    } else if (session.role === 'admin') {
+      setAppViewMode('admin');
     }
+    setPreviewPartnerId(null);
     refreshAllData();
   };
 
@@ -431,6 +438,7 @@ export default function App() {
     StorageService.setUserSession(null);
     setUserSession(null);
     setCurrentUser(null);
+    setPreviewPartnerId(null);
     if (typeof window !== 'undefined') {
       try {
         window.history.pushState(null, '', '/');
@@ -457,8 +465,8 @@ export default function App() {
   };
 
   const handleSwitchToAdminMode = () => {
-    if (userSession?.role === 'crew') {
-      // Crew members strictly cannot switch to Admin mode
+    if (userSession?.role === 'crew' || userSession?.role === 'partner') {
+      // Crew and Partner members strictly cannot switch to Admin mode
       return;
     }
     setAppViewMode('admin');
@@ -476,6 +484,9 @@ export default function App() {
     const handleUrlNav = () => {
       if (userSession?.role === 'crew') {
         setAppViewMode('crew');
+        return;
+      }
+      if (userSession?.role === 'partner') {
         return;
       }
       const path = window.location.pathname.toLowerCase();
@@ -508,6 +519,35 @@ export default function App() {
       <AuthPage
         onLoginSuccess={handleLoginSuccess}
         crewRoster={crew}
+        partners={partners}
+      />
+    );
+  }
+
+  // If logged in as an Event Partner, show strictly their own company's Calendar & Events
+  if (userSession?.role === 'partner' && userSession.partnerId) {
+    return (
+      <PartnerPortalLayout
+        partners={partners}
+        events={events}
+        partnerId={userSession.partnerId}
+        session={userSession}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
+
+  // If Admin is previewing a Partner Portal
+  if (previewPartnerId && userSession?.role === 'admin') {
+    return (
+      <PartnerPortalLayout
+        partners={partners}
+        events={events}
+        partnerId={previewPartnerId}
+        session={userSession}
+        isAdminPreview={true}
+        onExitPreview={() => setPreviewPartnerId(null)}
+        onSignOut={handleSignOut}
       />
     );
   }
@@ -627,9 +667,10 @@ export default function App() {
               onRefreshData={refreshAllData}
               onOpenNewEventForPartner={(partner) => {
                 setSelectedPartnerForEvent(partner);
-                setInitialPartnerShootDate(new Date().toISOString().split('T')[0]);
+                setInitialPartnerShootDate(getTodayDateString());
                 setIsAddPartnerEventOpen(true);
               }}
+              onPreviewPartnerPortal={(partner) => setPreviewPartnerId(partner.id)}
             />
           )}
 
@@ -1017,7 +1058,7 @@ export default function App() {
         }}
         onScheduleShootForPartner={(partner, date) => {
           setSelectedPartnerForEvent(partner);
-          setInitialPartnerShootDate(date || new Date().toISOString().split('T')[0]);
+          setInitialPartnerShootDate(date || getTodayDateString());
           setIsAddPartnerEventOpen(true);
         }}
       />

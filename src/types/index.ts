@@ -560,6 +560,7 @@ export interface Partner {
   rating?: number;
   notes?: string;
   associatedEventIds?: string[];
+  portalAccessEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }

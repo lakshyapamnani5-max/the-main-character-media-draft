@@ -11,15 +11,17 @@ import {
   Instagram
 } from 'lucide-react';
 import { UserSession } from '../../services/storage';
-import { CrewMember } from '../../types';
+import { CrewMember, Partner } from '../../types';
+import { Building2 } from 'lucide-react';
 
 interface AuthPageProps {
   onLoginSuccess: (session: UserSession) => void;
   crewRoster: CrewMember[];
+  partners: Partner[];
 }
 
-export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }) => {
-  const [roleMode, setRoleMode] = useState<'admin' | 'crew'>('admin');
+export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster, partners }) => {
+  const [roleMode, setRoleMode] = useState<'admin' | 'crew' | 'partner'>('admin');
   
   // Admin login
   const [email, setEmail] = useState('');
@@ -30,6 +32,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
 
   // Crew Login State - Phone based
   const [crewPhoneInput, setCrewPhoneInput] = useState('');
+
+  // Partner Login State - Phone or Email based
+  const [partnerIdentifier, setPartnerIdentifier] = useState('');
 
   // Admin Sign-in (hardcoded single admin: admin@tmcm / admin123)
   const handleAdminAuth = async (e: React.FormEvent) => {
@@ -105,6 +110,63 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
     }, 400);
   };
 
+  // Partner Login Handler - Phone number or Email matching
+  const handlePartnerLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    const rawInput = partnerIdentifier.trim();
+    if (!rawInput) {
+      setError('Please enter your registered phone number or email address.');
+      return;
+    }
+
+    const isEmailInput = rawInput.includes('@');
+    let matchedPartner: Partner | undefined;
+
+    if (isEmailInput) {
+      const targetEmail = rawInput.toLowerCase();
+      matchedPartner = partners.find(p => (p.email || '').trim().toLowerCase() === targetEmail);
+    } else {
+      const inputDigits = rawInput.replace(/\D/g, '');
+      if (inputDigits.length >= 10) {
+        const last10 = inputDigits.slice(-10);
+        matchedPartner = partners.find(p => {
+          if (!p.phone) return false;
+          const partnerDigits = p.phone.replace(/\D/g, '');
+          return partnerDigits.length >= 10 && partnerDigits.slice(-10) === last10;
+        });
+      } else {
+        setError('Please enter a valid 10-digit mobile number or full email address.');
+        return;
+      }
+    }
+
+    if (!matchedPartner) {
+      setError('No event partner found with this phone number or email. Ask the admin to add or update your company details.');
+      return;
+    }
+
+    if (matchedPartner.portalAccessEnabled === false) {
+      setError('Portal access is currently paused for your company. Please contact the admin.');
+      return;
+    }
+
+    setSuccessMessage(`Welcome, ${matchedPartner.companyName}! Loading your calendar & events...`);
+    setTimeout(() => {
+      onLoginSuccess({
+        role: 'partner',
+        name: matchedPartner.contactPerson || matchedPartner.name || matchedPartner.companyName,
+        companyName: matchedPartner.companyName,
+        partnerId: matchedPartner.id,
+        phone: matchedPartner.phone,
+        email: matchedPartner.email,
+        authenticatedAt: new Date().toISOString()
+      });
+    }, 400);
+  };
+
   return (
     <div className="min-h-screen bg-[#0C0C0C] text-[#FAF8F5] flex flex-col justify-between selection:bg-[#C58B39]/30 relative overflow-hidden font-sans">
       
@@ -144,12 +206,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
               Secure Terminal Access
             </h1>
             <p className="text-xs text-neutral-400">
-              Sign in to manage wedding productions, financials, or crew calls.
+              Sign in as Admin, Crew Member, or Event Partner.
             </p>
           </div>
 
-          {/* Role Mode Tabs: Admin vs Crew */}
-          <div className="grid grid-cols-2 p-1 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl mb-6">
+          {/* Role Mode Tabs: Admin vs Crew vs Partner */}
+          <div className="grid grid-cols-3 p-1 bg-[#1C1C1C] border border-[#2A2A2A] rounded-xl mb-6 gap-1">
             <button
               type="button"
               onClick={() => {
@@ -157,14 +219,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
                 setError(null);
                 setSuccessMessage(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                 roleMode === 'admin'
                   ? 'bg-[#C58B39] text-[#121212] shadow-sm font-bold'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Admin / Producer</span>
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span>Admin</span>
             </button>
 
             <button
@@ -174,14 +236,31 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
                 setError(null);
                 setSuccessMessage(null);
               }}
-              className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                 roleMode === 'crew'
                   ? 'bg-[#C58B39] text-[#121212] shadow-sm font-bold'
                   : 'text-neutral-400 hover:text-white'
               }`}
             >
-              <Smartphone className="w-4 h-4" />
-              <span>Crew Portal</span>
+              <Smartphone className="w-3.5 h-3.5 shrink-0" />
+              <span>Crew</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRoleMode('partner');
+                setError(null);
+                setSuccessMessage(null);
+              }}
+              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+                roleMode === 'partner'
+                  ? 'bg-[#C58B39] text-[#121212] shadow-sm font-bold'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Partners</span>
             </button>
           </div>
 
@@ -289,6 +368,49 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onLoginSuccess, crewRoster }
               >
                 <Smartphone className="w-4 h-4" />
                 <span>Enter Crew Portal</span>
+              </button>
+            </form>
+          )}
+
+          {/* PARTNER AUTH FORM - Phone or Email Login */}
+          {roleMode === 'partner' && (
+            <form onSubmit={handlePartnerLogin} className="space-y-4">
+              <div className="p-3 bg-[#1C1A18] border border-[#C58B39]/30 rounded-xl text-xs text-neutral-300 space-y-1">
+                <div className="font-semibold text-[#C58B39] flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Event Partner Company Portal</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  Sign in with your company’s registered mobile number or email address to view your scheduled events and calendar.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-300 mb-1">
+                  Registered Phone Number or Email *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    required
+                    value={partnerIdentifier}
+                    onChange={(e) => setPartnerIdentifier(e.target.value)}
+                    placeholder="+91 98200 11223 or partner@company.com"
+                    className="w-full pl-9 pr-3 py-2.5 bg-[#1C1C1C] border border-[#2E2E2E] rounded-xl text-sm text-white focus:outline-none focus:border-[#C58B39] transition-colors"
+                  />
+                </div>
+                <p className="text-[10px] text-neutral-500 mt-1.5 ml-1">
+                  Uses the phone number or email saved by admin in your Partner profile.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-[#C58B39] hover:bg-[#B37B2E] text-[#121212] rounded-xl text-xs font-bold tracking-wide transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Enter Partner Portal</span>
               </button>
             </form>
           )}

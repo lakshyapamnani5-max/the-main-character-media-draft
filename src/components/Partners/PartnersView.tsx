@@ -17,7 +17,9 @@ import {
   Trash2, 
   ChevronRight,
   TrendingUp,
-  Tag
+  Tag,
+  Eye,
+  Lock
 } from 'lucide-react';
 import { Partner, EventShoot } from '../../types';
 import { StorageService } from '../../services/storage';
@@ -28,6 +30,7 @@ interface PartnersViewProps {
   onOpenPartnerCalendar: (partner: Partner) => void;
   onRefreshData: () => void;
   onOpenNewEventForPartner: (partner: Partner) => void;
+  onPreviewPartnerPortal?: (partner: Partner) => void;
 }
 
 export const PartnersView: React.FC<PartnersViewProps> = ({
@@ -35,10 +38,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   events,
   onOpenPartnerCalendar,
   onRefreshData,
-  onOpenNewEventForPartner
+  onOpenNewEventForPartner,
+  onPreviewPartnerPortal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -55,6 +60,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   const [instagram, setInstagram] = useState('');
   const [website, setWebsite] = useState('');
   const [notes, setNotes] = useState('');
+  const [portalAccessEnabled, setPortalAccessEnabled] = useState(true);
 
   const openAddModal = () => {
     setEditingPartner(null);
@@ -68,6 +74,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
     setInstagram('');
     setWebsite('');
     setNotes('');
+    setPortalAccessEnabled(true);
     setIsModalOpen(true);
   };
 
@@ -84,16 +91,16 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
     setInstagram(partner.instagram || '');
     setWebsite(partner.website || '');
     setNotes(partner.notes || '');
+    setPortalAccessEnabled(partner.portalAccessEnabled !== false);
     setIsModalOpen(true);
   };
 
-  const handleDeletePartner = (id: string, e: React.MouseEvent) => {
+  const handleConfirmDeletePartner = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this partner agency?')) {
-      StorageService.deletePartner(id);
-      if (selectedPartnerId === id) setSelectedPartnerId(null);
-      onRefreshData();
-    }
+    StorageService.deletePartner(id);
+    if (selectedPartnerId === id) setSelectedPartnerId(null);
+    setConfirmDeleteId(null);
+    onRefreshData();
   };
 
   const handleSavePartner = (e: React.FormEvent) => {
@@ -112,7 +119,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
       commissionOrTerms: commissionOrTerms.trim(),
       instagram: instagram.trim(),
       website: website.trim(),
-      notes: notes.trim()
+      notes: notes.trim(),
+      portalAccessEnabled
     });
 
     setIsModalOpen(false);
@@ -285,17 +293,41 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
                           "{partner.notes}"
                         </p>
                       )}
+
+                      <div className="text-[11px] pt-1 flex items-center gap-2 flex-wrap">
+                        <span className={`font-medium ${partner.portalAccessEnabled === false ? 'text-rose-600' : 'text-emerald-700'}`}>
+                          {partner.portalAccessEnabled === false ? 'Portal Login Paused' : 'Portal Login Active'}
+                        </span>
+                        <span className="text-neutral-300">·</span>
+                        <span className="text-neutral-500">
+                          Sign in via {[partner.phone, partner.email].filter(Boolean).join(' or ')}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Right side CTA actions */}
-                  <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 self-start md:self-center shrink-0">
+                    {onPreviewPartnerPortal && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPreviewPartnerPortal(partner);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#E8E3D9] text-neutral-800 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap"
+                        title="Preview what this partner sees in their Partner Portal"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-[#C58B39]" />
+                        <span>Preview Portal</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenPartnerCalendar(partner);
                       }}
-                      className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C58B39] hover:bg-[#B37B2E] text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+                      className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C58B39] hover:bg-[#B37B2E] text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs whitespace-nowrap"
                       title="Open full interactive schedule calendar for this partner"
                     >
                       <Calendar className="w-3.5 h-3.5" />
@@ -307,28 +339,53 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
                         e.stopPropagation();
                         onOpenNewEventForPartner(partner);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs"
+                      className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold rounded-lg transition-colors shadow-2xs whitespace-nowrap"
                       title="Add outsourced shoot for this partner that syncs to weddings/jobs"
                     >
                       <Plus className="w-3.5 h-3.5 text-[#C58B39]" />
-                      <span>+ Add Event</span>
+                      <span>Add Event</span>
                     </button>
 
                     <button
                       onClick={(e) => openEditModal(partner, e)}
                       className="p-2 text-neutral-500 hover:text-black hover:bg-neutral-100 rounded-lg transition-colors"
-                      title="Edit partner details"
+                      title="Edit partner details & login credentials"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
 
-                    <button
-                      onClick={(e) => handleDeletePartner(partner.id, e)}
-                      className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                      title="Delete partner"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {confirmDeleteId === partner.id ? (
+                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleConfirmDeletePartner(partner.id, e)}
+                          className="px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold rounded-lg"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(null);
+                          }}
+                          className="px-2 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-semibold rounded-lg"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteId(partner.id);
+                        }}
+                        className="p-2 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete partner"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -462,27 +519,50 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-neutral-700 mb-1">Phone / WhatsApp *</label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+919820011223"
-                    className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-[#FAF8F5] font-mono text-xs"
-                  />
+              <div className="p-3 bg-[#FAF8F5] border border-[#E8E3D9] rounded-lg space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-semibold text-neutral-800">
+                    <Lock className="w-3.5 h-3.5 text-[#C58B39]" />
+                    <span>Partner Portal Login Credentials</span>
+                  </div>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={portalAccessEnabled}
+                      onChange={(e) => setPortalAccessEnabled(e.target.checked)}
+                      className="rounded border-neutral-300 text-[#C58B39] focus:ring-[#C58B39]"
+                    />
+                    <span className="text-[11px] font-semibold text-neutral-700">
+                      Portal Login Enabled
+                    </span>
+                  </label>
                 </div>
-                <div>
-                  <label className="block font-semibold text-neutral-700 mb-1">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="partner@events.com"
-                    className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-[#FAF8F5] text-xs"
-                  />
+                <p className="text-[11px] text-neutral-500">
+                  Partner companies log in to view only their own events & calendar using either their Phone Number or Email below.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-neutral-700 mb-1">Phone / WhatsApp (Login ID) *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+919820011223"
+                      className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white font-mono text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-neutral-700 mb-1">Email (Login ID)</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="partner@events.com"
+                      className="w-full p-2.5 border border-[#E8E3D9] rounded-lg bg-white text-xs"
+                    />
+                  </div>
                 </div>
               </div>
 

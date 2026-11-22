@@ -31,11 +31,13 @@ import {
 } from '../types';
 
 export interface UserSession {
-  role: 'admin' | 'crew';
+  role: 'admin' | 'crew' | 'partner';
   name: string;
   email?: string;
   phone?: string;
   crewId?: string;
+  partnerId?: string;
+  companyName?: string;
   authenticatedAt: string;
 }
 import {
@@ -1969,6 +1971,7 @@ export class StorageService {
       website: partnerData.website || '',
       rating: partnerData.rating || 5,
       notes: partnerData.notes || '',
+      portalAccessEnabled: partnerData.portalAccessEnabled !== undefined ? partnerData.portalAccessEnabled : true,
       createdAt: now,
       updatedAt: now
     };
@@ -2630,7 +2633,7 @@ export class StorageService {
     if (typeof window === 'undefined') return;
     if (session) {
       localStorage.setItem(STORAGE_KEYS.AUTH_USER_SESSION, JSON.stringify(session));
-      localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, session.role);
+      localStorage.setItem(STORAGE_KEYS.APP_VIEW_MODE, session.role === 'crew' ? 'crew' : 'admin');
     } else {
       localStorage.removeItem(STORAGE_KEYS.AUTH_USER_SESSION);
     }
